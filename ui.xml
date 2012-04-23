@@ -1,0 +1,6 @@
+<server>
+	<application-settings location="*">
+		<debug>false</debug>
+		<log-file></log-file>
+	</application-settings>
+</server>
