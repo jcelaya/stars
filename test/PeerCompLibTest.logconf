@@ -1,0 +1,6 @@
+root=DEBUG
+#root=INFO
+Test=INFO
+Test.RI=INFO
+Ex.RI.Aggr=INFO
+Ex.Sch.MS=DEBUG
