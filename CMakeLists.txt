@@ -1,10 +1,14 @@
 cmake_minimum_required(VERSION 2.6)
+set(CMAKE_BUILD_TYPE Debug)
+add_subdirectory(cmake)
 
 # STaRS, Scalable Task Routing approach to distributed Scheduling
 project(stars)
 
 # Check dependencies
-find_package(Boost 1.46 REQUIRED date_time filesystem program_options system)
+find_package(Boost 1.46 REQUIRED date_time filesystem program_options system serialization thread)
+find_package(Sqlite3 REQUIRED)
+find_package(Log4CPP REQUIRED)
 
 # The version number.
 set (STaRS_VERSION_MAJOR 0)
@@ -21,5 +25,7 @@ configure_file (
 # so that we will find config.h
 include_directories("${PROJECT_BINARY_DIR}")
 
+message(STATUS "Building STaRS version " ${STaRS_VERSION_MAJOR} "." ${STaRS_VERSION_MINOR} " build " ${CMAKE_BUILD_TYPE})
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(sim)
