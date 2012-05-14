@@ -46,6 +46,6 @@
 #define IS_SAVING() typename Archive::is_saving()
 
 #define SERIALIZE_BASE(baseclass) \
-	boost::serialization::base_object<baseclass>(*this)
+ boost::serialization::base_object<baseclass>(*this)
 
 #endif /*SERIALIZABLE_H_*/

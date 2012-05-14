@@ -29,60 +29,80 @@
 
 
 class SerializableBatch : public BasicMsg {
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg);
-		ar & u8 & u16 & u32 & u64 & i8 & i16 & i32 & i64 & b & d & v & l & p & s;
-	}
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg);
+        ar & u8 & u16 & u32 & u64 & i8 & i16 & i32 & i64 & b & d & v & l & p & s;
+    }
 
 public:
-	uint8_t u8;
-	uint16_t u16;
-	uint32_t u32;
-	uint64_t u64;
-	int8_t i8;
-	int16_t i16;
-	int32_t i32;
-	int64_t i64;
-	bool b;
-	double d;
-	std::vector<uint32_t> v;
-	std::list<double> l;
-	std::pair<uint8_t, int16_t> p;
-	std::string s;
+    uint8_t u8;
+    uint16_t u16;
+    uint32_t u32;
+    uint64_t u64;
+    int8_t i8;
+    int16_t i16;
+    int32_t i32;
+    int64_t i64;
+    bool b;
+    double d;
+    std::vector<uint32_t> v;
+    std::list<double> l;
+    std::pair<uint8_t, int16_t> p;
+    std::string s;
 
-	static int random() { return std::rand() - RAND_MAX / 2; }
+    static int random() {
+        return std::rand() - RAND_MAX / 2;
+    }
 
-	SerializableBatch() : u8(random()), u16(random()), u32(random()), u64(random()),
-		i8(random()), i16(random()), i32(random()), i64(random()), b(random() > 0),
-		d(random() * std::sqrt(2.0)), v(3, random()), l(2, random() * std::sqrt(2.0)),
-		p(std::make_pair(random(), random())), s(5, (char)random()) {}
+    SerializableBatch() : u8(random()), u16(random()), u32(random()), u64(random()),
+            i8(random()), i16(random()), i32(random()), i64(random()), b(random() > 0),
+            d(random() * std::sqrt(2.0)), v(3, random()), l(2, random() * std::sqrt(2.0)),
+            p(std::make_pair(random(), random())), s(5, (char)random()) {}
 
-	bool operator==(const SerializableBatch & r) {
-		bool result = true;
-		BOOST_CHECK_EQUAL(u8, r.u8); result = result && u8 == r.u8;
-		BOOST_CHECK_EQUAL(u16, r.u16); result = result && u16 == r.u16;
-		BOOST_CHECK_EQUAL(u32, r.u32); result = result && u32 == r.u32;
-		BOOST_CHECK_EQUAL(u64, r.u64); result = result && u64 == r.u64;
-		BOOST_CHECK_EQUAL(i8, r.i8); result = result && i8 == r.i8;
-		BOOST_CHECK_EQUAL(i16, r.i16); result = result && i16 == r.i16;
-		BOOST_CHECK_EQUAL(i32, r.i32); result = result && i32 == r.i32;
-		BOOST_CHECK_EQUAL(i64, r.i64); result = result && i64 == r.i64;
-		BOOST_CHECK_EQUAL(b, r.b); result = result && b == r.b;
-		BOOST_CHECK_EQUAL(d, r.d); result = result && d == r.d;
-		BOOST_CHECK(v == r.v); result = result && v == r.v;
-		BOOST_CHECK(l == r.l); result = result && l == r.l;
-		BOOST_CHECK(p == r.p); result = result && p == r.p;
-		BOOST_CHECK_EQUAL(s, r.s); result = result && s == r.s;
-		return result;
-	}
+    bool operator==(const SerializableBatch & r) {
+        bool result = true;
+        BOOST_CHECK_EQUAL(u8, r.u8);
+        result = result && u8 == r.u8;
+        BOOST_CHECK_EQUAL(u16, r.u16);
+        result = result && u16 == r.u16;
+        BOOST_CHECK_EQUAL(u32, r.u32);
+        result = result && u32 == r.u32;
+        BOOST_CHECK_EQUAL(u64, r.u64);
+        result = result && u64 == r.u64;
+        BOOST_CHECK_EQUAL(i8, r.i8);
+        result = result && i8 == r.i8;
+        BOOST_CHECK_EQUAL(i16, r.i16);
+        result = result && i16 == r.i16;
+        BOOST_CHECK_EQUAL(i32, r.i32);
+        result = result && i32 == r.i32;
+        BOOST_CHECK_EQUAL(i64, r.i64);
+        result = result && i64 == r.i64;
+        BOOST_CHECK_EQUAL(b, r.b);
+        result = result && b == r.b;
+        BOOST_CHECK_EQUAL(d, r.d);
+        result = result && d == r.d;
+        BOOST_CHECK(v == r.v);
+        result = result && v == r.v;
+        BOOST_CHECK(l == r.l);
+        result = result && l == r.l;
+        BOOST_CHECK(p == r.p);
+        result = result && p == r.p;
+        BOOST_CHECK_EQUAL(s, r.s);
+        result = result && s == r.s;
+        return result;
+    }
 
-	SerializableBatch * clone() const { return new SerializableBatch(*this); }
+    SerializableBatch * clone() const {
+        return new SerializableBatch(*this);
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("SerializableBatch"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("SerializableBatch");
+    }
 };
 
 #endif /* SERIALIZABLEBATCH_HPP_ */

@@ -27,57 +27,57 @@ using namespace std;
 
 
 unsigned long int LinearAvailabilityFunction::operator()(Time deadline) const {
-	list<AvailPair>::const_iterator it;
-	Time startSlope = Time::getCurrentTime();
-	unsigned long int avail = 0;
+    list<AvailPair>::const_iterator it;
+    Time startSlope = Time::getCurrentTime();
+    unsigned long int avail = 0;
 
-	// Look for the reference point just after the deadline
-	for (it = point.begin(); it != point.end() && it->first < deadline; it++) {
-		startSlope = it->first;
-		avail += it->second;
-	}
+    // Look for the reference point just after the deadline
+    for (it = point.begin(); it != point.end() && it->first < deadline; it++) {
+        startSlope = it->first;
+        avail += it->second;
+    }
 
-	// Calculate availability with slope at deadline
-	unsigned long int result = avail + (unsigned long int)floor(power * (deadline - startSlope).seconds());
+    // Calculate availability with slope at deadline
+    unsigned long int result = avail + (unsigned long int)floor(power * (deadline - startSlope).seconds());
 
-	// If there is another point after deadline, return the lower availability
-	if (it != point.end()) {
-		avail += it->second;
-		if (result > avail) result = avail;
-	}
+    // If there is another point after deadline, return the lower availability
+    if (it != point.end()) {
+        avail += it->second;
+        if (result > avail) result = avail;
+    }
 
-	return result;
+    return result;
 }
 
 
 void LinearAvailabilityFunction::addNewHole(Time p, unsigned long int a) {
-	list<AvailPair>::iterator it;
-	// Look for the reference point just after p
-	for (it = point.begin(); it != point.end() && it->first < p; it++);
-	// Remove it if it already exists
-	if (it != point.end() && it->first == p)
-		it->second = a;
-	else
-		point.insert(it, AvailPair(p, a));
+    list<AvailPair>::iterator it;
+    // Look for the reference point just after p
+    for (it = point.begin(); it != point.end() && it->first < p; it++);
+    // Remove it if it already exists
+    if (it != point.end() && it->first == p)
+        it->second = a;
+    else
+        point.insert(it, AvailPair(p, a));
 }
 
 
 ostream & operator<<(ostream & os, const LinearAvailabilityFunction & l) {
 #ifdef _DEBUG_
-	if (!l.point.empty()) {
-		unsigned long int avail = 0;
-		list<LinearAvailabilityFunction::AvailPair>::const_iterator it = l.point.begin(), prev = it++;
-		Time now = Time::getCurrentTime();
-		os << "(ref=" << now << ")";
-		os << "(" << (prev->first - now).seconds() << ")";
-		for (; it != l.point.end(); prev = it, it++) {
-			avail += it->second;
-			os << "(" << (prev->first - now).seconds() + it->second / l.power
-				<< " -> " << (it->first - now).seconds() << ", " << avail << ")";
-		}
-	} else {
-		os << "(free, " << l.power << ")";
-	}
+    if (!l.point.empty()) {
+        unsigned long int avail = 0;
+        list<LinearAvailabilityFunction::AvailPair>::const_iterator it = l.point.begin(), prev = it++;
+        Time now = Time::getCurrentTime();
+        os << "(ref=" << now << ")";
+        os << "(" << (prev->first - now).seconds() << ")";
+        for (; it != l.point.end(); prev = it, it++) {
+            avail += it->second;
+            os << "(" << (prev->first - now).seconds() + it->second / l.power
+            << " -> " << (it->first - now).seconds() << ", " << avail << ")";
+        }
+    } else {
+        os << "(free, " << l.power << ")";
+    }
 #endif // _DEBUG_
-	return os;
+    return os;
 }

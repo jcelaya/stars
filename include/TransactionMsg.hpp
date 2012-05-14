@@ -33,41 +33,45 @@ TransactionId createRandomId();
 
 
 class TransactionMsg: public BasicMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & transaction;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & transaction;
+    }
 
 protected:
-	TransactionId transaction;   ///< Transaction ID, to relate messages to each other
+    TransactionId transaction;   ///< Transaction ID, to relate messages to each other
 
 public:
-	TransactionMsg(TransactionId trans = 0) : transaction(trans) {}
+    TransactionMsg(TransactionId trans = 0) : transaction(trans) {}
 
-	// This is documented in BasicMsg
-	virtual TransactionMsg * clone() const = 0;
+    // This is documented in BasicMsg
+    virtual TransactionMsg * clone() const = 0;
 
-	// Getters and Setters
+    // Getters and Setters
 
-	/**
-	 * Returns the transaction ID of this message.
-	 * @return Transaction ID.
-	 */
-	TransactionId getTransactionId() const { return transaction; }
+    /**
+     * Returns the transaction ID of this message.
+     * @return Transaction ID.
+     */
+    TransactionId getTransactionId() const {
+        return transaction;
+    }
 
-	/**
-	 * Sets the transaction ID of this message.
-	 * @param t The new transaction ID.
-	 */
-	void setTransactionId(TransactionId t) { transaction = t; }
+    /**
+     * Sets the transaction ID of this message.
+     * @param t The new transaction ID.
+     */
+    void setTransactionId(TransactionId t) {
+        transaction = t;
+    }
 
-	/**
-	 * Provides a textual representation of this object. Just one line, no endline char.
-	 * @param os Output stream where to write the representation.
-	 */
-	virtual void output(std::ostream& os) const {
-		os << "tid(" << transaction << ')';
-	}
+    /**
+     * Provides a textual representation of this object. Just one line, no endline char.
+     * @param os Output stream where to write the representation.
+     */
+    virtual void output(std::ostream& os) const {
+        os << "tid(" << transaction << ')';
+    }
 };
 
 #endif /* TRANSACTIONMSG_H_ */

@@ -33,38 +33,46 @@
  * wants to notify anything; f. e. whenever a task finishes.
  */
 class TaskEventMsg : public BasicMsg {
-	/// Set the basic elements for a Serializable descendant
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & taskId;
-	}
+    /// Set the basic elements for a Serializable descendant
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & taskId;
+    }
 
-	uint32_t taskId;   ///< ID of the notifier task.
+    uint32_t taskId;   ///< ID of the notifier task.
 
 public:
-	// This is documented in BasicMsg
-	virtual TaskEventMsg * clone() const { return new TaskEventMsg(*this); }
+    // This is documented in BasicMsg
+    virtual TaskEventMsg * clone() const {
+        return new TaskEventMsg(*this);
+    }
 
-	// Getters and Setters
+    // Getters and Setters
 
-	/**
-	 * Returns the ID of the notifying task. The IDs are local to each execution node,
-	 * so this kind of message is always checked for its source address being the
-	 * local address.
-	 * @return Task ID.
-	 */
-	uint32_t getTaskId() const { return taskId; }
+    /**
+     * Returns the ID of the notifying task. The IDs are local to each execution node,
+     * so this kind of message is always checked for its source address being the
+     * local address.
+     * @return Task ID.
+     */
+    uint32_t getTaskId() const {
+        return taskId;
+    }
 
-	/**
-	 * Sets the task ID.
-	 * @param id New task ID.
-	 */
-	void setTaskId(uint32_t id) { taskId = id; }
+    /**
+     * Sets the task ID.
+     * @param id New task ID.
+     */
+    void setTaskId(uint32_t id) {
+        taskId = id;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("TaskEventMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("TaskEventMsg");
+    }
 };
 
 #endif /*TASKEVENTMSG_H_*/

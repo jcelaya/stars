@@ -34,64 +34,64 @@
 
 // Fake singleton, allows to reset the CommLayer and ConfigurationManager instances when necessary
 class TestHost {
-	struct Host {
-		boost::shared_ptr<CommLayer> commLayer;
-		boost::shared_ptr<ConfigurationManager> confMngr;
-		Time currentTime;
-		bool realTime;
-		Host() : currentTime(referenceTime), realTime(false) {}
-	};
+    struct Host {
+        boost::shared_ptr<CommLayer> commLayer;
+        boost::shared_ptr<ConfigurationManager> confMngr;
+        Time currentTime;
+        bool realTime;
+        Host() : currentTime(referenceTime), realTime(false) {}
+    };
 
-	std::list<Host> hosts;
-	boost::thread_specific_ptr<std::list<Host>::iterator> myHost;
+    std::list<Host> hosts;
+    boost::thread_specific_ptr<std::list<Host>::iterator> myHost;
 
-	TestHost() {}
+    TestHost() {}
 
-	static const boost::posix_time::ptime referenceTime;
+    static const boost::posix_time::ptime referenceTime;
 
 public:
-	static TestHost & getInstance() {
-		static TestHost instance;
-		return instance;
-	}
+    static TestHost & getInstance() {
+        static TestHost instance;
+        return instance;
+    }
 
-	void addSingleton() {
-		hosts.push_front(Host());
-		myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-	}
+    void addSingleton() {
+        hosts.push_front(Host());
+        myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+    }
 
-	boost::shared_ptr<CommLayer> & getCommLayer() {
-		if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-		return (*myHost)->commLayer;
-	}
+    boost::shared_ptr<CommLayer> & getCommLayer() {
+        if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+        return (*myHost)->commLayer;
+    }
 
-	boost::shared_ptr<ConfigurationManager> & getConfigurationManager() {
-		if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-		return (*myHost)->confMngr;
-	}
+    boost::shared_ptr<ConfigurationManager> & getConfigurationManager() {
+        if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+        return (*myHost)->confMngr;
+    }
 
-	Time getCurrentTime() {
-		if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-		if ((*myHost)->realTime)
-			return Time((boost::posix_time::microsec_clock::universal_time() - referenceTime).total_microseconds());
-		else
-			return (*myHost)->currentTime;
-	}
+    Time getCurrentTime() {
+        if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+        if ((*myHost)->realTime)
+            return Time((boost::posix_time::microsec_clock::universal_time() - referenceTime).total_microseconds());
+        else
+            return (*myHost)->currentTime;
+    }
 
-	void setCurrentTime(Time t) {
-		if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-		(*myHost)->currentTime = t;
-	}
+    void setCurrentTime(Time t) {
+        if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+        (*myHost)->currentTime = t;
+    }
 
-	void setRealTimeClock(bool c) {
-		if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
-		(*myHost)->realTime = c;
-	}
+    void setRealTimeClock(bool c) {
+        if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
+        (*myHost)->realTime = c;
+    }
 
-	void reset() {
-		hosts.clear();
-		addSingleton();
-	}
+    void reset() {
+        hosts.clear();
+        addSingleton();
+    }
 };
 
 

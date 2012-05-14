@@ -38,45 +38,49 @@
  * user. Controls the execution of the remote tasks and updates the progress information.
  */
 class SubmissionNode : public Service, public ResourceNodeObserver {
-	bool inChange;   ///< Whether the father of the ResourceNode is changing
-	std::list<std::pair<long int, int> > delayedInstances;
+    bool inChange;   ///< Whether the father of the ResourceNode is changing
+    std::list<std::pair<long int, int> > delayedInstances;
 
-	//std::map<long int, int> timeouts;        ///< Association between requests and timeout timers.
-	std::map<long int, unsigned int> remainingTasks;   ///< Remaining tasks per app
-	std::map<long int, int> retries;          ///< Number of retries of a request
-	std::map<CommAddress, int> heartbeats;    ///< Heartbeat timeouts for each execution node
-	/// Number of tasks of each application in each execution node
-	std::map<CommAddress, std::map<long int, unsigned int> > remoteTasks;
+    //std::map<long int, int> timeouts;        ///< Association between requests and timeout timers.
+    std::map<long int, unsigned int> remainingTasks;   ///< Remaining tasks per app
+    std::map<long int, int> retries;          ///< Number of retries of a request
+    std::map<CommAddress, int> heartbeats;    ///< Heartbeat timeouts for each execution node
+    /// Number of tasks of each application in each execution node
+    std::map<CommAddress, std::map<long int, unsigned int> > remoteTasks;
 
-	TaskBagAppDatabase db;   /// Application database
+    TaskBagAppDatabase db;   /// Application database
 
-	/**
-	 * Template method to handle an arriving msg
-	 */
-	template<class M> void handle(const CommAddress & src, const M & msg);
+    /**
+     * Template method to handle an arriving msg
+     */
+    template<class M> void handle(const CommAddress & src, const M & msg);
 
-	// This is documented in ResourceNodeObserver
-	void fatherChanging() { inChange = true; }
+    // This is documented in ResourceNodeObserver
+    void fatherChanging() {
+        inChange = true;
+    }
 
-	// This is documented in ResourceNodeObserver
-	void fatherChanged(bool changed);
+    // This is documented in ResourceNodeObserver
+    void fatherChanged(bool changed);
 
-	void sendRequest(long int appInstance, int prevRetries);
+    void sendRequest(long int appInstance, int prevRetries);
 
 public:
-	/**
-	 * Constructor, with the ResourceNode to observe.
-	 * @param rn ResourceNode to register as an observer.
-	 */
-	SubmissionNode(ResourceNode & rn) : ResourceNodeObserver(rn), inChange(false) {}
+    /**
+     * Constructor, with the ResourceNode to observe.
+     * @param rn ResourceNode to register as an observer.
+     */
+    SubmissionNode(ResourceNode & rn) : ResourceNodeObserver(rn), inChange(false) {}
 
-	// This is documented in Service
-	bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
+    // This is documented in Service
+    bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
 
-	/**
-	 * Returns whether there is any ongoing application instance
-	 */
-	bool isIdle() const { return remainingTasks.empty(); }
+    /**
+     * Returns whether there is any ongoing application instance
+     */
+    bool isIdle() const {
+        return remainingTasks.empty();
+    }
 };
 
 #endif /*SUBMISSIONNODE_H_*/

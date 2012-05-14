@@ -27,43 +27,43 @@ using namespace boost;
 
 
 Database::Database(const boost::filesystem::path & dbFile) : db(NULL) {
-	LogMsg("Database", DEBUG) << "Opening database in " << dbFile;
-	if (sqlite3_open(dbFile.string().c_str(), &db))
-		throw Exception(*this) << "Error opening database";
-	// We usually want foreign key constraints
-	execute("pragma foreign_keys = on");
+    LogMsg("Database", DEBUG) << "Opening database in " << dbFile;
+    if (sqlite3_open(dbFile.string().c_str(), &db))
+        throw Exception(*this) << "Error opening database";
+    // We usually want foreign key constraints
+    execute("pragma foreign_keys = on");
 }
 
 
 Database::Query::Query(Database & d, const std::string & sql) : db(d), nextCol(0), nextPar(1) {
-	map<std::string, sqlite3_stmt *>::iterator it = d.queryCache.find(sql);
-	if (it == d.queryCache.end()) {
-		const char * tmp;
-		if (sqlite3_prepare_v2(db.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
-			throw Database::Exception(db) << "Unable to prepare query " << sql;
-		} else {
-			d.queryCache[sql] = statement;
-		}
-	} else
-		statement = it->second;
+    map<std::string, sqlite3_stmt *>::iterator it = d.queryCache.find(sql);
+    if (it == d.queryCache.end()) {
+        const char * tmp;
+        if (sqlite3_prepare_v2(db.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
+            throw Database::Exception(db) << "Unable to prepare query " << sql;
+        } else {
+            d.queryCache[sql] = statement;
+        }
+    } else
+        statement = it->second;
 }
 
 
 void Database::rollbackTransaction() {
-	if (db) {
-		// Reset all queries before calling rollback, otherwise it will fail
-		if (sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL)) {
-			LogMsg("Database", ERROR) << "Rollback failed!!";
-		}
-	}
+    if (db) {
+        // Reset all queries before calling rollback, otherwise it will fail
+        if (sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL)) {
+            LogMsg("Database", ERROR) << "Rollback failed!!";
+        }
+    }
 }
 
 
 long int Database::getLastRowid() {
-	return sqlite3_last_insert_rowid(db);
+    return sqlite3_last_insert_rowid(db);
 }
 
 
 int Database::getChangedRows() {
-	return sqlite3_changes(db);
+    return sqlite3_changes(db);
 }

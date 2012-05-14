@@ -38,15 +38,15 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 /// TaskEventMsg
 BOOST_AUTO_TEST_CASE(tciMsg) {
-	TestHost::getInstance().reset();
+    TestHost::getInstance().reset();
 
-	// Ctor
-	TimeConstraintInfo e;
-	shared_ptr<TimeConstraintInfo> p;
+    // Ctor
+    TimeConstraintInfo e;
+    shared_ptr<TimeConstraintInfo> p;
 
-	// TODO: Check other things
+    // TODO: Check other things
 
-	CheckMsgMethod::check(e, p);
+    CheckMsgMethod::check(e, p);
 }
 
 BOOST_AUTO_TEST_SUITE_END()   // aiTS
@@ -55,63 +55,63 @@ BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
 template<> struct Priv<TimeConstraintInfo> {
-	Time ref;
-	TimeConstraintInfo::ATFunction totalAvail;
-	TimeConstraintInfo::ATFunction minAvail;
+    Time ref;
+    TimeConstraintInfo::ATFunction totalAvail;
+    TimeConstraintInfo::ATFunction minAvail;
 };
 
 
 static list<Time> createRandomLAF(double power, Time ct) {
-	Time next = ct, h = ct + Duration(100000.0);
-	list<Time> result;
+    Time next = ct, h = ct + Duration(100000.0);
+    list<Time> result;
 
-	// Add a random number of tasks, with random length
-	while(AggregationTest<TimeConstraintInfo>::uniform(1, 3) != 1) {
-		// Tasks of 5-60 minutes on a 1000 MIPS computer
-		unsigned long int length = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
-		next += Duration(length / power);
-		result.push_back(next);
-		// Similar time for holes
-		unsigned long int nextHole = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
-		next += Duration(nextHole / power);
-		result.push_back(next);
-	}
-	if (!result.empty()) {
-		// set a good horizon
-		if (next < h) result.back() = h;
-	}
+    // Add a random number of tasks, with random length
+    while (AggregationTest<TimeConstraintInfo>::uniform(1, 3) != 1) {
+        // Tasks of 5-60 minutes on a 1000 MIPS computer
+        unsigned long int length = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
+        next += Duration(length / power);
+        result.push_back(next);
+        // Similar time for holes
+        unsigned long int nextHole = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
+        next += Duration(nextHole / power);
+        result.push_back(next);
+    }
+    if (!result.empty()) {
+        // set a good horizon
+        if (next < h) result.back() = h;
+    }
 
-	return result;
+    return result;
 }
 
 
 template<> shared_ptr<TimeConstraintInfo> AggregationTest<TimeConstraintInfo>::createInfo(const AggregationTest::Node & n) {
-	shared_ptr<TimeConstraintInfo> result(new TimeConstraintInfo);
-	list<Time> q = createRandomLAF(n.power, privateData.ref);
-	result->addNode(n.mem, n.disk, n.power, q);
-	totalInfo->addNode(n.mem, n.disk, n.power, q);
-	const TimeConstraintInfo::ATFunction & minA = result->getSummary()[0].minA;
-	if (privateData.minAvail.getSlope() == 0.0)
-		privateData.minAvail = minA;
-	else
-		privateData.minAvail.min(privateData.minAvail, minA);
-	const TimeConstraintInfo::ATFunction * f[] = { &privateData.totalAvail, &minA };
-	double c[] = { 1.0, 1.0 };
-	privateData.totalAvail.lc(f, c);
-	return result;
+    shared_ptr<TimeConstraintInfo> result(new TimeConstraintInfo);
+    list<Time> q = createRandomLAF(n.power, privateData.ref);
+    result->addNode(n.mem, n.disk, n.power, q);
+    totalInfo->addNode(n.mem, n.disk, n.power, q);
+    const TimeConstraintInfo::ATFunction & minA = result->getSummary()[0].minA;
+    if (privateData.minAvail.getSlope() == 0.0)
+        privateData.minAvail = minA;
+    else
+        privateData.minAvail.min(privateData.minAvail, minA);
+    const TimeConstraintInfo::ATFunction * f[] = { &privateData.totalAvail, &minA };
+    double c[] = { 1.0, 1.0 };
+    privateData.totalAvail.lc(f, c);
+    return result;
 }
 
 
 static string plot(TimeConstraintInfo::ATFunction & f) {
-	ostringstream os;
-	if (f.getPoints().empty()) {
-		os << "0,0" << endl;
-		os << "100000000000," << (unsigned long)(f.getSlope() * 100000.0) << endl;
-	} else {
-		for (vector<pair<Time, uint64_t> >::const_iterator it = f.getPoints().begin(); it != f.getPoints().end(); it++)
-			os << it->first.getRawDate() << ',' << it->second << endl;
-	}
-	return os.str();
+    ostringstream os;
+    if (f.getPoints().empty()) {
+        os << "0,0" << endl;
+        os << "100000000000," << (unsigned long)(f.getSlope() * 100000.0) << endl;
+    } else {
+        for (vector<pair<Time, uint64_t> >::const_iterator it = f.getPoints().begin(); it != f.getPoints().end(); it++)
+            os << it->first.getRawDate() << ',' << it->second << endl;
+    }
+    return os.str();
 }
 
 
@@ -121,108 +121,108 @@ BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
 BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(ATFunction) {
-	TestHost::getInstance().reset();
+    TestHost::getInstance().reset();
 
-	Time ct = Time::getCurrentTime();
-	Time h = ct + Duration(100000.0);
-	TimeConstraintInfo::setNumRefPoints(8);
-	list<Time> points;
-	points.push_back(ct + Duration(10.0));
-	points.push_back(ct + Duration(15.0));
-	points.push_back(ct + Duration(17.3));
-	points.push_back(ct + Duration(21.8));
-	points.push_back(ct + Duration(33.0));
-	points.push_back(ct + Duration(34.0));
-	TimeConstraintInfo f;
-	f.addNode(100, 200, 35, points);
-	//TimeConstraintInfo::ATFunction f(35, points);
-	LogMsg("Test.RI", INFO) << "Random Function: " << f;
+    Time ct = Time::getCurrentTime();
+    Time h = ct + Duration(100000.0);
+    TimeConstraintInfo::setNumRefPoints(8);
+    list<Time> points;
+    points.push_back(ct + Duration(10.0));
+    points.push_back(ct + Duration(15.0));
+    points.push_back(ct + Duration(17.3));
+    points.push_back(ct + Duration(21.8));
+    points.push_back(ct + Duration(33.0));
+    points.push_back(ct + Duration(34.0));
+    TimeConstraintInfo f;
+    f.addNode(100, 200, 35, points);
+    //TimeConstraintInfo::ATFunction f(35, points);
+    LogMsg("Test.RI", INFO) << "Random Function: " << f;
 
-	// Min/max and sum of several functions
-	LogMsg("Test.RI", INFO) << "";
-	ofstream of("af_test.stat");
-	for (int i = 0; i < 500; i++) {
-		LogMsg("Test.RI", INFO) << "Functions " << i;
+    // Min/max and sum of several functions
+    LogMsg("Test.RI", INFO) << "";
+    ofstream of("af_test.stat");
+    for (int i = 0; i < 500; i++) {
+        LogMsg("Test.RI", INFO) << "Functions " << i;
 
-		double f11power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-				f12power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-				f13power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-				f21power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-				f22power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200);
-		TimeConstraintInfo::ATFunction
-			f11(f11power, createRandomLAF(f11power, ct)),
-			f12(f12power, createRandomLAF(f12power, ct)),
-			f13(f13power, createRandomLAF(f13power, ct)),
-			f21(f21power, createRandomLAF(f21power, ct)),
-			f22(f22power, createRandomLAF(f22power, ct));
-		TimeConstraintInfo::ATFunction min, max;
-		min.min(f11, f12);
-		min.min(min, f13);
-		min.min(min, f21);
-		min.min(min, f22);
-		max.max(f11, f12);
-		max.max(max, f13);
-		max.max(max, f21);
-		max.max(max, f22);
+        double f11power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
+                          f12power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
+                                     f13power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
+                                                f21power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
+                                                           f22power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200);
+        TimeConstraintInfo::ATFunction
+        f11(f11power, createRandomLAF(f11power, ct)),
+        f12(f12power, createRandomLAF(f12power, ct)),
+        f13(f13power, createRandomLAF(f13power, ct)),
+        f21(f21power, createRandomLAF(f21power, ct)),
+        f22(f22power, createRandomLAF(f22power, ct));
+        TimeConstraintInfo::ATFunction min, max;
+        min.min(f11, f12);
+        min.min(min, f13);
+        min.min(min, f21);
+        min.min(min, f22);
+        max.max(f11, f12);
+        max.max(max, f13);
+        max.max(max, f21);
+        max.max(max, f22);
 
-		// Join f11 with f12
-		TimeConstraintInfo::ATFunction f112;
-		double accumAsq112 = f112.minAndLoss(f11, f12, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
-		BOOST_CHECK_GE(accumAsq112 * 1.0001, f112.sqdiff(f11, ct, h) + f112.sqdiff(f12, ct, h));
-		TimeConstraintInfo::ATFunction accumAln112;
-		accumAln112.max(f11, f12);
-		BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ct, h), 0.0001);
+        // Join f11 with f12
+        TimeConstraintInfo::ATFunction f112;
+        double accumAsq112 = f112.minAndLoss(f11, f12, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
+        BOOST_CHECK_GE(accumAsq112 * 1.0001, f112.sqdiff(f11, ct, h) + f112.sqdiff(f12, ct, h));
+        TimeConstraintInfo::ATFunction accumAln112;
+        accumAln112.max(f11, f12);
+        BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ct, h), 0.0001);
 
-		// join f112 with f13, and that is f1
-		TimeConstraintInfo::ATFunction f1;
-		double accumAsq1 = f1.minAndLoss(f112, f13, 2, 1, accumAln112, TimeConstraintInfo::ATFunction(), ct, h) + accumAsq112;
-		BOOST_CHECK_GE(accumAsq1 * 1.0001, f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h));
-		TimeConstraintInfo::ATFunction accumAln1;
-		accumAln1.max(accumAln112, f13);
+        // join f112 with f13, and that is f1
+        TimeConstraintInfo::ATFunction f1;
+        double accumAsq1 = f1.minAndLoss(f112, f13, 2, 1, accumAln112, TimeConstraintInfo::ATFunction(), ct, h) + accumAsq112;
+        BOOST_CHECK_GE(accumAsq1 * 1.0001, f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h));
+        TimeConstraintInfo::ATFunction accumAln1;
+        accumAln1.max(accumAln112, f13);
 
-		// join f21 with f22, and that is f2
-		TimeConstraintInfo::ATFunction f2;
-		double accumAsq2 = f2.minAndLoss(f21, f22, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
-		BOOST_CHECK_GE(accumAsq2 * 1.0001, f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h));
-		TimeConstraintInfo::ATFunction accumAln2;
-		accumAln2.max(f21, f22);
+        // join f21 with f22, and that is f2
+        TimeConstraintInfo::ATFunction f2;
+        double accumAsq2 = f2.minAndLoss(f21, f22, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
+        BOOST_CHECK_GE(accumAsq2 * 1.0001, f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h));
+        TimeConstraintInfo::ATFunction accumAln2;
+        accumAln2.max(f21, f22);
 
-		// join f1 with f2, and that is f
-		TimeConstraintInfo::ATFunction f;
-		double accumAsq = f.minAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ct, h) + accumAsq1 + accumAsq2;
-		BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
-		TimeConstraintInfo::ATFunction accumAln;
-		accumAln.max(accumAln1, accumAln2);
+        // join f1 with f2, and that is f
+        TimeConstraintInfo::ATFunction f;
+        double accumAsq = f.minAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ct, h) + accumAsq1 + accumAsq2;
+        BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
+        TimeConstraintInfo::ATFunction accumAln;
+        accumAln.max(accumAln1, accumAln2);
 
-		// Print functions
-		of << "# Functions " << i << endl;
-//		of << "# minloss(a, b) = " << loss << "; a.loss(b) = " << a.loss(b, ct, ref) << "; b.loss(a) = " << b.loss(a, ct, ref) << "; a.loss(min) = " << a.loss(r, ct, ref)
-//				<< "; b.loss(min) = " << b.loss(r, ct, ref) << "; max.loss(min) = " << t.loss(r, ct, ref) << "; min.loss(max) = " << r.loss(t, ct, ref) << endl;
-//		// Take two random values j and k
-//		unsigned int j = uniform(2, 30, 1), k = uniform(2, 30, 1);
-//		of << "# " << j << "a.loss(min) = " << (j * a.loss(r, ct, ref)) << "; " << k << "b.loss(min) = " << (k * b.loss(r, ct, ref))
-//				<< "; sum " << (j * a.loss(r, ct, ref) + k * b.loss(r, ct, ref)) << "; a.loss(b, " << j << ", " << k << ") = " << min.minAndLoss(a, b, j, k, ct, ref) << endl;
-		of << "# f11: " << f11 << endl << plot(f11) << endl;
-		of << "# f12: " << f12 << endl << plot(f12) << endl;
-		of << "# f112: " << f112 << endl << "# accumAsq112 " << accumAsq112 << " =? " << (f112.sqdiff(f11, ct, h) + f112.sqdiff(f12, ct, h)) << endl << plot(f112) << endl;
-		of << "# accumAln112: " << accumAln112 << endl << plot(accumAln112) << endl;
-		of << "# f13: " << f13 << endl << plot(f13) << endl;
-		of << "# f1: " << f1 << endl << "# accumAsq1 " << accumAsq1 << " =? " << (f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h)) << endl << plot(f1) << endl;
-		of << "# accumAln1: " << accumAln1 << endl << plot(accumAln1) << endl;
-		of << "# f21: " << f21 << endl << plot(f21) << endl;
-		of << "# f22: " << f22 << endl << plot(f22) << endl;
-		of << "# f2: " << f2 << endl << "# accumAsq2 " << accumAsq2 << " =? " << (f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h)) << endl << plot(f2) << endl;
-		of << "# accumAln2: " << accumAln2 << endl << plot(accumAln2) << endl;
-		of << "# f: " << f << endl << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h)) << endl << plot(f) << endl;
-		of << "# accumAln: " << accumAln << endl << plot(accumAln) << endl;
-		accumAsq += f.reduceMin(5, accumAln, ct, h);
-		BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
-		of << "# f reduced: " << f << endl << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h)) << endl << plot(f) << endl;
-		accumAln.reduceMax(ct, h);
-		of << "# accumAln reduced: " << accumAln << endl << plot(accumAln) << endl;
-		of << endl;
-	}
-	of.close();
+        // Print functions
+        of << "# Functions " << i << endl;
+//  of << "# minloss(a, b) = " << loss << "; a.loss(b) = " << a.loss(b, ct, ref) << "; b.loss(a) = " << b.loss(a, ct, ref) << "; a.loss(min) = " << a.loss(r, ct, ref)
+//    << "; b.loss(min) = " << b.loss(r, ct, ref) << "; max.loss(min) = " << t.loss(r, ct, ref) << "; min.loss(max) = " << r.loss(t, ct, ref) << endl;
+//  // Take two random values j and k
+//  unsigned int j = uniform(2, 30, 1), k = uniform(2, 30, 1);
+//  of << "# " << j << "a.loss(min) = " << (j * a.loss(r, ct, ref)) << "; " << k << "b.loss(min) = " << (k * b.loss(r, ct, ref))
+//    << "; sum " << (j * a.loss(r, ct, ref) + k * b.loss(r, ct, ref)) << "; a.loss(b, " << j << ", " << k << ") = " << min.minAndLoss(a, b, j, k, ct, ref) << endl;
+        of << "# f11: " << f11 << endl << plot(f11) << endl;
+        of << "# f12: " << f12 << endl << plot(f12) << endl;
+        of << "# f112: " << f112 << endl << "# accumAsq112 " << accumAsq112 << " =? " << (f112.sqdiff(f11, ct, h) + f112.sqdiff(f12, ct, h)) << endl << plot(f112) << endl;
+        of << "# accumAln112: " << accumAln112 << endl << plot(accumAln112) << endl;
+        of << "# f13: " << f13 << endl << plot(f13) << endl;
+        of << "# f1: " << f1 << endl << "# accumAsq1 " << accumAsq1 << " =? " << (f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h)) << endl << plot(f1) << endl;
+        of << "# accumAln1: " << accumAln1 << endl << plot(accumAln1) << endl;
+        of << "# f21: " << f21 << endl << plot(f21) << endl;
+        of << "# f22: " << f22 << endl << plot(f22) << endl;
+        of << "# f2: " << f2 << endl << "# accumAsq2 " << accumAsq2 << " =? " << (f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h)) << endl << plot(f2) << endl;
+        of << "# accumAln2: " << accumAln2 << endl << plot(accumAln2) << endl;
+        of << "# f: " << f << endl << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h)) << endl << plot(f) << endl;
+        of << "# accumAln: " << accumAln << endl << plot(accumAln) << endl;
+        accumAsq += f.reduceMin(5, accumAln, ct, h);
+        BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
+        of << "# f reduced: " << f << endl << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h)) << endl << plot(f) << endl;
+        accumAln.reduceMax(ct, h);
+        of << "# accumAln reduced: " << accumAln << endl << plot(accumAln) << endl;
+        of << endl;
+    }
+    of.close();
 }
 
 BOOST_AUTO_TEST_SUITE_END()   // aiTS
@@ -235,104 +235,108 @@ BOOST_AUTO_TEST_SUITE(Per)   // Performance test suite
 BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(tciAggr) {
-	TestHost::getInstance().reset();
+    TestHost::getInstance().reset();
 
-	Time ct = Time::getCurrentTime();
-	ClusteringVector<TimeConstraintInfo::MDFCluster>::setDistVectorSize(20);
-	unsigned int numpoints = 10;
-	TimeConstraintInfo::setNumRefPoints(numpoints);
-	ofstream off("atci_test_function.stat"), ofmd("atci_test_mem_disk.stat");
-	AggregationTest<TimeConstraintInfo> t;
-	t.getPrivateData().ref = ct;
-	for (int i = 0; i < 17; i++) {
-		for (int nc = 2; nc < 7; nc++) {
-			TimeConstraintInfo::setNumClusters(nc * nc * nc);
-			off << "# " << (nc * nc * nc) << " clusters" << endl;
-			ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
-			shared_ptr<TimeConstraintInfo> result = t.test(i);
+    Time ct = Time::getCurrentTime();
+    ClusteringVector<TimeConstraintInfo::MDFCluster>::setDistVectorSize(20);
+    unsigned int numpoints = 10;
+    TimeConstraintInfo::setNumRefPoints(numpoints);
+    ofstream off("atci_test_function.stat"), ofmd("atci_test_mem_disk.stat");
+    AggregationTest<TimeConstraintInfo> t;
+    t.getPrivateData().ref = ct;
+    for (int i = 0; i < 17; i++) {
+        for (int nc = 2; nc < 7; nc++) {
+            TimeConstraintInfo::setNumClusters(nc * nc * nc);
+            off << "# " << (nc * nc * nc) << " clusters" << endl;
+            ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
+            shared_ptr<TimeConstraintInfo> result = t.test(i);
 
-			unsigned long int minMem = t.getNumNodes() * t.min_mem;
-			unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-			TimeConstraintInfo::ATFunction minAvail, aggrAvail, treeAvail, dummy;
-			TimeConstraintInfo::ATFunction & totalAvail = const_cast<TimeConstraintInfo::ATFunction &>(t.getPrivateData().totalAvail);
-			const TimeConstraintInfo::ATFunction * f[2] = { &t.getPrivateData().minAvail, &dummy };
-			double c[2] = { t.getNumNodes(), 1.0 };
-			minAvail.lc(f, c);
+            unsigned long int minMem = t.getNumNodes() * t.min_mem;
+            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
+            TimeConstraintInfo::ATFunction minAvail, aggrAvail, treeAvail, dummy;
+            TimeConstraintInfo::ATFunction & totalAvail = const_cast<TimeConstraintInfo::ATFunction &>(t.getPrivateData().totalAvail);
+            const TimeConstraintInfo::ATFunction * f[2] = { &t.getPrivateData().minAvail, &dummy };
+            double c[2] = { t.getNumNodes(), 1.0 };
+            minAvail.lc(f, c);
 
-			unsigned long int aggrMem = 0, aggrDisk = 0;
-			{
-				f[0] = &aggrAvail; c[0] = 1.0;
-				shared_ptr<TimeConstraintInfo> totalInformation = t.getTotalInformation();
-				const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = totalInformation->getSummary();
-				for (size_t j = 0; j < clusters.getSize(); j++) {
-					const TimeConstraintInfo::MDFCluster & u = clusters[j];
-					aggrMem += (unsigned long int)u.minM * u.value;
-					aggrDisk += (unsigned long int)u.minD * u.value;
-					f[1] = &u.minA; c[1] = u.value;
-					aggrAvail.lc(f, c);
-				}
-			}
+            unsigned long int aggrMem = 0, aggrDisk = 0;
+            {
+                f[0] = &aggrAvail;
+                c[0] = 1.0;
+                shared_ptr<TimeConstraintInfo> totalInformation = t.getTotalInformation();
+                const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = totalInformation->getSummary();
+                for (size_t j = 0; j < clusters.getSize(); j++) {
+                    const TimeConstraintInfo::MDFCluster & u = clusters[j];
+                    aggrMem += (unsigned long int)u.minM * u.value;
+                    aggrDisk += (unsigned long int)u.minD * u.value;
+                    f[1] = &u.minA;
+                    c[1] = u.value;
+                    aggrAvail.lc(f, c);
+                }
+            }
 
-			unsigned long int treeMem = 0, treeDisk = 0;
-			{
-				f[0] = &treeAvail; c[0] = 1.0;
-				const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = result->getSummary();
-				for (size_t j = 0; j < clusters.getSize(); j++) {
-					const TimeConstraintInfo::MDFCluster & u = clusters[j];
-					BOOST_CHECK(u.minA.getPoints().size() <= numpoints);
-					BOOST_CHECK(u.accumMaxA.getPoints().size() <= numpoints);
-					treeMem += (unsigned long int)u.minM * u.value;
-					treeDisk += (unsigned long int)u.minD * u.value;
-					f[1] = &u.minA; c[1] = u.value;
-					treeAvail.lc(f, c);
-				}
-			}
+            unsigned long int treeMem = 0, treeDisk = 0;
+            {
+                f[0] = &treeAvail;
+                c[0] = 1.0;
+                const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = result->getSummary();
+                for (size_t j = 0; j < clusters.getSize(); j++) {
+                    const TimeConstraintInfo::MDFCluster & u = clusters[j];
+                    BOOST_CHECK(u.minA.getPoints().size() <= numpoints);
+                    BOOST_CHECK(u.accumMaxA.getPoints().size() <= numpoints);
+                    treeMem += (unsigned long int)u.minM * u.value;
+                    treeDisk += (unsigned long int)u.minD * u.value;
+                    f[1] = &u.minA;
+                    c[1] = u.value;
+                    treeAvail.lc(f, c);
+                }
+            }
 
-			LogMsg("Test.RI", INFO) << "H. " << i << " nc. " << nc << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-							<< " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-							<< " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-							//<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
-			LogMsg("Test.RI", INFO) << "N. " << t.getNumNodes() << " nc. " << nc
-							<< " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-							<< " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-							//<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
-			list<Time> p;
-			for (vector<pair<Time, uint64_t> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
-				p.push_back(it->first);
-			for (vector<pair<Time, uint64_t> >::const_iterator it = treeAvail.getPoints().begin(); it != treeAvail.getPoints().end(); it++)
-				p.push_back(it->first);
-			for (vector<pair<Time, uint64_t> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
-				p.push_back(it->first);
-			for (vector<pair<Time, uint64_t> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
-				p.push_back(it->first);
-			p.sort();
-			off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-			ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-			ofmd << (i + 1) << ',' << nc << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
-			ofmd << (i + 1) << ',' << nc << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
-			double lastTime = -1.0;
-			for (list<Time>::iterator it = p.begin(); it != p.end(); it++) {
-				unsigned long t = totalAvail.getAvailabilityBefore(*it),
-						a = aggrAvail.getAvailabilityBefore(*it),
-						at = treeAvail.getAvailabilityBefore(*it),
-						min = minAvail.getAvailabilityBefore(*it);
-				double time = floor((*it - ct).seconds() * 1000.0) / 1000.0;
-				if (lastTime != time) {
-					off << time << ',' << t
-							<< ',' << min << ',' << (t == 0 ? 100 : min * 100.0 / t)
-							<< ',' << a << ',' << (t == 0 ? 100 : a * 100.0 / t)
-							<< ',' << at << ',' << (t == 0 ? 100 : at * 100.0 / t) << endl;
-					lastTime = time;
-				}
-			}
-			off << endl;
-			ofmd << endl;
-		}
-		off << endl;
-		ofmd << endl;
-	}
-	off.close();
-	ofmd.close();
+            LogMsg("Test.RI", INFO) << "H. " << i << " nc. " << nc << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
+            << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
+            << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
+            //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
+            LogMsg("Test.RI", INFO) << "N. " << t.getNumNodes() << " nc. " << nc
+            << " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
+            << " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
+            //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
+            list<Time> p;
+            for (vector<pair<Time, uint64_t> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
+                p.push_back(it->first);
+            for (vector<pair<Time, uint64_t> >::const_iterator it = treeAvail.getPoints().begin(); it != treeAvail.getPoints().end(); it++)
+                p.push_back(it->first);
+            for (vector<pair<Time, uint64_t> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
+                p.push_back(it->first);
+            for (vector<pair<Time, uint64_t> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
+                p.push_back(it->first);
+            p.sort();
+            off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
+            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
+            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
+            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
+            double lastTime = -1.0;
+            for (list<Time>::iterator it = p.begin(); it != p.end(); it++) {
+                unsigned long t = totalAvail.getAvailabilityBefore(*it),
+                                  a = aggrAvail.getAvailabilityBefore(*it),
+                                      at = treeAvail.getAvailabilityBefore(*it),
+                                           min = minAvail.getAvailabilityBefore(*it);
+                double time = floor((*it - ct).seconds() * 1000.0) / 1000.0;
+                if (lastTime != time) {
+                    off << time << ',' << t
+                    << ',' << min << ',' << (t == 0 ? 100 : min * 100.0 / t)
+                    << ',' << a << ',' << (t == 0 ? 100 : a * 100.0 / t)
+                    << ',' << at << ',' << (t == 0 ? 100 : at * 100.0 / t) << endl;
+                    lastTime = time;
+                }
+            }
+            off << endl;
+            ofmd << endl;
+        }
+        off << endl;
+        ofmd << endl;
+    }
+    off.close();
+    ofmd.close();
 }
 
 BOOST_AUTO_TEST_SUITE_END()   // aiTS

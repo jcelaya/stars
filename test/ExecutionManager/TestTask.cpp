@@ -25,15 +25,21 @@
 
 class TestExecutionEnvironment : public Scheduler::ExecutionEnvironment {
 public:
-	double getAveragePower() const { return 1000.0; }
+    double getAveragePower() const {
+        return 1000.0;
+    }
 
-	unsigned long int getAvailableMemory() const { return 1024; }
+    unsigned long int getAvailableMemory() const {
+        return 1024;
+    }
 
-	unsigned long int getAvailableDisk() const { return 30000; }
+    unsigned long int getAvailableDisk() const {
+        return 30000;
+    }
 
-	boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
-		return boost::shared_ptr<Task>(new TestTask(o, reqId, ctid, d, getAveragePower()));
-	}
+    boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
+        return boost::shared_ptr<Task>(new TestTask(o, reqId, ctid, d, getAveragePower()));
+    }
 };
 
 Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new TestExecutionEnvironment) {}

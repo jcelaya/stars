@@ -29,68 +29,84 @@
 
 
 class TaskMonitorMsg: public BasicMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & tasks & states & heartbeat;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & tasks & states & heartbeat;
+    }
 
-	std::vector<std::pair<int64_t, uint32_t> > tasks;
-	std::vector<int32_t> states;
-	uint32_t heartbeat;     ///< seconds until next monitoring report
+    std::vector<std::pair<int64_t, uint32_t> > tasks;
+    std::vector<int32_t> states;
+    uint32_t heartbeat;     ///< seconds until next monitoring report
 
 public:
-	// This is documented in BasicMsg
-	virtual TaskMonitorMsg * clone() const { return new TaskMonitorMsg(*this); }
+    // This is documented in BasicMsg
+    virtual TaskMonitorMsg * clone() const {
+        return new TaskMonitorMsg(*this);
+    }
 
-	/**
-	 * Returns the number of tasks
-	 */
-	unsigned int getNumTasks() const { return tasks.size(); }
+    /**
+     * Returns the number of tasks
+     */
+    unsigned int getNumTasks() const {
+        return tasks.size();
+    }
 
-	/**
-	 * Returns the ID of the ith task contained in this request.
-	 * @return ID of task.
-	 */
-	uint32_t getTaskId(unsigned int i) const { return tasks[i].second; }
+    /**
+     * Returns the ID of the ith task contained in this request.
+     * @return ID of task.
+     */
+    uint32_t getTaskId(unsigned int i) const {
+        return tasks[i].second;
+    }
 
-	/**
-	 * Returns the ID of the ith task contained in this request.
-	 * @return ID of task.
-	 */
-	int64_t getRequestId(unsigned int i) const { return tasks[i].first; }
+    /**
+     * Returns the ID of the ith task contained in this request.
+     * @return ID of task.
+     */
+    int64_t getRequestId(unsigned int i) const {
+        return tasks[i].first;
+    }
 
-	/**
-	 * Returns the ID of the ith task contained in this request.
-	 * @return ID of task.
-	 */
-	int32_t getTaskState(unsigned int i) const { return states[i]; }
+    /**
+     * Returns the ID of the ith task contained in this request.
+     * @return ID of task.
+     */
+    int32_t getTaskState(unsigned int i) const {
+        return states[i];
+    }
 
-	/**
-	 * Adds the ID of a task that is requested to be aborted.
-	 * @param n ID of task.
-	 */
-	void addTask(int64_t rid, uint32_t tid, int32_t s) {
-		tasks.push_back(std::make_pair(rid, tid));
-		states.push_back(s);
-	}
+    /**
+     * Adds the ID of a task that is requested to be aborted.
+     * @param n ID of task.
+     */
+    void addTask(int64_t rid, uint32_t tid, int32_t s) {
+        tasks.push_back(std::make_pair(rid, tid));
+        states.push_back(s);
+    }
 
-	/**
-	 * Returns the number of seconds that are expected until next heartbeat.
-	 * @return ID of task.
-	 */
-	uint32_t getHeartbeat() const { return heartbeat; }
+    /**
+     * Returns the number of seconds that are expected until next heartbeat.
+     * @return ID of task.
+     */
+    uint32_t getHeartbeat() const {
+        return heartbeat;
+    }
 
-	/**
-	 * Sets the number of seconds that are expected until next heartbeat.
-	 * @param n ID of task.
-	 */
-	void setHeartbeat(uint32_t n) { heartbeat = n; }
+    /**
+     * Sets the number of seconds that are expected until next heartbeat.
+     * @param n ID of task.
+     */
+    void setHeartbeat(uint32_t n) {
+        heartbeat = n;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("TaskMonitorMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("TaskMonitorMsg");
+    }
 };
 
 #endif /* TASKMONITORMSG_H_ */

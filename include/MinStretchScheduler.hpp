@@ -35,35 +35,37 @@
  */
 class MinStretchScheduler: public Scheduler {
 public:
-	/**
-	 * Creates a new MinStretchScheduler with an empty list and an empty availability function.
-	 * @param resourceNode Resource node associated with this scheduler.
-	 */
-	MinStretchScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-		reschedule();
-		// The emptiness must also be notified.
-		notifySchedule();
-	}
+    /**
+     * Creates a new MinStretchScheduler with an empty list and an empty availability function.
+     * @param resourceNode Resource node associated with this scheduler.
+     */
+    MinStretchScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+        reschedule();
+        // The emptiness must also be notified.
+        notifySchedule();
+    }
 
-	/**
-	 * Generates a list of applications from a task queue, sorted so that they have the minimum stretch.
-	 * @param tasks The task queue.
-	 * @param result The resulting list of applications.
-	 * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
-	 */
-	static double sortMinStretch(const std::list<boost::shared_ptr<Task> > & tasks, std::list<StretchInformation::AppDesc> & result);
+    /**
+     * Generates a list of applications from a task queue, sorted so that they have the minimum stretch.
+     * @param tasks The task queue.
+     * @param result The resulting list of applications.
+     * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
+     */
+    static double sortMinStretch(const std::list<boost::shared_ptr<Task> > & tasks, std::list<StretchInformation::AppDesc> & result);
 
-	// This is documented in Scheduler
-	virtual unsigned int accept(const TaskBagMsg & msg);
+    // This is documented in Scheduler
+    virtual unsigned int accept(const TaskBagMsg & msg);
 
-	// This is documented in Scheduler
-	virtual const StretchInformation & getAvailability() const { return info; }
+    // This is documented in Scheduler
+    virtual const StretchInformation & getAvailability() const {
+        return info;
+    }
 
 private:
-	StretchInformation info;
+    StretchInformation info;
 
-	// This is documented in Scheduler
-	virtual void reschedule();
+    // This is documented in Scheduler
+    virtual void reschedule();
 };
 
 #endif /* MINSTRETCHSCHEDULER_H_ */

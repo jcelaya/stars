@@ -33,27 +33,62 @@
  * A time lapse
  */
 class Duration {
-	SRLZ_API SRLZ_METHOD() { ar & d; }
-	int64_t d;
+    SRLZ_API SRLZ_METHOD() {
+        ar & d;
+    }
+    int64_t d;
 public:
-	explicit Duration(int64_t micro = 0) : d(micro) {}
-	explicit Duration(double seconds) : d(seconds * 1000000.0) {}
-	bool operator==(const Duration & r) const { return d == r.d; }
-	bool operator!=(const Duration & r) const { return d != r.d; }
-	bool operator<(const Duration & r) const { return d < r.d; }
-	bool operator>(const Duration & r) const { return d > r.d; }
-	bool operator<=(const Duration & r) const { return d <= r.d; }
-	bool operator>=(const Duration & r) const { return d >= r.d; }
-	Duration operator+(const Duration & r) const  { return Duration(d + r.d); }
-	Duration & operator+=(const Duration & r) { d += r.d; return *this; }
-	Duration operator-(const Duration & r) const { return Duration(d - r.d); }
-	Duration & operator-=(const Duration & r) { d -= r.d; return *this; }
-	Duration operator*(long int m) const { return Duration(d * m); }
-	Duration & operator*=(long int m) { d *= m; return *this; }
-	double seconds() const { return d / 1000000.0; }
-	int64_t microseconds() const { return d; }
-	bool is_negative() const { return d < 0; }
-	friend std::ostream & operator<<(std::ostream & os, const Duration & r);
+    explicit Duration(int64_t micro = 0) : d(micro) {}
+    explicit Duration(double seconds) : d(seconds * 1000000.0) {}
+    bool operator==(const Duration & r) const {
+        return d == r.d;
+    }
+    bool operator!=(const Duration & r) const {
+        return d != r.d;
+    }
+    bool operator<(const Duration & r) const {
+        return d < r.d;
+    }
+    bool operator>(const Duration & r) const {
+        return d > r.d;
+    }
+    bool operator<=(const Duration & r) const {
+        return d <= r.d;
+    }
+    bool operator>=(const Duration & r) const {
+        return d >= r.d;
+    }
+    Duration operator+(const Duration & r) const  {
+        return Duration(d + r.d);
+    }
+    Duration & operator+=(const Duration & r) {
+        d += r.d;
+        return *this;
+    }
+    Duration operator-(const Duration & r) const {
+        return Duration(d - r.d);
+    }
+    Duration & operator-=(const Duration & r) {
+        d -= r.d;
+        return *this;
+    }
+    Duration operator*(long int m) const {
+        return Duration(d * m);
+    }
+    Duration & operator*=(long int m) {
+        d *= m;
+        return *this;
+    }
+    double seconds() const {
+        return d / 1000000.0;
+    }
+    int64_t microseconds() const {
+        return d;
+    }
+    bool is_negative() const {
+        return d < 0;
+    }
+    friend std::ostream & operator<<(std::ostream & os, const Duration & r);
 };
 
 
@@ -61,31 +96,61 @@ public:
  * A time value
  */
 class Time {
-	SRLZ_API SRLZ_METHOD() { ar & t; }
-	int64_t t;
+    SRLZ_API SRLZ_METHOD() {
+        ar & t;
+    }
+    int64_t t;
 public:
-	explicit Time(int64_t rawDate = 0) : t(rawDate) {}
-	explicit Time(boost::posix_time::ptime time) { from_posix_time(time); }
-	bool operator==(const Time & r) const { return t == r.t; }
-	bool operator!=(const Time & r) const { return t != r.t; }
-	bool operator<(const Time & r) const { return t < r.t; }
-	bool operator>(const Time & r) const { return t > r.t; }
-	bool operator<=(const Time & r) const { return t <= r.t; }
-	bool operator>=(const Time & r) const { return t >= r.t; }
-	Duration operator-(const Time & r) const { return Duration(t - r.t); }
-	Time operator+(const Duration & r) const { return Time(t + r.microseconds()); }
-	Time & operator+=(const Duration & r) { t += r.microseconds(); return *this; }
-	Time operator-(const Duration & r) const { return Time(t - r.microseconds()); }
-	Time & operator-=(const Duration & r) { t -= r.microseconds(); return *this; }
-	friend std::ostream & operator<<(std::ostream & os, const Time & r);
-	boost::posix_time::ptime to_posix_time() const;
-	void from_posix_time(boost::posix_time::ptime time);
-	int64_t getRawDate() const { return t; }
-	/**
-	 * Returns the current time in UTC as a Time value.
-	 * @return The current time.
-	 */
-	static Time getCurrentTime();
+    explicit Time(int64_t rawDate = 0) : t(rawDate) {}
+    explicit Time(boost::posix_time::ptime time) {
+        from_posix_time(time);
+    }
+    bool operator==(const Time & r) const {
+        return t == r.t;
+    }
+    bool operator!=(const Time & r) const {
+        return t != r.t;
+    }
+    bool operator<(const Time & r) const {
+        return t < r.t;
+    }
+    bool operator>(const Time & r) const {
+        return t > r.t;
+    }
+    bool operator<=(const Time & r) const {
+        return t <= r.t;
+    }
+    bool operator>=(const Time & r) const {
+        return t >= r.t;
+    }
+    Duration operator-(const Time & r) const {
+        return Duration(t - r.t);
+    }
+    Time operator+(const Duration & r) const {
+        return Time(t + r.microseconds());
+    }
+    Time & operator+=(const Duration & r) {
+        t += r.microseconds();
+        return *this;
+    }
+    Time operator-(const Duration & r) const {
+        return Time(t - r.microseconds());
+    }
+    Time & operator-=(const Duration & r) {
+        t -= r.microseconds();
+        return *this;
+    }
+    friend std::ostream & operator<<(std::ostream & os, const Time & r);
+    boost::posix_time::ptime to_posix_time() const;
+    void from_posix_time(boost::posix_time::ptime time);
+    int64_t getRawDate() const {
+        return t;
+    }
+    /**
+     * Returns the current time in UTC as a Time value.
+     * @return The current time.
+     */
+    static Time getCurrentTime();
 };
 
 #endif /* TIME_H_ */

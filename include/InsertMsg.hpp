@@ -32,57 +32,69 @@
  * This class of message notifies that an Execution node wants to enter the network.
  */
 class InsertMsg : public TransactionMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(TransactionMsg) & who & forRN;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(TransactionMsg) & who & forRN;
+    }
 
-	CommAddress who;   ///< The resource node address.
-	bool forRN;        ///< To say whether this message is for the ResourceNode or the StructureNode
+    CommAddress who;   ///< The resource node address.
+    bool forRN;        ///< To say whether this message is for the ResourceNode or the StructureNode
 
 public:
-	/**
-	 * Sets the service as StructureNodeServiceId.
-	 */
-	InsertMsg() : forRN(false) {}
-	~InsertMsg() {}
+    /**
+     * Sets the service as StructureNodeServiceId.
+     */
+    InsertMsg() : forRN(false) {}
+    ~InsertMsg() {}
 
-	// This is described in BasicMsg
-	virtual InsertMsg * clone() const { return new InsertMsg(*this); }
+    // This is described in BasicMsg
+    virtual InsertMsg * clone() const {
+        return new InsertMsg(*this);
+    }
 
-	// Getters and Setters
+    // Getters and Setters
 
-	/**
-	 * Returns the address of the new node which is going to be inserted.
-	 * @return Address of the new node.
-	 */
-	const CommAddress & getWho() const { return who; }
+    /**
+     * Returns the address of the new node which is going to be inserted.
+     * @return Address of the new node.
+     */
+    const CommAddress & getWho() const {
+        return who;
+    }
 
-	/**
-	 * Sets the address of the new node which is going to be inserted.
-	 * @param addr Address of the new node.
-	 */
-	void setWho(const CommAddress & addr) { who = addr; }
+    /**
+     * Sets the address of the new node which is going to be inserted.
+     * @param addr Address of the new node.
+     */
+    void setWho(const CommAddress & addr) {
+        who = addr;
+    }
 
-	/**
-	 * Obtain whether this message is for the ResourceNode or the StructureNode.
-	 * @return True if the message is for the ResourceNode.
-	 */
-	bool isForRN() const { return forRN; }
+    /**
+     * Obtain whether this message is for the ResourceNode or the StructureNode.
+     * @return True if the message is for the ResourceNode.
+     */
+    bool isForRN() const {
+        return forRN;
+    }
 
-	/**
-	 * Set whether this message is for the ResourceNode.
-	 * @param rn True if it is for the ResourceNode.
-	 */
-	void setForRN(bool rn) { forRN = rn; }
+    /**
+     * Set whether this message is for the ResourceNode.
+     * @param rn True if it is for the ResourceNode.
+     */
+    void setForRN(bool rn) {
+        forRN = rn;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {
-		os << "who(" << who << ')';
-	}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {
+        os << "who(" << who << ')';
+    }
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("InsertMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("InsertMsg");
+    }
 };
 
 #endif /*INSERTMSG_H_*/

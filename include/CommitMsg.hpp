@@ -29,28 +29,36 @@
  * Commit message in a transaction.
  */
 class CommitMsg : public TransactionMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(TransactionMsg) & forRN;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(TransactionMsg) & forRN;
+    }
 
-	bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
+    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
 
 public:
-	CommitMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false) {}
+    CommitMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false) {}
 
-	// This is described in BasicMsg
-	virtual CommitMsg * clone() const { return new CommitMsg(*this); }
+    // This is described in BasicMsg
+    virtual CommitMsg * clone() const {
+        return new CommitMsg(*this);
+    }
 
-	bool isForRN() const { return forRN; }
+    bool isForRN() const {
+        return forRN;
+    }
 
-	void setForRN(bool rn) { forRN = rn; }
+    void setForRN(bool rn) {
+        forRN = rn;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("CommitMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("CommitMsg");
+    }
 };
 
 #endif /*COMMITMSG_H_*/

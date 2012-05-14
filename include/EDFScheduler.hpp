@@ -34,36 +34,38 @@
  * by its deadline, so that tasks with earlier deadline are executed first.
  */
 class EDFScheduler : public Scheduler {
-	TimeConstraintInfo info;   ///< Current availability function
+    TimeConstraintInfo info;   ///< Current availability function
 
-	/**
-	 * Calculates the availability function from the list of tasks,
-	 * and updates the availability summary of Scheduler
-	 */
-	void calculateAvailability();
+    /**
+     * Calculates the availability function from the list of tasks,
+     * and updates the availability summary of Scheduler
+     */
+    void calculateAvailability();
 
-	// This is documented in Scheduler
-	void reschedule();
+    // This is documented in Scheduler
+    void reschedule();
 
 public:
-	/**
-	 * Creates a new EDFScheduler with an empty list and an empty availability function.
-	 * @param resourceNode Resource node associated with this scheduler.
-	 */
-	EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-		reschedule();
-		// The emptiness must also be notified.
-		notifySchedule();
-	}
+    /**
+     * Creates a new EDFScheduler with an empty list and an empty availability function.
+     * @param resourceNode Resource node associated with this scheduler.
+     */
+    EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+        reschedule();
+        // The emptiness must also be notified.
+        notifySchedule();
+    }
 
-	// This is documented in Scheduler
-	unsigned int accept(const TaskBagMsg & msg);
+    // This is documented in Scheduler
+    unsigned int accept(const TaskBagMsg & msg);
 
-	/// Returns the availability before certain deadline.
-	unsigned long int getAvailabilityBefore(Time d);
+    /// Returns the availability before certain deadline.
+    unsigned long int getAvailabilityBefore(Time d);
 
-	// This is documented in Scheduler
-	virtual const TimeConstraintInfo & getAvailability() const { return info; }
+    // This is documented in Scheduler
+    virtual const TimeConstraintInfo & getAvailability() const {
+        return info;
+    }
 };
 
 #endif /*EDFSCHEDULER_H_*/

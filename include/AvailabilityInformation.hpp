@@ -36,50 +36,58 @@
  */
 class AvailabilityInformation : public BasicMsg {
 public:
-	/// Default constructor
-	AvailabilityInformation() : seq(0), fromSch(true) {}
-	/// Default destructor, virtual
-	virtual ~AvailabilityInformation() {}
+    /// Default constructor
+    AvailabilityInformation() : seq(0), fromSch(true) {}
+    /// Default destructor, virtual
+    virtual ~AvailabilityInformation() {}
 
-	// This is described in BasicMsg
-	virtual AvailabilityInformation * clone() const = 0;
+    // This is described in BasicMsg
+    virtual AvailabilityInformation * clone() const = 0;
 
-	/**
-	 * Obtains the sequence number of this message. It must be greater than the last message
-	 * received. Otherwise, this message is ignored.
-	 * @return The sequence number.
-	 */
-	uint32_t getSeq() const { return seq; }
+    /**
+     * Obtains the sequence number of this message. It must be greater than the last message
+     * received. Otherwise, this message is ignored.
+     * @return The sequence number.
+     */
+    uint32_t getSeq() const {
+        return seq;
+    }
 
-	/**
-	 * Sets the sequence number of this message.
-	 * @param s Sequence number.
-	 */
-	void setSeq(uint32_t s) { seq = s; }
+    /**
+     * Sets the sequence number of this message.
+     * @param s Sequence number.
+     */
+    void setSeq(uint32_t s) {
+        seq = s;
+    }
 
-	/**
-	 * Returns whether the message comes from the scheduler
-	 */
-	bool isFromSch() const { return fromSch; }
+    /**
+     * Returns whether the message comes from the scheduler
+     */
+    bool isFromSch() const {
+        return fromSch;
+    }
 
-	/**
-	 * Sets whether the message comes from the scheduler
-	 */
-	void setFromSch(bool f) { fromSch = f; }
+    /**
+     * Sets whether the message comes from the scheduler
+     */
+    void setFromSch(bool f) {
+        fromSch = f;
+    }
 
-	/// Reduces the size of this availability summary so that it is bounded by a certain limit.
-	virtual void reduce() = 0;
+    /// Reduces the size of this availability summary so that it is bounded by a certain limit.
+    virtual void reduce() = 0;
 
 protected:
-	uint32_t seq;   ///< Sequence number, to provide message ordering.
-	bool fromSch;   ///< Whether the message comes from the scheduler or the dispatcher
+    uint32_t seq;   ///< Sequence number, to provide message ordering.
+    bool fromSch;   ///< Whether the message comes from the scheduler or the dispatcher
 
 private:
-	/// Set the basic elements for a Serializable descendant
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & seq & fromSch;
-		if (IS_SAVING()) reduce();
-	}
+    /// Set the basic elements for a Serializable descendant
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & seq & fromSch;
+        if (IS_SAVING()) reduce();
+    }
 };
 
 #endif /*RESOURCEINFORMATION_H_*/

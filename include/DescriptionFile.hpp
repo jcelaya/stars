@@ -27,21 +27,31 @@
 
 
 class DescriptionFile {
-	std::string executable;
-	std::string result;
-	std::string length;
-	std::string memory;
-	std::string disk;
+    std::string executable;
+    std::string result;
+    std::string length;
+    std::string memory;
+    std::string disk;
 
 public:
-	DescriptionFile(std::string taskName);
-	~DescriptionFile() {}
+    DescriptionFile(std::string taskName);
+    ~DescriptionFile() {}
 
-	std::string getExecutable() { return executable; }
-	std::string getResult() { return result; }
-	std::string getLength() { return length; }
-	std::string getMemory() { return memory; }
-	std::string getDisk() { return disk; }
+    std::string getExecutable() {
+        return executable;
+    }
+    std::string getResult() {
+        return result;
+    }
+    std::string getLength() {
+        return length;
+    }
+    std::string getMemory() {
+        return memory;
+    }
+    std::string getDisk() {
+        return disk;
+    }
 
 };
 

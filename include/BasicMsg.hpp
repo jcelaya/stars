@@ -34,39 +34,39 @@
  * to the handler that registered with the message class.
  */
 class BasicMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {}
 
 public:
-	virtual ~BasicMsg() {}
+    virtual ~BasicMsg() {}
 
-	/**
-	 * Produces an exact copy of this object, regardless of its actual class.
-	 * @returns A pointer to a base class.
-	 */
-	virtual BasicMsg * clone() const = 0;
+    /**
+     * Produces an exact copy of this object, regardless of its actual class.
+     * @returns A pointer to a base class.
+     */
+    virtual BasicMsg * clone() const = 0;
 
-	/**
-	 * Provides a textual representation of this object. Just one line, no endline char.
-	 * @param os Output stream where to write the representation.
-	 */
-	virtual void output(std::ostream& os) const {}
+    /**
+     * Provides a textual representation of this object. Just one line, no endline char.
+     * @param os Output stream where to write the representation.
+     */
+    virtual void output(std::ostream& os) const {}
 
-	/**
-	 * Provides the name of this message
-	 */
-	virtual std::string getName() const = 0;
+    /**
+     * Provides the name of this message
+     */
+    virtual std::string getName() const = 0;
 
 private:
-	// Forbid assignment
-	BasicMsg & operator=(const BasicMsg &);
+    // Forbid assignment
+    BasicMsg & operator=(const BasicMsg &);
 };
 
 inline std::ostream & operator<<(std::ostream& os, const BasicMsg & s) {
-	std::ios_base::fmtflags f = os.flags();
-	os << std::setw(0) << s.getName() << ": ";
-	s.output(os);
-	return os << std::setiosflags(f);
+    std::ios_base::fmtflags f = os.flags();
+    os << std::setw(0) << s.getName() << ": ";
+    s.output(os);
+    return os << std::setiosflags(f);
 }
 
 

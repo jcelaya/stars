@@ -27,23 +27,27 @@
 
 
 class TestTask : public Task {
-	int status;
-	Duration duration;
+    int status;
+    Duration duration;
 
 public:
-	TestTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d, double power) :
-		Task(o, reqId, ctid, d), status(Prepared), duration(description.getLength() / power) {}
+    TestTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d, double power) :
+            Task(o, reqId, ctid, d), status(Prepared), duration(description.getLength() / power) {}
 
-	int getStatus() const { return status; }
+    int getStatus() const {
+        return status;
+    }
 
-	void run() {
-		status = Running;
-		// Send a finished message to the backend
-	}
+    void run() {
+        status = Running;
+        // Send a finished message to the backend
+    }
 
-	void abort() {}
+    void abort() {}
 
-	Duration getEstimatedDuration() const { return duration; }
+    Duration getEstimatedDuration() const {
+        return duration;
+    }
 };
 
 #endif /*TESTTASK_HPP_*/

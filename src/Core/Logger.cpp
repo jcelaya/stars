@@ -30,44 +30,44 @@ using namespace log4cpp;
 
 // time_duration fix >2 hour digits
 struct fix2hourdigits {
-	fix2hourdigits() {
-		static const char * format = "%O:%M:%S%F";
-		boost::posix_time::time_facet::default_time_duration_format = format;
-	}
+    fix2hourdigits() {
+        static const char * format = "%O:%M:%S%F";
+        boost::posix_time::time_facet::default_time_duration_format = format;
+    }
 } fix2hourdigits_var;
 
 
 tracked_string * LogMsg::getPersistentString(const char * s) {
-	static map<const char *, tracked_string> stringMap;
+    static map<const char *, tracked_string> stringMap;
 
-	tracked_string & result = stringMap[s];
-	if (result.t.size() == 0)
-		result.t = s;
-	return &result;
+    tracked_string & result = stringMap[s];
+    if (result.t.size() == 0)
+        result.t = s;
+    return &result;
 }
 
 
 void LogMsg::setPriority(const string & catPrio) {
-	int pos = catPrio.find_first_of('=');
-	if (pos == (int)string::npos) return;
-	string category = catPrio.substr(0, pos);
-	string priority = catPrio.substr(pos + 1);
-	try {
-		Priority::Value p = Priority::getPriorityValue(priority);
-		if (category == "root") {
-			Category::setRootPriority(p);
-		} else {
-			Category::getInstance(category).setPriority(p);
-		}
-	} catch (std::invalid_argument & e) {}
+    int pos = catPrio.find_first_of('=');
+    if (pos == (int)string::npos) return;
+    string category = catPrio.substr(0, pos);
+    string priority = catPrio.substr(pos + 1);
+    try {
+        Priority::Value p = Priority::getPriorityValue(priority);
+        if (category == "root") {
+            Category::setRootPriority(p);
+        } else {
+            Category::getInstance(category).setPriority(p);
+        }
+    } catch (std::invalid_argument & e) {}
 }
 
 
 void LogMsg::log(tracked_string * category, int priority, const list<LogMsg::AbstractTypeContainer *> & values) {
-	Category & cat = Category::getInstance(*category);
-	if (cat.isPriorityEnabled(priority)) {
-		CategoryStream cs = cat.getStream(priority);
-		for (list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); it++)
-			cs << **it;
-	}
+    Category & cat = Category::getInstance(*category);
+    if (cat.isPriorityEnabled(priority)) {
+        CategoryStream cs = cat.getStream(priority);
+        for (list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); it++)
+            cs << **it;
+    }
 }

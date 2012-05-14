@@ -36,35 +36,35 @@
  */
 class DeadlineDispatcher : public Dispatcher<TimeConstraintInfo> {
 public:
-	/**
-	 * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
-	 * @param sn The StructureNode of this branch.
-	 */
-	DeadlineDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    /**
+     * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
+     * @param sn The StructureNode of this branch.
+     */
+    DeadlineDispatcher(StructureNode & sn) : Dispatcher(sn) {}
 
 private:
-	struct DecissionInfo;
-	struct RecentRequest {
-		CommAddress requester;
-		int64_t requestId;
-		Time when;
-		RecentRequest(const CommAddress & r, int64_t id, Time t) : requester(r), requestId(id), when(t) {}
-	};
+    struct DecissionInfo;
+    struct RecentRequest {
+        CommAddress requester;
+        int64_t requestId;
+        Time when;
+        RecentRequest(const CommAddress & r, int64_t id, Time t) : requester(r), requestId(id), when(t) {}
+    };
 
-	static const Duration REQUEST_CACHE_TIME;
-	static const unsigned int REQUEST_CACHE_SIZE;
-	std::list<RecentRequest> recentRequests;
+    static const Duration REQUEST_CACHE_TIME;
+    static const unsigned int REQUEST_CACHE_SIZE;
+    std::list<RecentRequest> recentRequests;
 
-	/**
-	 * A Task bag allocation request. It is received when a client wants to assign a group
-	 * of task to a set of available execution nodes.
-	 * @param src Source node address.
-	 * @param msg TaskBagMsg message with task group information.
-	 */
-	virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
+    /**
+     * A Task bag allocation request. It is received when a client wants to assign a group
+     * of task to a set of available execution nodes.
+     * @param src Source node address.
+     * @param msg TaskBagMsg message with task group information.
+     */
+    virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 
-	// This is documented in Dispatcher.
-	virtual void recomputeInfo();
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
 };
 
 #endif /*DeadlineDispatcher_H_*/

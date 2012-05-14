@@ -33,65 +33,65 @@
 
 class NetworkManager {
 public:
-	NetworkManager();
-	~NetworkManager() {
-		if (t.get()) {
-			io.stop();
-			t->join();
-		}
-	}
+    NetworkManager();
+    ~NetworkManager() {
+        if (t.get()) {
+            io.stop();
+            t->join();
+        }
+    }
 
-	unsigned int sendMessage(const CommAddress & dst, BasicMsg * msg);
+    unsigned int sendMessage(const CommAddress & dst, BasicMsg * msg);
 
-	CommAddress getLocalAddress() const;
+    CommAddress getLocalAddress() const;
 
-	/**
-	 * Starts listening to incoming network connections. Call it only once.
-	 */
-	void listen();
+    /**
+     * Starts listening to incoming network connections. Call it only once.
+     */
+    void listen();
 
-	/**
-	 * Sets an synchronous timer which calls checkExpired on trigger
-	 */
-	void setAsyncTimer(Time timeout);
+    /**
+     * Sets an synchronous timer which calls checkExpired on trigger
+     */
+    void setAsyncTimer(Time timeout);
 
 private:
-	/**
-	 * A connection between this node and another one
-	 */
-	struct Connection {
-		boost::asio::ip::tcp::socket socket;            ///< Socket connecting with the other node
-		boost::asio::streambuf readBuffer;    ///< Read buffer
-		boost::asio::streambuf writeBuffer;   ///< Write buffer
-		static const std::size_t maxReadBufferSize = 1000000;
-		Connection(boost::asio::io_service & io) : socket(io), readBuffer(maxReadBufferSize) {}
-	};
+    /**
+     * A connection between this node and another one
+     */
+    struct Connection {
+        boost::asio::ip::tcp::socket socket;            ///< Socket connecting with the other node
+        boost::asio::streambuf readBuffer;    ///< Read buffer
+        boost::asio::streambuf writeBuffer;   ///< Write buffer
+        static const std::size_t maxReadBufferSize = 1000000;
+        Connection(boost::asio::io_service & io) : socket(io), readBuffer(maxReadBufferSize) {}
+    };
 
-	// Non-copyable
-	NetworkManager(const NetworkManager &);
-	NetworkManager & operator=(const NetworkManager &);
+    // Non-copyable
+    NetworkManager(const NetworkManager &);
+    NetworkManager & operator=(const NetworkManager &);
 
-	/*
-	 * Handler for the sending of a message
-	 */
-	void handleWrite(const boost::system::error_code & error, boost::shared_ptr<Connection> c);
+    /*
+     * Handler for the sending of a message
+     */
+    void handleWrite(const boost::system::error_code & error, boost::shared_ptr<Connection> c);
 
-	/**
-	 * Handler for an accept on the incoming socket
-	 */
-	void handleAccept(const boost::system::error_code & error);
+    /**
+     * Handler for an accept on the incoming socket
+     */
+    void handleAccept(const boost::system::error_code & error);
 
-	/**
-	 * Handler for the arrival of data
-	 */
-	void handleRead(const boost::system::error_code & error, std::size_t bytes_transferred, boost::shared_ptr<Connection> c);
+    /**
+     * Handler for the arrival of data
+     */
+    void handleRead(const boost::system::error_code & error, std::size_t bytes_transferred, boost::shared_ptr<Connection> c);
 
-	boost::scoped_ptr<boost::thread> t;                 ///< Thread for the handling of asynchronous events
-	boost::asio::io_service io;                        ///< IO object from asio lib
-	boost::asio::ip::tcp::acceptor acceptor;               ///< Acceptor for incoming connections
-	boost::shared_ptr<Connection> incoming;      ///< Socket for an incoming connection
+    boost::scoped_ptr<boost::thread> t;                 ///< Thread for the handling of asynchronous events
+    boost::asio::io_service io;                        ///< IO object from asio lib
+    boost::asio::ip::tcp::acceptor acceptor;               ///< Acceptor for incoming connections
+    boost::shared_ptr<Connection> incoming;      ///< Socket for an incoming connection
 
-	boost::asio::deadline_timer timer;                 ///< Timer for the TimerManager events
+    boost::asio::deadline_timer timer;                 ///< Timer for the TimerManager events
 };
 
 #endif /* NETWORKMANAGER_H_ */

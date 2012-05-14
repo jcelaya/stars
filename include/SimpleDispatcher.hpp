@@ -28,25 +28,25 @@
 
 
 class SimpleDispatcher: public Dispatcher<BasicAvailabilityInfo> {
-	struct DecisionInfo;
+    struct DecisionInfo;
 
-	/**
-	 * A Task bag allocation request. It is received when a client wants to assign a group
-	 * of task to a set of available execution nodes.
-	 * @param src Source node address.
-	 * @param msg TaskBagMsg message with task group information.
-	 */
-	void handle(const CommAddress & src, const TaskBagMsg & msg);
+    /**
+     * A Task bag allocation request. It is received when a client wants to assign a group
+     * of task to a set of available execution nodes.
+     * @param src Source node address.
+     * @param msg TaskBagMsg message with task group information.
+     */
+    void handle(const CommAddress & src, const TaskBagMsg & msg);
 
-	// This is documented in Dispatcher.
-	virtual void recomputeInfo();
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
 
 public:
-	/**
-	 * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
-	 * @param sn The StructureNode of this branch.
-	 */
-	SimpleDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    /**
+     * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
+     * @param sn The StructureNode of this branch.
+     */
+    SimpleDispatcher(StructureNode & sn) : Dispatcher(sn) {}
 };
 
 #endif /* SIMPLEDISPATCHER_H_ */

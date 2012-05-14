@@ -34,26 +34,28 @@
  * It only reports if it is free or not.
  */
 class SimpleScheduler : public Scheduler {
-	BasicAvailabilityInfo info;
+    BasicAvailabilityInfo info;
 
-	// This is documented in Scheduler
-	void reschedule();
+    // This is documented in Scheduler
+    void reschedule();
 
-	// This is documented in Scheduler
-	unsigned int accept(const TaskBagMsg & msg);
+    // This is documented in Scheduler
+    unsigned int accept(const TaskBagMsg & msg);
 
 public:
-	/**
-	 * Creates a new SimpleScheduler with an empty task.
-	 * @param resourceNode Resource node associated with this scheduler.
-	 */
-	SimpleScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-		reschedule();
-		notifySchedule();
-	}
+    /**
+     * Creates a new SimpleScheduler with an empty task.
+     * @param resourceNode Resource node associated with this scheduler.
+     */
+    SimpleScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+        reschedule();
+        notifySchedule();
+    }
 
-	// This is documented in Scheduler
-	virtual const BasicAvailabilityInfo & getAvailability() const { return info; }
+    // This is documented in Scheduler
+    virtual const BasicAvailabilityInfo & getAvailability() const {
+        return info;
+    }
 };
 
 #endif /*SIMPLESCHEDULER_H_*/

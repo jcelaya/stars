@@ -35,33 +35,35 @@
  * This is done through the WebToolkit library (http://www.webtoolkit.eu/wt).
  */
 class WtUI {
-	boost::scoped_ptr<Wt::WServer> serverInstance;
+    boost::scoped_ptr<Wt::WServer> serverInstance;
 
-	// Avoid instantiation
-	WtUI() {}
+    // Avoid instantiation
+    WtUI() {}
 
 public:
-	static WtUI & getInstance() {
-		static WtUI instance;
-		return instance;
-	}
+    static WtUI & getInstance() {
+        static WtUI instance;
+        return instance;
+    }
 
-	~WtUI() { stop(); }
+    ~WtUI() {
+        stop();
+    }
 
-	/**
-	 * Sets up the user interface
-	 */
-	void setup();
+    /**
+     * Sets up the user interface
+     */
+    void setup();
 
-	/**
-	 * Starts the server in the background
-	 */
-	void start();
+    /**
+     * Starts the server in the background
+     */
+    void start();
 
-	/**
-	 * Stops the server
-	 */
-	void stop();
+    /**
+     * Stops the server
+     */
+    void stop();
 };
 
 #endif /* WTUI_H_ */

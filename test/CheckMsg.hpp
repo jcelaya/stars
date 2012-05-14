@@ -35,24 +35,24 @@ using boost::shared_ptr;
 
 class CheckMsgMethod {
 public:
-	template<class Message>
-	static unsigned int check(const Message & msg, shared_ptr<Message> & copy) {
-		std::stringstream ss;
-		portable_binary_oarchive oa(ss);
-		shared_ptr<BasicMsg> out(msg.clone()), in;
-		// Check clone
-		BOOST_REQUIRE(boost::dynamic_pointer_cast<Message>(out).get());
-		//BOOST_CHECK(msg == *boost::dynamic_pointer_cast<Message>(out));
-		oa << out;
-		unsigned int size = ss.tellp();
-		BOOST_TEST_MESSAGE(msg.getName() << " of size " << size << " bytes.");
-		portable_binary_iarchive ia(ss);
-		ia >> in;
-		copy = boost::dynamic_pointer_cast<Message>(in);
-		BOOST_REQUIRE(copy.get());
-		//BOOST_CHECK(msg == *copy);
-		return size;
-	}
+    template<class Message>
+    static unsigned int check(const Message & msg, shared_ptr<Message> & copy) {
+        std::stringstream ss;
+        portable_binary_oarchive oa(ss);
+        shared_ptr<BasicMsg> out(msg.clone()), in;
+        // Check clone
+        BOOST_REQUIRE(boost::dynamic_pointer_cast<Message>(out).get());
+        //BOOST_CHECK(msg == *boost::dynamic_pointer_cast<Message>(out));
+        oa << out;
+        unsigned int size = ss.tellp();
+        BOOST_TEST_MESSAGE(msg.getName() << " of size " << size << " bytes.");
+        portable_binary_iarchive ia(ss);
+        ia >> in;
+        copy = boost::dynamic_pointer_cast<Message>(in);
+        BOOST_REQUIRE(copy.get());
+        //BOOST_CHECK(msg == *copy);
+        return size;
+    }
 };
 
 #endif /* CHECKMSG_HPP_ */

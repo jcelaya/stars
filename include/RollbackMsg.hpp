@@ -30,28 +30,36 @@
  * A rollback message in a transaction.
  */
 class RollbackMsg : public TransactionMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(TransactionMsg) & forRN;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(TransactionMsg) & forRN;
+    }
 
-	bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
+    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
 
 public:
-	RollbackMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false) {}
+    RollbackMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false) {}
 
-	// This is documented in BasicMsg
-	virtual RollbackMsg * clone() const { return new RollbackMsg(*this); }
+    // This is documented in BasicMsg
+    virtual RollbackMsg * clone() const {
+        return new RollbackMsg(*this);
+    }
 
-	bool isForRN() const { return forRN; }
+    bool isForRN() const {
+        return forRN;
+    }
 
-	void setForRN(bool rn) { forRN = rn; }
+    void setForRN(bool rn) {
+        forRN = rn;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("RollbackMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("RollbackMsg");
+    }
 };
 
 #endif /*ROLLBACKMSG_H_*/

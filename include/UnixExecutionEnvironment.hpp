@@ -29,25 +29,25 @@
 
 class UnixExecutionEnvironment : public Scheduler::ExecutionEnvironment {
 public:
-	/**
-	 * This is described in Scheduler::ExecutionEnvironment
-	 */
-	double getAveragePower() const;
+    /**
+     * This is described in Scheduler::ExecutionEnvironment
+     */
+    double getAveragePower() const;
 
-	/**
-	 * This is described in Scheduler::ExecutionEnvironment
-	 */
-	unsigned long int getAvailableMemory() const;
+    /**
+     * This is described in Scheduler::ExecutionEnvironment
+     */
+    unsigned long int getAvailableMemory() const;
 
-	/**
-	 * This is described in Scheduler::ExecutionEnvironment
-	 */
-	unsigned long int getAvailableDisk() const;
+    /**
+     * This is described in Scheduler::ExecutionEnvironment
+     */
+    unsigned long int getAvailableDisk() const;
 
-	/**
-	 * This is described in Scheduler::ExecutionEnvironment
-	 */
-	boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const;
+    /**
+     * This is described in Scheduler::ExecutionEnvironment
+     */
+    boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const;
 };
 
 #endif /* UNIXEXECUTIONENVIRONMENT_H_ */

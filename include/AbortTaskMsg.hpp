@@ -28,50 +28,64 @@
 
 
 class AbortTaskMsg : public BasicMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & requestId & tasks;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & requestId & tasks;
+    }
 
-	int64_t requestId;        ///< Request ID relative to the requester
-	std::vector<uint32_t> tasks;   ///< Id of the aborted tasks
+    int64_t requestId;        ///< Request ID relative to the requester
+    std::vector<uint32_t> tasks;   ///< Id of the aborted tasks
 
 public:
-	// This is described in BasicMsg
-	virtual AbortTaskMsg * clone() const { return new AbortTaskMsg(*this); }
+    // This is described in BasicMsg
+    virtual AbortTaskMsg * clone() const {
+        return new AbortTaskMsg(*this);
+    }
 
-	/**
-	 * Obtains the request ID
-	 */
-	int64_t getRequestId() const { return requestId; }
+    /**
+     * Obtains the request ID
+     */
+    int64_t getRequestId() const {
+        return requestId;
+    }
 
-	/**
-	 * Sets the request ID
-	 */
-	void setRequestId(int64_t v) { requestId = v; }
+    /**
+     * Sets the request ID
+     */
+    void setRequestId(int64_t v) {
+        requestId = v;
+    }
 
-	/**
-	 * Returns the number of tasks
-	 */
-	unsigned int getNumTasks() const { return tasks.size(); }
+    /**
+     * Returns the number of tasks
+     */
+    unsigned int getNumTasks() const {
+        return tasks.size();
+    }
 
-	/**
-	 * Returns the ID of the ith task contained in this request.
-	 * @return ID of task.
-	 */
-	uint32_t getTask(unsigned int i) const { return tasks[i]; }
+    /**
+     * Returns the ID of the ith task contained in this request.
+     * @return ID of task.
+     */
+    uint32_t getTask(unsigned int i) const {
+        return tasks[i];
+    }
 
-	/**
-	 * Adds the ID of a task that is requested to be aborted.
-	 * @param n ID of task.
-	 */
-	void addTask(uint32_t n) { tasks.push_back(n); }
+    /**
+     * Adds the ID of a task that is requested to be aborted.
+     * @param n ID of task.
+     */
+    void addTask(uint32_t n) {
+        tasks.push_back(n);
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("AbortTaskMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("AbortTaskMsg");
+    }
 };
 
 #endif /* ABORTTASKMSG_H_ */

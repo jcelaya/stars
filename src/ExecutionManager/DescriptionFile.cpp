@@ -30,23 +30,23 @@ using namespace boost;
 
 
 DescriptionFile::DescriptionFile(string taskName) {
-	filesystem::path fileName(ConfigurationManager::getInstance().getWorkingPath() / taskName  / "description.conf");
-	filesystem::ifstream file(fileName);
+    filesystem::path fileName(ConfigurationManager::getInstance().getWorkingPath() / taskName  / "description.conf");
+    filesystem::ifstream file(fileName);
 
-	if (file) {
-		std::getline(file, executable);
-		LogMsg("Ex.DescFile", DEBUG) << "Executable name: " << executable;
+    if (file) {
+        std::getline(file, executable);
+        LogMsg("Ex.DescFile", DEBUG) << "Executable name: " << executable;
 
-		std::getline(file, result);
-		LogMsg("Ex.DescFile", DEBUG) << "Result name: " << result ;
+        std::getline(file, result);
+        LogMsg("Ex.DescFile", DEBUG) << "Result name: " << result ;
 
-		std::getline(file, length);
-		LogMsg("Ex.DescFile", DEBUG) << "Task length: " << length ;
+        std::getline(file, length);
+        LogMsg("Ex.DescFile", DEBUG) << "Task length: " << length ;
 
-		std::getline(file, memory);
-		LogMsg("Ex.DescFile", DEBUG) << "Memory: " << memory ;
+        std::getline(file, memory);
+        LogMsg("Ex.DescFile", DEBUG) << "Memory: " << memory ;
 
-		std::getline(file, disk);
-		LogMsg("Ex.DescFile", DEBUG) << "Disk: " << disk ;
-	}
+        std::getline(file, disk);
+        LogMsg("Ex.DescFile", DEBUG) << "Disk: " << disk ;
+    }
 }

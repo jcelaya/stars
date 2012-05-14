@@ -28,8 +28,8 @@
 
 
 TransactionId createRandomId() {
-	static boost::minstd_rand rng;
-	static boost::uniform_int<TransactionId> dist(0,-1);
-	static boost::variate_generator<boost::minstd_rand, boost::uniform_int<TransactionId> > txGen(rng, dist);
-	return txGen();
+    static boost::minstd_rand rng;
+    static boost::uniform_int<TransactionId> dist(0, -1);
+    static boost::variate_generator<boost::minstd_rand, boost::uniform_int<TransactionId> > txGen(rng, dist);
+    return txGen();
 }

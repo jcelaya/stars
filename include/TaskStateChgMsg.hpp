@@ -32,47 +32,59 @@
  * This kind of TaskEventMsg is received whenever the sending task changes its state.
  */
 class TaskStateChgMsg : public TaskEventMsg {
-	/// Set the basic elements for a Serializable descendant
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(TaskEventMsg) & oldState & newState;
-	}
+    /// Set the basic elements for a Serializable descendant
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(TaskEventMsg) & oldState & newState;
+    }
 
-	int32_t oldState;   ///< The old state of the task
-	int32_t newState;   ///< The new state
+    int32_t oldState;   ///< The old state of the task
+    int32_t newState;   ///< The new state
 
 public:
-	// This is documented in BasicMsg
-	virtual TaskStateChgMsg * clone() const { return new TaskStateChgMsg(*this); }
+    // This is documented in BasicMsg
+    virtual TaskStateChgMsg * clone() const {
+        return new TaskStateChgMsg(*this);
+    }
 
-	/**
-	 * Returns the state the task was in before it changed.
-	 * @return The old state.
-	 */
-	int32_t getOldState() const { return oldState; }
+    /**
+     * Returns the state the task was in before it changed.
+     * @return The old state.
+     */
+    int32_t getOldState() const {
+        return oldState;
+    }
 
-	/**
-	 * Sets the state the task was in before it changed.
-	 * @param v The old state.
-	 */
-	void setOldState(int32_t v) { oldState = v; }
+    /**
+     * Sets the state the task was in before it changed.
+     * @param v The old state.
+     */
+    void setOldState(int32_t v) {
+        oldState = v;
+    }
 
-	/**
-	 * Returns the state the task is in after it has changed.
-	 * @return The new state.
-	 */
-	int32_t getNewState() const { return newState; }
+    /**
+     * Returns the state the task is in after it has changed.
+     * @return The new state.
+     */
+    int32_t getNewState() const {
+        return newState;
+    }
 
-	/**
-	 * Sets the state the task is in after it has changed.
-	 * @param v The new state.
-	 */
-	void setNewState(int32_t v) { newState = v; }
+    /**
+     * Sets the state the task is in after it has changed.
+     * @param v The new state.
+     */
+    void setNewState(int32_t v) {
+        newState = v;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("TaskStateChgMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("TaskStateChgMsg");
+    }
 };
 
 #endif /*TASKSTATECHGMSG_H_*/

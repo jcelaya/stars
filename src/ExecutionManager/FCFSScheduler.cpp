@@ -33,45 +33,45 @@ using namespace std;
  * @return True if l was created earlier than r, false otherwise.
  */
 static bool compareCreation(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r) {
-	return l->getCreationTime() < r->getCreationTime();
+    return l->getCreationTime() < r->getCreationTime();
 }
 
 
 void FCFSScheduler::reschedule() {
-	Time estimatedFinish = Time::getCurrentTime();
-	LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Rescheduling, now is " << estimatedFinish;
-	info.reset();
+    Time estimatedFinish = Time::getCurrentTime();
+    LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Rescheduling, now is " << estimatedFinish;
+    info.reset();
 
-	if (!tasks.empty()) {
-		// Order the tasks by creation time
-		tasks.sort(compareCreation);
+    if (!tasks.empty()) {
+        // Order the tasks by creation time
+        tasks.sort(compareCreation);
 
-		// Calculate queue length
-		for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
-			// Increment the estimatedStart value
-			estimatedFinish += (*i)->getEstimatedDuration();
-		}
-		LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Queue finishes at " << estimatedFinish;
+        // Calculate queue length
+        for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
+            // Increment the estimatedStart value
+            estimatedFinish += (*i)->getEstimatedDuration();
+        }
+        LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Queue finishes at " << estimatedFinish;
 
-		// If the first task is not running, start it!
-		if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
-	}
+        // If the first task is not running, start it!
+        if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
+    }
 
-	info.addQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
-			backend.impl->getAveragePower(), estimatedFinish);
-	LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Resulting info is " << info;
+    info.addQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
+                     backend.impl->getAveragePower(), estimatedFinish);
+    LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Resulting info is " << info;
 }
 
 
 unsigned int FCFSScheduler::accept(const TaskBagMsg & msg) {
-	unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
-	LogMsg("Ex.Sch.FCFS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
-	if (numAccepted == 0) return 0;
+    unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
+    LogMsg("Ex.Sch.FCFS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
+    if (numAccepted == 0) return 0;
 
-	// Now create the tasks and add them to the list
-	for (unsigned int i = 0; i < numAccepted; i++)
-		tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
-	reschedule();
-	notifySchedule();
-	return numAccepted;
+    // Now create the tasks and add them to the list
+    for (unsigned int i = 0; i < numAccepted; i++)
+        tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
+    reschedule();
+    notifySchedule();
+    return numAccepted;
 }

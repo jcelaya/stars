@@ -31,21 +31,25 @@
  * and provide the father with fresh information
  */
 class RescheduleTimer: public BasicMsg {
-	/// Set the basic elements for a Serializable class
-	//SRLZ_API SRLZ_METHOD() { ar & SERIALIZE_BASE(BasicMsg); }
+    /// Set the basic elements for a Serializable class
+    //SRLZ_API SRLZ_METHOD() { ar & SERIALIZE_BASE(BasicMsg); }
 
 public:
-	/// Default constructor
-	//RescheduleTimer() {}
+    /// Default constructor
+    //RescheduleTimer() {}
 
-	// This is documented in BasicMsg
-	virtual RescheduleTimer * clone() const { return new RescheduleTimer(*this); }
+    // This is documented in BasicMsg
+    virtual RescheduleTimer * clone() const {
+        return new RescheduleTimer(*this);
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("RescheduleTimer"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("RescheduleTimer");
+    }
 };
 
 #endif /* RESCHEDULETIMER_H_ */

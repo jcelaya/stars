@@ -34,42 +34,50 @@
  * the available Structure node.
  */
 class NewStrNodeMsg : public TransactionMsg {
-	/// Set the basic elements for a Serializable descendant
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(TransactionMsg) & whoOffers;
-	}
+    /// Set the basic elements for a Serializable descendant
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(TransactionMsg) & whoOffers;
+    }
 
-	CommAddress whoOffers; ///< The calling node address
+    CommAddress whoOffers; ///< The calling node address
 
 public:
-	/**
-	 * Default constructor.
-	 */
-	NewStrNodeMsg() {}
-	NewStrNodeMsg(const NewStrNodeMsg & copy) : TransactionMsg(copy), whoOffers(copy.whoOffers) {}
+    /**
+     * Default constructor.
+     */
+    NewStrNodeMsg() {}
+    NewStrNodeMsg(const NewStrNodeMsg & copy) : TransactionMsg(copy), whoOffers(copy.whoOffers) {}
 
-	// This is documented in BasicMsg
-	virtual NewStrNodeMsg * clone() const { return new NewStrNodeMsg(*this); }
+    // This is documented in BasicMsg
+    virtual NewStrNodeMsg * clone() const {
+        return new NewStrNodeMsg(*this);
+    }
 
-	// Getters and Setters
+    // Getters and Setters
 
-	/**
-	 * Returns the address of the calling node who is offering itself as a new Structure node.
-	 * @return The calling node address.
-	 */
-	const CommAddress & getWhoOffers() const { return whoOffers; }
+    /**
+     * Returns the address of the calling node who is offering itself as a new Structure node.
+     * @return The calling node address.
+     */
+    const CommAddress & getWhoOffers() const {
+        return whoOffers;
+    }
 
-	/**
-	 * Sets the address of the calling node.
-	 * @param addr The calling node address.
-	 */
-	void setWhoOffers(const CommAddress & addr) { whoOffers = addr; }
+    /**
+     * Sets the address of the calling node.
+     * @param addr The calling node address.
+     */
+    void setWhoOffers(const CommAddress & addr) {
+        whoOffers = addr;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("NewStrNodeMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("NewStrNodeMsg");
+    }
 };
 
 #endif /*NEWSTRNODEMSG_H_*/

@@ -26,32 +26,40 @@
 #include "BasicMsg.hpp"
 
 class AppFinishedMsg: public BasicMsg {
-	/// Set the basic elements for a Serializable class
-	SRLZ_API SRLZ_METHOD() {
-		ar & SERIALIZE_BASE(BasicMsg) & appId;
-	}
+    /// Set the basic elements for a Serializable class
+    SRLZ_API SRLZ_METHOD() {
+        ar & SERIALIZE_BASE(BasicMsg) & appId;
+    }
 
-	int64_t appId;
+    int64_t appId;
 
 public:
-	// This is described in BasicMsg
-	virtual AppFinishedMsg * clone() const { return new AppFinishedMsg(*this); }
+    // This is described in BasicMsg
+    virtual AppFinishedMsg * clone() const {
+        return new AppFinishedMsg(*this);
+    }
 
-	/**
-	 * Obtains the app ID
-	 */
-	int64_t getAppId() const { return appId; }
+    /**
+     * Obtains the app ID
+     */
+    int64_t getAppId() const {
+        return appId;
+    }
 
-	/**
-	 * Sets the app ID
-	 */
-	void setAppId(int64_t v) { appId = v; }
+    /**
+     * Sets the app ID
+     */
+    void setAppId(int64_t v) {
+        appId = v;
+    }
 
-	// This is documented in BasicMsg
-	void output(std::ostream& os) const {}
+    // This is documented in BasicMsg
+    void output(std::ostream& os) const {}
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("AppFinishedMsg"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("AppFinishedMsg");
+    }
 };
 
 #endif /* APPFINISHEDMSG_H_ */

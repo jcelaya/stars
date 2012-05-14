@@ -36,7 +36,7 @@ using namespace std;
 using boost::shared_ptr;
 
 
-Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl()	: impl(new UnixExecutionEnvironment) {}
+Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new UnixExecutionEnvironment) {}
 
 void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {}
 
@@ -45,11 +45,15 @@ void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepte
 
 class MonitorTimer : public BasicMsg {
 public:
-	// This is documented in BasicMsg
-	virtual MonitorTimer * clone() const { return new MonitorTimer(*this); }
+    // This is documented in BasicMsg
+    virtual MonitorTimer * clone() const {
+        return new MonitorTimer(*this);
+    }
 
-	// This is documented in BasicMsg
-	std::string getName() const { return std::string("MonitorTimer"); }
+    // This is documented in BasicMsg
+    std::string getName() const {
+        return std::string("MonitorTimer");
+    }
 };
 
 
@@ -61,40 +65,39 @@ public:
  * @param msg The TaskEventMsg.
  */
 template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg & msg) {
-	if (src == CommLayer::getInstance().getLocalAddress()) {
-		LogMsg("Ex.Sch", INFO) << "Received a TaskStateChgMsg from task " << msg.getTaskId();
-		LogMsg("Ex.Sch", DEBUG) << "   Task " << msg.getTaskId() << " changed state from " << msg.getOldState() << " to "
-			<< msg.getNewState();
-		switch (msg.getNewState()) {
-			case Task::Finished:
-			case Task::Aborted:
-			{
-				if (msg.getNewState() == Task::Finished) ++tasksExecuted;
-				// Send a TaskMonitorMsg to signal finalization
-				shared_ptr<Task> task = getTask(msg.getTaskId());
-				TaskMonitorMsg * tmm = new TaskMonitorMsg;
-				tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
-				tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
-				CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
-				// Remove the task from the queue
-				bool notFound = true;
-				for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
-					if ((*i)->getTaskId() == msg.getTaskId()) {
-						notFound = false;
-						tasks.erase(i);
-						break;
-					}
-				if (notFound) LogMsg("Ex.Sch", ERROR) << "Trying to remove a non-existent task!!";
-				break;
-			}
-			case Task::Inactive:
-			case Task::Prepared:
-			case Task::Running:
-				break;
-		}
-		reschedule();
-		notifySchedule();
-	}
+    if (src == CommLayer::getInstance().getLocalAddress()) {
+        LogMsg("Ex.Sch", INFO) << "Received a TaskStateChgMsg from task " << msg.getTaskId();
+        LogMsg("Ex.Sch", DEBUG) << "   Task " << msg.getTaskId() << " changed state from " << msg.getOldState() << " to "
+        << msg.getNewState();
+        switch (msg.getNewState()) {
+        case Task::Finished:
+        case Task::Aborted: {
+            if (msg.getNewState() == Task::Finished) ++tasksExecuted;
+            // Send a TaskMonitorMsg to signal finalization
+            shared_ptr<Task> task = getTask(msg.getTaskId());
+            TaskMonitorMsg * tmm = new TaskMonitorMsg;
+            tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
+            tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+            CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
+            // Remove the task from the queue
+            bool notFound = true;
+            for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
+                if ((*i)->getTaskId() == msg.getTaskId()) {
+                    notFound = false;
+                    tasks.erase(i);
+                    break;
+                }
+            if (notFound) LogMsg("Ex.Sch", ERROR) << "Trying to remove a non-existent task!!";
+            break;
+        }
+        case Task::Inactive:
+        case Task::Prepared:
+        case Task::Running:
+            break;
+        }
+        reschedule();
+        notifySchedule();
+    }
 }
 
 
@@ -107,42 +110,42 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
  * @param msg The received message.
  */
 template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & msg) {
-	// Check it is for us
-	if (msg.isForEN()) {
-		LogMsg("Ex.Sch", INFO) << "Handling TaskBagMsg from " << src;
-		unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
-		unsigned int numAccepted = 0;
-		const TaskDescription & desc = msg.getMinRequirements();
-		// Check static constraints
-		if (desc.getMaxMemory() > backend.impl->getAvailableMemory()) {
-			LogMsg("Ex.Sch", DEBUG) << "Not enough memory to execute the task: " << desc.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
-		} else if (desc.getMaxDisk() > backend.impl->getAvailableDisk()) {
-			LogMsg("Ex.Sch", DEBUG) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
-		} else {
-			// Take the TaskDescription object and try to accept it
-			LogMsg("Ex.Sch", DEBUG) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
-			numAccepted = accept(msg);
-			LogMsg("Ex.Sch", DEBUG) << numAccepted << " tasks accepted";
-			// For statistics purpose
-			Time queueEnd = Time::getCurrentTime();
-			for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
-				queueEnd += (*it)->getEstimatedDuration();
-			}
-			queueChangedStatistics(msg.getRequestId(), numAccepted, queueEnd);
-			if (numAccepted > 0) {
-				AcceptTaskMsg * atm = new AcceptTaskMsg;
-				atm->setRequestId(msg.getRequestId());
-				atm->setFirstTask(msg.getFirstTask());
-				atm->setLastTask(atm->getFirstTask() + numAccepted - 1);
-				atm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
-				CommLayer::getInstance().sendMessage(msg.getRequester(), atm);
-				if (monitorTimer == 0) setMonitorTimer();
-			}
-			if (numAccepted == numTasks) return;
-		}
-		// If control reaches this point, there are tasks which were not accepted.
-		LogMsg("Ex.Sch", DEBUG) << (numTasks - numAccepted) << " tasks rejected.";
-	}
+    // Check it is for us
+    if (msg.isForEN()) {
+        LogMsg("Ex.Sch", INFO) << "Handling TaskBagMsg from " << src;
+        unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
+        unsigned int numAccepted = 0;
+        const TaskDescription & desc = msg.getMinRequirements();
+        // Check static constraints
+        if (desc.getMaxMemory() > backend.impl->getAvailableMemory()) {
+            LogMsg("Ex.Sch", DEBUG) << "Not enough memory to execute the task: " << desc.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
+        } else if (desc.getMaxDisk() > backend.impl->getAvailableDisk()) {
+            LogMsg("Ex.Sch", DEBUG) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
+        } else {
+            // Take the TaskDescription object and try to accept it
+            LogMsg("Ex.Sch", DEBUG) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
+            numAccepted = accept(msg);
+            LogMsg("Ex.Sch", DEBUG) << numAccepted << " tasks accepted";
+            // For statistics purpose
+            Time queueEnd = Time::getCurrentTime();
+            for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
+                queueEnd += (*it)->getEstimatedDuration();
+            }
+            queueChangedStatistics(msg.getRequestId(), numAccepted, queueEnd);
+            if (numAccepted > 0) {
+                AcceptTaskMsg * atm = new AcceptTaskMsg;
+                atm->setRequestId(msg.getRequestId());
+                atm->setFirstTask(msg.getFirstTask());
+                atm->setLastTask(atm->getFirstTask() + numAccepted - 1);
+                atm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+                CommLayer::getInstance().sendMessage(msg.getRequester(), atm);
+                if (monitorTimer == 0) setMonitorTimer();
+            }
+            if (numAccepted == numTasks) return;
+        }
+        // If control reaches this point, there are tasks which were not accepted.
+        LogMsg("Ex.Sch", DEBUG) << (numTasks - numAccepted) << " tasks rejected.";
+    }
 }
 
 
@@ -151,9 +154,9 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
  * provide the father with fresher information.
  */
 template<> void Scheduler::handle(const CommAddress & src, const RescheduleTimer & msg) {
-	rescheduleTimer = 0;
-	reschedule();
-	notifySchedule();
+    rescheduleTimer = 0;
+    reschedule();
+    notifySchedule();
 }
 
 
@@ -162,87 +165,86 @@ template<> void Scheduler::handle(const CommAddress & src, const RescheduleTimer
  * provide the father with fresher information.
  */
 template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & msg) {
-	for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
-		// Check that the id exists
-		bool notFound = true;
-		for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
-			if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
-				notFound = false;
-				(*it)->abort();
-				tasks.erase(it);
-				break;
-			}
-		if (notFound) LogMsg("Ex.Sch", ERROR) << "Failed to remove non-existent task " << msg.getTask(i) << " from request "<< msg.getRequestId();
-	}
-	reschedule();
-	notifySchedule();
+    for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
+        // Check that the id exists
+        bool notFound = true;
+        for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
+            if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
+                notFound = false;
+                (*it)->abort();
+                tasks.erase(it);
+                break;
+            }
+        if (notFound) LogMsg("Ex.Sch", ERROR) << "Failed to remove non-existent task " << msg.getTask(i) << " from request " << msg.getRequestId();
+    }
+    reschedule();
+    notifySchedule();
 }
 
 
 template<> void Scheduler::handle(const CommAddress & src, const MonitorTimer & msg) {
-	if (!tasks.empty()) {
-		LogMsg("Ex.Sch", INFO) << "Sending monitoring reminders";
-		map<CommAddress, TaskMonitorMsg *> dsts;
-		for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
-			map<CommAddress, TaskMonitorMsg *>::iterator tmm =
-					dsts.insert(dsts.begin(), make_pair((*i)->getOwner(), (TaskMonitorMsg *)NULL));
-			if (tmm->second == NULL) tmm->second = new TaskMonitorMsg;
-			tmm->second->addTask((*i)->getClientRequestId(), (*i)->getClientTaskId(), (*i)->getStatus());
-		}
-		for (map<CommAddress, TaskMonitorMsg *>::iterator i = dsts.begin(); i != dsts.end(); i++) {
-			i->second->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
-			CommLayer::getInstance().sendMessage(i->first, i->second);
-		}
+    if (!tasks.empty()) {
+        LogMsg("Ex.Sch", INFO) << "Sending monitoring reminders";
+        map<CommAddress, TaskMonitorMsg *> dsts;
+        for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
+            map<CommAddress, TaskMonitorMsg *>::iterator tmm =
+                dsts.insert(dsts.begin(), make_pair((*i)->getOwner(), (TaskMonitorMsg *)NULL));
+            if (tmm->second == NULL) tmm->second = new TaskMonitorMsg;
+            tmm->second->addTask((*i)->getClientRequestId(), (*i)->getClientTaskId(), (*i)->getStatus());
+        }
+        for (map<CommAddress, TaskMonitorMsg *>::iterator i = dsts.begin(); i != dsts.end(); i++) {
+            i->second->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+            CommLayer::getInstance().sendMessage(i->first, i->second);
+        }
 
-		setMonitorTimer();
-	} else monitorTimer = 0;
+        setMonitorTimer();
+    } else monitorTimer = 0;
 }
 
 
 #define HANDLE_MESSAGE(x) if (typeid(msg) == typeid(x)) { handle(src, static_cast<const x &>(msg)); return true; }
 bool Scheduler::receiveMessage(const CommAddress & src, const BasicMsg & msg) {
-	HANDLE_MESSAGE(TaskStateChgMsg)
-	HANDLE_MESSAGE(TaskBagMsg)
-	HANDLE_MESSAGE(RescheduleTimer)
-	HANDLE_MESSAGE(AbortTaskMsg)
-	HANDLE_MESSAGE(MonitorTimer)
-	return false;
+    HANDLE_MESSAGE(TaskStateChgMsg)
+    HANDLE_MESSAGE(TaskBagMsg)
+    HANDLE_MESSAGE(RescheduleTimer)
+    HANDLE_MESSAGE(AbortTaskMsg)
+    HANDLE_MESSAGE(MonitorTimer)
+    return false;
 }
 
 
 void Scheduler::rescheduleAt(Time r) {
-	if (rescheduleTimer != 0)
-		CommLayer::getInstance().cancelTimer(rescheduleTimer);
-	rescheduleTimer = CommLayer::getInstance().setTimer(r, new RescheduleTimer);
+    if (rescheduleTimer != 0)
+        CommLayer::getInstance().cancelTimer(rescheduleTimer);
+    rescheduleTimer = CommLayer::getInstance().setTimer(r, new RescheduleTimer);
 }
 
 
 void Scheduler::setMonitorTimer() {
-	// Randomize monitor timer with 10%
-	double seconds = ConfigurationManager::getInstance().getHeartbeat() * (0.9 + (rand() / (RAND_MAX * 10.0)));
-	monitorTimer = CommLayer::getInstance().setTimer(Duration(seconds), new MonitorTimer);
+    // Randomize monitor timer with 10%
+    double seconds = ConfigurationManager::getInstance().getHeartbeat() * (0.9 + (rand() / (RAND_MAX * 10.0)));
+    monitorTimer = CommLayer::getInstance().setTimer(Duration(seconds), new MonitorTimer);
 }
 
 
 shared_ptr<Task> Scheduler::getTask(unsigned int id) {
-	// Check that the id exists
-	for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
-		if ((*i)->getTaskId() == id) return *i;
-	LogMsg("Ex.Sch", ERROR) << "Trying to get a non-existent task!!";
-	throw runtime_error("Non-existent task");
+    // Check that the id exists
+    for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
+        if ((*i)->getTaskId() == id) return *i;
+    LogMsg("Ex.Sch", ERROR) << "Trying to get a non-existent task!!";
+    throw runtime_error("Non-existent task");
 }
 
 
 void Scheduler::notifySchedule() {
-	LogMsg("Ex.Sch", DEBUG) << "Setting attributes to " << getAvailability();
-	if (!inChange && resourceNode.getFather() != CommAddress()) {
-		AvailabilityInformation * msg = getAvailability().clone();
-		msg->setSeq(++seqNum);
-		CommLayer::getInstance().sendMessage(resourceNode.getFather(), msg);
-		dirty = false;
-	}
-	else {
-		LogMsg("Ex.Sch", DEBUG) << "Delayed sending info to father";
-		dirty = true;
-	}
+    LogMsg("Ex.Sch", DEBUG) << "Setting attributes to " << getAvailability();
+    if (!inChange && resourceNode.getFather() != CommAddress()) {
+        AvailabilityInformation * msg = getAvailability().clone();
+        msg->setSeq(++seqNum);
+        CommLayer::getInstance().sendMessage(resourceNode.getFather(), msg);
+        dirty = false;
+    } else {
+        LogMsg("Ex.Sch", DEBUG) << "Delayed sending info to father";
+        dirty = true;
+    }
 }
