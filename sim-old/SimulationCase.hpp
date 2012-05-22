@@ -30,7 +30,7 @@
 #include "Simulator.hpp"
 
 
-class SimulationCase {
+class SimulationCase : public Simulator::InterEventHandler {
 protected:
     Properties property;
     double percent;
@@ -47,11 +47,20 @@ public:
     double getCompletedPercent() const {
         return percent;
     }
+
+    virtual bool blockEvent(const Simulator::Event & ev) {
+        return false;
+    }
+    virtual bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) {
+        return false;
+    }
+    virtual void beforeEvent(const Simulator::Event & ev) {}
+    virtual void afterEvent(const Simulator::Event & ev) {}
 };
 
 
 class CaseFactory {
-    std::map<std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p) > caseConstructors;
+    std::map < std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p) > caseConstructors;
 
     CaseFactory() {}
 

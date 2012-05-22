@@ -1,6 +1,6 @@
 /*
  *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2012 Javier Celaya
+ *  Copyright (C) 2007 Javier Celaya
  *
  *  This file is part of PeerComp.
  *
@@ -20,35 +20,33 @@
  *
  */
 
-#ifndef PEERCOMPSTATISTICS_H_
-#define PEERCOMPSTATISTICS_H_
-
-#include <boost/filesystem/fstream.hpp>
-#include "Time.hpp"
-class Simulator;
+#ifndef MEMORYMANAGER_H_
+#define MEMORYMANAGER_H_
 
 
-class PeerCompStatistics {
+class MemoryManager {
+    unsigned long int max;
+
+    MemoryManager() : max(0) {}
+
 public:
-    PeerCompStatistics();
-
-    void saveTotalStatistics() {
-        saveCPUStatistics();
+    static MemoryManager & getInstance() {
+        static MemoryManager instance;
+        return instance;
     }
 
-    // Public statistics handlers
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+    unsigned long int getMaxMemory();
 
-private:
-    Simulator & sim;
+    unsigned long int getUsedMemory();
 
-    // Queue Statistics
-    void saveQueueLengthStatistics();
-    boost::filesystem::ofstream queueos;
-    Time maxQueue;
+    unsigned long int getMaxUsedMemory() {
+        getUsedMemory();
+        return max;
+    }
 
-    // CPU Statistics
-    void saveCPUStatistics();
+    void reset() {
+        max = 0;
+    }
 };
 
-#endif /* PEERCOMPSTATISTICS_H_ */
+#endif /*MEMORYMANAGER_H_*/

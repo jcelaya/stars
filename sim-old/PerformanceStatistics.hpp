@@ -27,6 +27,7 @@
 #include <string>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem/fstream.hpp>
+namespace fs = boost::filesystem;
 
 class PerformanceStatistics {
 public:
@@ -40,10 +41,10 @@ public:
 private:
     std::map<std::string, EventStats> handleTimeStatistics;
 
-    boost::filesystem::ofstream os;
+    fs::ofstream os;
 
 public:
-    void openFile(const boost::filesystem::path & statDir);
+    void openFile(const fs::path & statDir);
 
     void startEvent(const std::string & ev);
 

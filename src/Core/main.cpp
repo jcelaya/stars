@@ -44,93 +44,97 @@ namespace fs = boost::filesystem;
 
 
 Appender * addConsoleLogging(Layout * layout) {
-	OstreamAppender * console = new OstreamAppender("ConsoleAppender", &std::cout);
-	if (layout == NULL) {
-		PatternLayout * l = new PatternLayout();
-		l->setConversionPattern("%d{%H:%M:%S.%l}	%p	%c : %m%n");
-		layout = l;
-	}
-	console->setLayout(layout);
-	Category::getRoot().addAppender(console);
-	return console;
+    OstreamAppender * console = new OstreamAppender("ConsoleAppender", &std::cout);
+    if (layout == NULL) {
+        PatternLayout * l = new PatternLayout();
+        l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");
+        layout = l;
+    }
+    console->setLayout(layout);
+    Category::getRoot().addAppender(console);
+    return console;
 }
 
 
 class BoostFileAppender : public LayoutAppender {
 protected:
-	virtual void _append(const LoggingEvent& event) {
-		os << _getLayout().format(event);
-		os.flush();
-	}
+    virtual void _append(const LoggingEvent& event) {
+        os << _getLayout().format(event);
+        os.flush();
+    }
 
-	fs::ofstream os;
+    fs::ofstream os;
 
 public:
 
-	/**
-	 * Constructs a FileAppender.
-	 * @param name the name of the Appender.
-	 * @param fileName the name of the file to which the Appender has to log.
-	 * @param append whether the Appender has to truncate the file or
-	 * just append to it if it already exists. Defaults to 'true'.
-	 */
-	BoostFileAppender(const string & name, const fs::path & fileName, bool append = true) :
-		LayoutAppender(name) {
-		os.open(fileName, ios_base::out | (append ? ios_base::app : ios_base::trunc));
-	}
+    /**
+     * Constructs a FileAppender.
+     * @param name the name of the Appender.
+     * @param fileName the name of the file to which the Appender has to log.
+     * @param append whether the Appender has to truncate the file or
+     * just append to it if it already exists. Defaults to 'true'.
+     */
+    BoostFileAppender(const string & name, const fs::path & fileName, bool append = true) :
+            LayoutAppender(name) {
+        os.open(fileName, ios_base::out | (append ? ios_base::app : ios_base::trunc));
+    }
 
-	virtual ~BoostFileAppender() { close(); }
+    virtual ~BoostFileAppender() {
+        close();
+    }
 
-	void close() { os.close(); }
+    void close() {
+        os.close();
+    }
 };
 
 
 Appender * addFileLogging(fs::path logFile, bool append, Layout * layout) {
-	BoostFileAppender * file = new BoostFileAppender(logFile.string(), logFile, append);
-	if (layout == NULL) {
-		PatternLayout * l = new PatternLayout();
-		l->setConversionPattern("%d{%H:%M:%S.%l}	%p	%c : %m%n");
-		layout = l;
-	}
-	file->setLayout(layout);
-	Category::getRoot().addAppender(file);
-	return file;
+    BoostFileAppender * file = new BoostFileAppender(logFile.string(), logFile, append);
+    if (layout == NULL) {
+        PatternLayout * l = new PatternLayout();
+        l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");
+        layout = l;
+    }
+    file->setLayout(layout);
+    Category::getRoot().addAppender(file);
+    return file;
 }
 
 
 int main(int argc, char * argv[]) {
-	try {
-		// Configure
-		// Try to load default config file
-		// TODO: check on /etc, the home dir, etc... also depending on the SO
-		fs::path defaultConfigFile(".starsrc");
-		if (fs::exists(defaultConfigFile))
-			ConfigurationManager::getInstance().loadConfigFile(defaultConfigFile);
-		// Command line overrides config file
-		if(ConfigurationManager::getInstance().loadCommandLine(argc, argv)) return 0;
-		// Start logging
-		initLog(ConfigurationManager::getInstance().getLogConfig());
-		addConsoleLogging(NULL);
-		// Start io thread and listen to incoming connections
-		CommLayer::getInstance().listen();
-		// Get local address
-		// Init CommLayer and standard services
-		LogMsg("", DEBUG) << "Creating standard services";
-//		StructureNode sn(2);
-//		ResourceNode rn(sn);
-//		SubmissionNode sbn(rn);
-//		EDFScheduler sch(rn);
-//		DeadlineDispatcher tbd(sn);
-		// Start UI
-// 		LogMsg("", DEBUG) << "Starting UI web server";
-// 		WtUI::getInstance().start();
-// 		LogMsg("", DEBUG) << "Starting main event loop";
-		// Start event handling
-		CommLayer::getInstance().commEventLoop();
-		LogMsg("", DEBUG) << "Gracely exiting";
-		return 0;
-	} catch (std::exception & e) {
-		std::cerr << "Exception caught: " << e.what() << std::endl;
-		return 1;
-	}
+    try {
+        // Configure
+        // Try to load default config file
+        // TODO: check on /etc, the home dir, etc... also depending on the SO
+        fs::path defaultConfigFile(".starsrc");
+        if (fs::exists(defaultConfigFile))
+            ConfigurationManager::getInstance().loadConfigFile(defaultConfigFile);
+        // Command line overrides config file
+        if (ConfigurationManager::getInstance().loadCommandLine(argc, argv)) return 0;
+        // Start logging
+        LogMsg::initLog(ConfigurationManager::getInstance().getLogConfig());
+        addConsoleLogging(NULL);
+        // Start io thread and listen to incoming connections
+        CommLayer::getInstance().listen();
+        // Get local address
+        // Init CommLayer and standard services
+        LogMsg("", DEBUG) << "Creating standard services";
+//  StructureNode sn(2);
+//  ResourceNode rn(sn);
+//  SubmissionNode sbn(rn);
+//  EDFScheduler sch(rn);
+//  DeadlineDispatcher tbd(sn);
+        // Start UI
+//   LogMsg("", DEBUG) << "Starting UI web server";
+//   WtUI::getInstance().start();
+//   LogMsg("", DEBUG) << "Starting main event loop";
+        // Start event handling
+        CommLayer::getInstance().commEventLoop();
+        LogMsg("", DEBUG) << "Gracely exiting";
+        return 0;
+    } catch (std::exception & e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+        return 1;
+    }
 }

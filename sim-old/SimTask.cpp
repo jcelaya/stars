@@ -24,7 +24,10 @@
 #include "Logger.hpp"
 #include "TaskStateChgMsg.hpp"
 #include "Simulator.hpp"
+#include "CommLayer.hpp"
 #include "PeerCompNode.hpp"
+using namespace std;
+using namespace boost::posix_time;
 
 unsigned int SimTask::runningTasks = 0;
 

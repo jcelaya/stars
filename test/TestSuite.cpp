@@ -99,9 +99,8 @@ bool init_unit_test_suite() {
     // Load log config file
     boost::filesystem::ifstream logconf(boost::filesystem::path("test") / boost::filesystem::path("PeerCompLibTest.logconf"));
     std::string line;
-    while (getline(logconf, line).good()) {
-        if (line[0] == '#' || !line.length()) continue;
-        LogMsg::setPriority(line);
+    if (getline(logconf, line).good()) {
+        LogMsg::initLog(line);
     }
     // Test log priority is always DEBUG
     Category::getInstance("Test").setPriority(DEBUG);

@@ -23,8 +23,8 @@
 #include <list>
 #include "PerformanceStatistics.hpp"
 #include "Simulator.hpp"
-namespace fs = boost::filesystem;
 using namespace std;
+using namespace boost::posix_time;
 
 
 void PerformanceStatistics::openFile(const fs::path & statDir) {
@@ -33,12 +33,12 @@ void PerformanceStatistics::openFile(const fs::path & statDir) {
 
 
 void PerformanceStatistics::startEvent(const std::string & ev) {
-    handleTimeStatistics[ev].start = boost::posix_time::microsec_clock::local_time();
+    handleTimeStatistics[ev].start = microsec_clock::local_time();
 }
 
 
 void PerformanceStatistics::endEvent(const std::string & ev) {
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+    ptime end = microsec_clock::local_time();
     EventStats & es = handleTimeStatistics[ev];
     es.partialNumEvents++;
     es.totalNumEvents++;
@@ -86,9 +86,9 @@ void PerformanceStatistics::savePartialStatistics() {
     }
 
     // Harvest memory occupation statistics
-//     os << "Database applications: " << SimAppDatabase::getTotalApps() << " apps in " << SimAppDatabase::getTotalAppsMem() << " bytes" << endl;
-//     os << "Database instances: " << SimAppDatabase::getTotalInstances() << " instances in " << SimAppDatabase::getTotalInstancesMem() << " bytes" << endl;
-//     os << "Database requests: " << SimAppDatabase::getTotalRequests() << " requests in " << SimAppDatabase::getTotalRequestsMem() << " bytes" << endl;
+    os << "Database applications: " << SimAppDatabase::getTotalApps() << " apps in " << SimAppDatabase::getTotalAppsMem() << " bytes" << endl;
+    os << "Database instances: " << SimAppDatabase::getTotalInstances() << " instances in " << SimAppDatabase::getTotalInstancesMem() << " bytes" << endl;
+    os << "Database requests: " << SimAppDatabase::getTotalRequests() << " requests in " << SimAppDatabase::getTotalRequestsMem() << " bytes" << endl;
 }
 
 

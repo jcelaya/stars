@@ -1,6 +1,6 @@
 /*
  *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2012 Javier Celaya
+ *  Copyright (C) 2007 Javier Celaya
  *
  *  This file is part of PeerComp.
  *
@@ -20,35 +20,37 @@
  *
  */
 
-#ifndef PEERCOMPSTATISTICS_H_
-#define PEERCOMPSTATISTICS_H_
+#ifndef SIMTASK_H_
+#define SIMTASK_H_
 
-#include <boost/filesystem/fstream.hpp>
-#include "Time.hpp"
-class Simulator;
+#include "Task.hpp"
+#include "TaskDescription.hpp"
+#include "Simulator.hpp"
 
 
-class PeerCompStatistics {
+class SimTask : public Task {
+    static unsigned int runningTasks;
+    int timer;
+    Duration taskDuration;
+    Time finishTime;
+
 public:
-    PeerCompStatistics();
-
-    void saveTotalStatistics() {
-        saveCPUStatistics();
+    SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d);
+    ~SimTask() {
+        runningTasks--;
     }
 
-    // Public statistics handlers
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+    int getStatus() const;
 
-private:
-    Simulator & sim;
+    void run();
 
-    // Queue Statistics
-    void saveQueueLengthStatistics();
-    boost::filesystem::ofstream queueos;
-    Time maxQueue;
+    void abort();
 
-    // CPU Statistics
-    void saveCPUStatistics();
+    Duration getEstimatedDuration() const;
+
+    static unsigned int getRunningTasks() {
+        return runningTasks;
+    }
 };
 
-#endif /* PEERCOMPSTATISTICS_H_ */
+#endif /*SIMTASK_H_*/

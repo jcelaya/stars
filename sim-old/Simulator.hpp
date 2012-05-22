@@ -23,24 +23,93 @@
 #ifndef SIMULATOR_H_
 #define SIMULATOR_H_
 
+#include <queue>
 #include <map>
 #include <vector>
-#include <cmath>
+#include <list>
+#include <sstream>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <log4cpp/Layout.hh>
 #include "BasicMsg.hpp"
 #include "PeerCompNode.hpp"
 #include "Properties.hpp"
 #include "Time.hpp"
 #include "PeerCompStatistics.hpp"
 #include "PerformanceStatistics.hpp"
+namespace pt = boost::posix_time;
+namespace fs = boost::filesystem;
 class PerfectScheduler;
+
+
+struct AddrIO {
+    uint32_t addr;
+    AddrIO(uint32_t a) : addr(a) {}
+    friend std::ostream & operator<<(std::ostream & os, const AddrIO & t) {
+        uint32_t val1, val2, val3, val4 = t.addr;
+        std::ostringstream oss;
+        val1 = val4 & 255;
+        val4 >>= 8;
+        val2 = val4 & 255;
+        val4 >>= 8;
+        val3 = val4 & 255;
+        val4 >>= 8;
+        oss << val4 << "." << val3 << "." << val2 << "." << val1;
+        return os << oss.str();
+    }
+};
 
 
 class Simulator {
 public:
+    struct Event {
+        int id;
+        static int lastEventId;
+        // Time in microseconds
+        Time creationTime;
+        Time txTime;
+        Duration txDuration;
+        Time t;
+        boost::shared_ptr<BasicMsg> msg;
+        uint32_t from, to;
+        bool active;
+        bool inRecvQueue;
+        unsigned int size;
+        Event(Time c, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++), creationTime(c),
+                txTime(c), txDuration(0.0), t(c), msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+        Event(Time c, Time outQueue, Duration tx, Duration d, boost::shared_ptr<BasicMsg> initmsg,
+              unsigned int sz) : id(lastEventId++), creationTime(c), txTime(outQueue), txDuration(tx), t(txTime + tx + d),
+                msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+        Event(Time c, Duration d, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++),
+                creationTime(c), txTime(c), t(c + d),
+                msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+    };
+
+    class InterEventHandler {
+    protected:
+        Simulator & sim;
+    public:
+        InterEventHandler() : sim(Simulator::getInstance()) {}
+        virtual ~InterEventHandler() {}
+        virtual bool blockEvent(const Event & ev) {
+            return false;
+        }
+        virtual bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) {
+            return false;
+        }
+        virtual void beforeEvent(const Event & ev) {}
+        virtual void afterEvent(const Event & ev) {}
+    };
+
+    struct NodeNetInterface {
+        // In and Out network interface model
+        Time inQueueFreeTime, outQueueFreeTime;
+        double inBW, outBW;
+    };
+
     static Simulator & getInstance() {
         static Simulator instance;
         return instance;
@@ -48,8 +117,13 @@ public:
 
     ~Simulator();
 
+    void registerHandler(const boost::shared_ptr<InterEventHandler> & handler) {
+        interEventHandlers.push_back(handler);
+    }
+
     void setProperties(Properties & property);
     void run();
+    void stepForward();
     void stop() {
         doStop = true;
     }
@@ -58,16 +132,34 @@ public:
     }
     void showStatistics();
 
+    bool inEvent() const {
+        return p != NULL;
+    }
+    void setCurrentNode(uint32_t n) {
+        currentNode = &routingTable[n];
+    }
     unsigned long int getNumNodes() const {
         return routingTable.size();
     }
     PeerCompNode & getNode(unsigned int i) {
         return routingTable[i];
     }
+    const NodeNetInterface & getNetInterface(unsigned int i) const {
+        return iface[i];
+    }
     PeerCompNode & getCurrentNode() {
         return *currentNode;
     }
-    const boost::filesystem::path & getResultDir() const {
+    int getCurrentEventId() const {
+        return p != NULL ? p->id : 0;
+    }
+    bool emptyEventQueue() const {
+        return events.size() == inactiveEvents;
+    }
+    const std::list<Event *> & getGeneratedEvents() const {
+        return generatedEvents;
+    }
+    const fs::path & getResultDir() const {
         return resultDir;
     }
     PerformanceStatistics & getPStats() {
@@ -75,6 +167,9 @@ public:
     }
     PeerCompStatistics & getPCStats() {
         return pcstats;
+    }
+    const boost::shared_ptr<PerfectScheduler> & getPerfectScheduler() {
+        return ps;
     }
 
     // Network methods
@@ -86,8 +181,8 @@ public:
     Time getCurrentTime() const {
         return time;
     }
-    boost::posix_time::time_duration getRealTime() const {
-        return real_time + (boost::posix_time::microsec_clock::local_time() - start);
+    pt::time_duration getRealTime() const {
+        return real_time + (pt::microsec_clock::local_time() - start);
     }
     int setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg);
     void cancelTimer(int timerId);
@@ -95,7 +190,7 @@ public:
     void progressLog(const std::string & msg);
     bool isLogEnabled(const std::string & category, int priority);
     void log(const std::string & category, int priority, const std::string & msg);
-    
+
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
 
     // Return a random double in interval (0, 1]
@@ -142,24 +237,43 @@ public:
     }
 
 private:
+    class ptrCompare {
+    public:
+        bool operator()(const Event * l, const Event * r) {
+            return l->t > r->t || (l->t == r->t && l->id > r->id);
+        }
+    };
+
     // Simulation framework
     std::vector<PeerCompNode> routingTable;
+    std::vector<NodeNetInterface> iface;
     Time time;
-    std::string platformFile;
-    std::string applicationFile;
+    std::priority_queue<Event *, std::vector<Event *>, ptrCompare > events;
+    std::map<int, Event *> timers;
+    std::list<boost::shared_ptr<InterEventHandler> > interEventHandlers;
 
+    Event * p;
     PeerCompNode * currentNode;
-    boost::filesystem::path resultDir;
-    boost::filesystem::ofstream progressFile, debugFile;
+    std::list<Event *> generatedEvents;
+    unsigned int inactiveEvents;
+    double minDelay;   // network min delay
+    double maxDelay;   // network max delay
+    fs::path resultDir;
+    fs::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
     PerformanceStatistics pstats;
+    boost::shared_ptr<PerfectScheduler> ps;
 
     // Simulation global statistics
     PeerCompStatistics pcstats;
-    boost::posix_time::ptime start, end, opStart;
-    boost::posix_time::time_duration real_time;
+    pt::ptime start, end, opStart;
+    pt::time_duration real_time;
+    unsigned long int numEvents;
+    unsigned long int totalBytesSent;
+    unsigned long int numMsgSent;
     bool measureSize;
-    boost::posix_time::time_duration maxRealTime;
+    unsigned long int maxEvents;
+    pt::time_duration maxRealTime;
     Duration maxSimTime;
     unsigned int maxMemUsage;
     unsigned int showStep;

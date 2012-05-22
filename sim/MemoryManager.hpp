@@ -23,11 +23,16 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include <sys/types.h>
+
 
 class MemoryManager {
     unsigned long int max;
-
-    MemoryManager() : max(0) {}
+    long int pagesize;
+    pid_t pid;
+    char pidText[20], * p;
+    
+    MemoryManager();
 
 public:
     static MemoryManager & getInstance() {

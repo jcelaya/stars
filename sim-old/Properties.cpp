@@ -21,10 +21,11 @@
  */
 
 #include "Properties.hpp"
+using namespace std;
 namespace fs = boost::filesystem;
 
 
-std::ostream & operator<<(std::ostream & os, const Properties & o) {
+ostream & operator<<(ostream & os, const Properties & o) {
     for (Properties::const_iterator it = o.begin(); it != o.end(); it++) {
         os << it->first << "=" << it->second << " ";
     }
@@ -34,11 +35,11 @@ std::ostream & operator<<(std::ostream & os, const Properties & o) {
 
 void Properties::loadFromFile(const fs::path & fileName) {
     fs::ifstream ifs(fileName);
-    std::string nextLine;
+    string nextLine;
 
     while (ifs.good()) {
         // Read next line
-        std::getline(ifs, nextLine);
+        getline(ifs, nextLine);
         // If it is just an empty line, skip it
         if (nextLine.length() == 0) continue;
         // If it is a comment, skip it
@@ -46,7 +47,7 @@ void Properties::loadFromFile(const fs::path & fileName) {
 
         // Get key
         size_t equalPos = nextLine.find_first_of('=');
-        if (equalPos == std::string::npos) continue; // wrong format
+        if (equalPos == string::npos) continue; // wrong format
         // Get Value
         // BEWARE!! Spaces are not ignored, as they can be part of valid values
         (*this)[nextLine.substr(0, equalPos)] = nextLine.substr(equalPos + 1);

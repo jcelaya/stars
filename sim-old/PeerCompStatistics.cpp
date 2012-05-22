@@ -30,7 +30,7 @@
 
 PeerCompStatistics::PeerCompStatistics() : sim(Simulator::getInstance()) {
     // Queue statistics
-    queueos.open(sim.getResultDir() / boost::filesystem::path("queue_length.stat"));
+    queueos.open(sim.getResultDir() / fs::path("queue_length.stat"));
     queueos << "# Time, max, comment" << std::setprecision(3) << std::fixed << std::endl;
 }
 
@@ -62,7 +62,7 @@ void PeerCompStatistics::saveQueueLengthStatistics() {
 
 void PeerCompStatistics::saveCPUStatistics() {
     Simulator & sim = Simulator::getInstance();
-    boost::filesystem::ofstream os(sim.getResultDir() / boost::filesystem::path("cpu.stat"));
+    fs::ofstream os(sim.getResultDir() / fs::path("cpu.stat"));
     os << std::setprecision(6) << std::fixed;
 
     unsigned int maxTasks = 0;

@@ -23,6 +23,8 @@
 #include "SimAppDatabase.hpp"
 #include "Logger.hpp"
 #include "Simulator.hpp"
+using namespace std;
+using namespace boost::filesystem;
 
 
 long int SimAppDatabase::lastInstance = 0, SimAppDatabase::lastRequest = 0;
@@ -64,7 +66,7 @@ void SimAppDatabase::dropAppDescription(const std::string & name) {
 
 void SimAppDatabase::appInstanceFinished(long int appId) {
     LogMsg("Database.Sim", DEBUG) << "Instance finished " << appId;
-    for (std::map<long int, Request>::iterator it = requests.begin(); it != requests.end();) {
+    for (map<long int, Request>::iterator it = requests.begin(); it != requests.end();) {
         LogMsg("Database.Sim", DEBUG) << "Checking request " << it->first << ": " << it->second;
         if (it->second.appId == appId) {
             totalRequests--;
@@ -73,7 +75,7 @@ void SimAppDatabase::appInstanceFinished(long int appId) {
             requests.erase(it++);
         } else it++;
     }
-    std::map<long int, AppInstance>::iterator inst = instances.find(appId);
+    map<long int, AppInstance>::iterator inst = instances.find(appId);
     if (inst == instances.end()) {
         LogMsg("Database.Sim", ERROR) << "Error getting data for app " << appId;
         return;
@@ -104,7 +106,7 @@ void TaskBagAppDatabase::createApp(const std::string & name, const TaskDescripti
 
 void TaskBagAppDatabase::getAppRequirements(long int appId, TaskDescription & req) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "Error getting data for app " << appId;
     req = it->second.req;
 }
@@ -113,7 +115,7 @@ void TaskBagAppDatabase::getAppRequirements(long int appId, TaskDescription & re
 long int TaskBagAppDatabase::createAppInstance(const std::string & name, Time deadline) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
 
-    std::map<std::string, TaskDescription>::iterator it = sdb.apps.find(name);
+    map<string, TaskDescription>::iterator it = sdb.apps.find(name);
     if (it == sdb.apps.end()) throw Database::Exception(db) << "No application with name " << name;
 
     // Create instance
@@ -138,7 +140,7 @@ long int TaskBagAppDatabase::createAppInstance(const std::string & name, Time de
 
 void TaskBagAppDatabase::requestFromReadyTasks(long int appId, TaskBagMsg & msg) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) {
         LogMsg("Database.Sim", ERROR) << "Error getting data for app " << appId;
         return;
@@ -149,7 +151,7 @@ void TaskBagAppDatabase::requestFromReadyTasks(long int appId, TaskBagMsg & msg)
     r.acceptedTasks = r.numNodes = 0;
 
     // Look for ready tasks
-    for (std::vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+    for (vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
         if (t->state == SimAppDatabase::AppInstance::Task::READY)
             r.tasks.push_back(&(*t));
     }
@@ -177,13 +179,13 @@ long int TaskBagAppDatabase::getInstanceId(long int rid) {
 
 void TaskBagAppDatabase::startSearch(long int rid, Time timeout) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end()) throw Database::Exception(db) << "No request with id " << rid;
     it->second.rtime = it->second.stime = Time::getCurrentTime();
     LogMsg("Database.Sim", DEBUG) << "Submitting request " << rid << ": " << it->second;
     if (sdb.instances.count(it->second.appId) == 0) throw Database::Exception(db) << "No instance with id" << it->second.appId;
     sdb.instances[it->second.appId].rtime = it->second.rtime;
-    for (std::vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++)
+    for (vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++)
         if (*t != NULL)
             (*t)->state = SimAppDatabase::AppInstance::Task::SEARCHING;
 }
@@ -191,10 +193,10 @@ void TaskBagAppDatabase::startSearch(long int rid, Time timeout) {
 
 unsigned int TaskBagAppDatabase::cancelSearch(long int rid) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end()) throw Database::Exception(db) << "No request with id " << rid;
     unsigned int readyTasks = 0;
-    for (std::vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++)
+    for (vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++)
         if (*t != NULL && (*t)->state == SimAppDatabase::AppInstance::Task::SEARCHING) {
             // If any task was still in searching state, search stops here
             it->second.stime = Time::getCurrentTime();
@@ -209,7 +211,7 @@ unsigned int TaskBagAppDatabase::cancelSearch(long int rid) {
 
 void TaskBagAppDatabase::acceptedTasks(const CommAddress & src, long int rid, unsigned int firstRtid, unsigned int lastRtid) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end()) throw Database::Exception(db) << "No request with id " << rid;
     LogMsg("Database.Sim", DEBUG) << src << " accepts " << (lastRtid - firstRtid + 1) << " tasks from request " << rid << ": " << it->second;
     // Update last search time
@@ -234,7 +236,7 @@ bool TaskBagAppDatabase::taskInRequest(unsigned int tid, long int rid) {
     tid--;
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
     LogMsg("Database.Sim", DEBUG) << "Checking if task " << tid << " is in request " << rid;
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end())
         LogMsg("Database.Sim", DEBUG) << "Request " << rid << " does not exist";
     else
@@ -256,7 +258,7 @@ void TaskBagAppDatabase::getAppsInNode(const CommAddress & node, std::list<long 
 bool TaskBagAppDatabase::finishedTask(const CommAddress & src, long int rid, unsigned int rtid) {
     rtid--;
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end()) throw Database::Exception(db) << "No request with id " << rid;
     LogMsg("Database.Sim", DEBUG) << "Finished task " << rtid << " from request " << it->first << ": " << it->second;
     if (it->second.tasks.size() <= rtid)
@@ -276,7 +278,7 @@ bool TaskBagAppDatabase::finishedTask(const CommAddress & src, long int rid, uns
 bool TaskBagAppDatabase::abortedTask(const CommAddress & src, long int rid, unsigned int rtid) {
     rtid--;
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
+    map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.find(rid);
     if (it == sdb.requests.end()) throw Database::Exception(db) << "No request with id " << rid;
     LogMsg("Database.Sim", DEBUG) << src << " aborts task " << rtid << " from request " << rid << ": " << it->second;
     if (it->second.tasks.size() <= rtid || it->second.tasks[rtid] == NULL) {
@@ -292,9 +294,9 @@ void TaskBagAppDatabase::deadNode(const CommAddress & fail) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
     // Make a list of all tasks that where executing in that node
     LogMsg("Database.Sim", DEBUG) << "Node " << fail << " fails, looking for its tasks:";
-    for (std::map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.begin(); it != sdb.requests.end(); it++) {
+    for (map<long int, SimAppDatabase::Request>::iterator it = sdb.requests.begin(); it != sdb.requests.end(); it++) {
         LogMsg("Database.Sim", DEBUG) << "Checking request " << it->first << ": " << it->second;
-        for (std::vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+        for (vector<SimAppDatabase::AppInstance::Task *>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
             if (*t != NULL && (*t)->state == SimAppDatabase::AppInstance::Task::EXECUTING && (*t)->host == fail) {
                 // Change their status to READY
                 (*t)->state = SimAppDatabase::AppInstance::Task::READY;
@@ -308,10 +310,10 @@ void TaskBagAppDatabase::deadNode(const CommAddress & fail) {
 
 unsigned long int TaskBagAppDatabase::getNumFinished(long int appId) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "No instance with id " << appId;
     unsigned long int result = 0;
-    for (std::vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+    for (vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
         if (t->state == SimAppDatabase::AppInstance::Task::FINISHED) result++;
     }
     return result;
@@ -320,10 +322,10 @@ unsigned long int TaskBagAppDatabase::getNumFinished(long int appId) {
 
 unsigned long int TaskBagAppDatabase::getNumReady(long int appId) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "No instance with id " << appId;
     unsigned long int result = 0;
-    for (std::vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+    for (vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
         if (t->state == SimAppDatabase::AppInstance::Task::READY) result++;
     }
     return result;
@@ -332,10 +334,10 @@ unsigned long int TaskBagAppDatabase::getNumReady(long int appId) {
 
 unsigned long int TaskBagAppDatabase::getNumExecuting(long int appId) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "No instance with id " << appId;
     unsigned long int result = 0;
-    for (std::vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+    for (vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
         if (t->state == SimAppDatabase::AppInstance::Task::EXECUTING) result++;
     }
     return result;
@@ -344,10 +346,10 @@ unsigned long int TaskBagAppDatabase::getNumExecuting(long int appId) {
 
 unsigned long int TaskBagAppDatabase::getNumInProcess(long int appId) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "No instance with id " << appId;
     unsigned long int result = 0;
-    for (std::vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
+    for (vector<SimAppDatabase::AppInstance::Task>::iterator t = it->second.tasks.begin(); t != it->second.tasks.end(); t++) {
         if (t->state == SimAppDatabase::AppInstance::Task::EXECUTING || t->state == SimAppDatabase::AppInstance::Task::SEARCHING) result++;
     }
     return result;
@@ -360,7 +362,7 @@ bool TaskBagAppDatabase::isFinished(long int appId) {
 
 Time TaskBagAppDatabase::getReleaseTime(long int appId) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    std::map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
+    map<long int, SimAppDatabase::AppInstance>::iterator it = sdb.instances.find(appId);
     if (it == sdb.instances.end()) throw Database::Exception(db) << "No instance with id " << appId;
     return it->second.rtime;
 }

@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <boost/filesystem/fstream.hpp>
 #include "Distributions.hpp"
+using namespace std;
+namespace fs = boost::filesystem;
 
 void Histogram::addValue(double value) {
     if (calibrating) {
@@ -53,12 +55,12 @@ void Histogram::calibrate() {
     if (calibrating && !firstSamples.empty()) {
         calibrating = false;
         double min = firstSamples.front(), max = min;
-        for (std::vector<double>::iterator it = firstSamples.begin(); it != firstSamples.end(); it++) {
+        for (vector<double>::iterator it = firstSamples.begin(); it != firstSamples.end(); it++) {
             if (*it < min) min = *it;
             else if (*it > max) max = *it;
         }
         resolution = (max - min) / limit;
-        for (std::vector<double>::iterator it = firstSamples.begin(); it != firstSamples.end(); it++)
+        for (vector<double>::iterator it = firstSamples.begin(); it != firstSamples.end(); it++)
             addValue(*it);
         firstSamples.clear();
     }
@@ -80,30 +82,30 @@ void CDF::loadFrom(Histogram & h) {
 }
 
 
-void CDF::loadFrom(const boost::filesystem::path & file) {
-    boost::filesystem::ifstream ifs(file);
+void CDF::loadFrom(const fs::path & file) {
+    fs::ifstream ifs(file);
 
-    std::string nextLine;
+    string nextLine;
     double bin, freq;
     char delim;
 
     // Assume good syntax (ends with 1.0, monotonic increasing)
     while (ifs.good()) {
-        std::getline(ifs, nextLine);
-        if (!(std::istringstream(nextLine) >> bin >> delim >> freq).fail())
-            cdf.push_back(std::make_pair(bin, freq));
+        getline(ifs, nextLine);
+        if (!(istringstream(nextLine) >> bin >> delim >> freq).fail())
+            cdf.push_back(make_pair(bin, freq));
     }
     optimize();
 }
 
 
 void CDF::addValue(double bin, double value) {
-    cdf.push_back(std::make_pair(bin, value));
+    cdf.push_back(make_pair(bin, value));
     // Assume it is ordered
     int i = cdf.size() - 1;
     for (; i > 0 && bin < cdf[i - 1].first; i--)
         cdf[i] = cdf[i - 1];
-    cdf[i] = std::make_pair(bin, value);
+    cdf[i] = make_pair(bin, value);
 }
 
 
@@ -128,8 +130,8 @@ double CDF::inverse(double x) {
 void CDF::optimize() {
     // Remove sequences of pairs with the same probability
     double lastprob = 0.0;
-    std::vector<std::pair<double, double> > result;
-    for (std::vector<std::pair<double, double> >::iterator it = cdf.begin(); it != cdf.end(); it++) {
+    vector<pair<double, double> > result;
+    for (vector<pair<double, double> >::iterator it = cdf.begin(); it != cdf.end(); it++) {
         if (it->second != lastprob) {
             result.push_back(*it);
             lastprob = it->second;

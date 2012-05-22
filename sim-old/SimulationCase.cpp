@@ -1,6 +1,6 @@
 /*
  *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2012 Javier Celaya
+ *  Copyright (C) 2007 Javier Celaya
  *
  *  This file is part of PeerComp.
  *
@@ -20,35 +20,12 @@
  *
  */
 
-#ifndef PEERCOMPSTATISTICS_H_
-#define PEERCOMPSTATISTICS_H_
-
-#include <boost/filesystem/fstream.hpp>
-#include "Time.hpp"
-class Simulator;
+#include "SimulationCase.hpp"
 
 
-class PeerCompStatistics {
-public:
-    PeerCompStatistics();
-
-    void saveTotalStatistics() {
-        saveCPUStatistics();
-    }
-
-    // Public statistics handlers
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
-
-private:
-    Simulator & sim;
-
-    // Queue Statistics
-    void saveQueueLengthStatistics();
-    boost::filesystem::ofstream queueos;
-    Time maxQueue;
-
-    // CPU Statistics
-    void saveCPUStatistics();
-};
-
-#endif /* PEERCOMPSTATISTICS_H_ */
+boost::shared_ptr<SimulationCase> CaseFactory::createCase(const std::string & name, const Properties & p) {
+    std::map < std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p) >::iterator it = caseConstructors.find(name);
+    if (it != caseConstructors.end()) {
+        return it->second(p);
+    } else return boost::shared_ptr<SimulationCase>();
+}

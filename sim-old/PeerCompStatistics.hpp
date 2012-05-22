@@ -24,6 +24,7 @@
 #define PEERCOMPSTATISTICS_H_
 
 #include <boost/filesystem/fstream.hpp>
+namespace fs = boost::filesystem;
 #include "Time.hpp"
 class Simulator;
 
@@ -44,7 +45,7 @@ private:
 
     // Queue Statistics
     void saveQueueLengthStatistics();
-    boost::filesystem::ofstream queueos;
+    fs::ofstream queueos;
     Time maxQueue;
 
     // CPU Statistics

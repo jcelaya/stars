@@ -20,12 +20,9 @@
  *
  */
 
-#include <map>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <log4cpp/Category.hh>
 #include "Logger.hpp"
-using namespace std;
-using namespace log4cpp;
 
 
 // time_duration fix >2 hour digits
@@ -37,37 +34,27 @@ struct fix2hourdigits {
 } fix2hourdigits_var;
 
 
-tracked_string * LogMsg::getPersistentString(const char * s) {
-    static map<const char *, tracked_string> stringMap;
-
-    tracked_string & result = stringMap[s];
-    if (result.t.size() == 0)
-        result.t = s;
-    return &result;
-}
-
-
-void LogMsg::setPriority(const string & catPrio) {
+void LogMsg::setPriority(const std::string & catPrio) {
     int pos = catPrio.find_first_of('=');
-    if (pos == (int)string::npos) return;
-    string category = catPrio.substr(0, pos);
-    string priority = catPrio.substr(pos + 1);
+    if (pos == (int)std::string::npos) return;
+    std::string category = catPrio.substr(0, pos);
+    std::string priority = catPrio.substr(pos + 1);
     try {
-        Priority::Value p = Priority::getPriorityValue(priority);
+        log4cpp::Priority::Value p = log4cpp::Priority::getPriorityValue(priority);
         if (category == "root") {
-            Category::setRootPriority(p);
+            log4cpp::Category::setRootPriority(p);
         } else {
-            Category::getInstance(category).setPriority(p);
+            log4cpp::Category::getInstance(category).setPriority(p);
         }
     } catch (std::invalid_argument & e) {}
 }
 
 
-void LogMsg::log(tracked_string * category, int priority, const list<LogMsg::AbstractTypeContainer *> & values) {
-    Category & cat = Category::getInstance(*category);
+void LogMsg::log(const std::string & category, int priority, const std::list<LogMsg::AbstractTypeContainer *> & values) {
+    log4cpp::Category & cat = log4cpp::Category::getInstance(category);
     if (cat.isPriorityEnabled(priority)) {
-        CategoryStream cs = cat.getStream(priority);
-        for (list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); it++)
+        log4cpp::CategoryStream cs = cat.getStream(priority);
+        for (std::list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); it++)
             cs << **it;
     }
 }

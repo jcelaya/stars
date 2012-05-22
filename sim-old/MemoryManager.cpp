@@ -21,23 +21,12 @@
  */
 
 #include "MemoryManager.hpp"
+#include <sys/types.h>
 #include <sys/user.h>
 #include <unistd.h>
 #include <fstream>
 #include <cstring>
 using namespace std;
-
-
-MemoryManager::MemoryManager() : max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(getpid()) {
-    p = &pidText[14];
-    strcpy(p--, "/stat");
-    while (pid > 0) {
-        *p-- = (pid % 10) + '0';
-        pid /= 10;
-    }
-    p -= 5;
-    memcpy(p, "/proc/", 6);
-}
 
 
 unsigned long int MemoryManager::getMaxMemory() {
@@ -51,11 +40,22 @@ unsigned long int MemoryManager::getMaxMemory() {
 
 unsigned long int MemoryManager::getUsedMemory() {
     unsigned long int result = 0;
+    pid_t pid = getpid();
+    char pidText[20], * p = &pidText[14];
+    strcpy(p--, "/stat");
+    while (pid > 0) {
+        *p-- = (pid % 10) + '0';
+        pid /= 10;
+    }
+    p -= 5;
+    memcpy(p, "/proc/", 6);
     ifstream file(p);
-    for (int i = 0; file.good() && i < 23; i++)
-        file.ignore(1000, ' ');
-    file >> result;
-    result *= pagesize;
+    if (file.good()) {
+        for (int i = 0; i < 23; i++)
+            file.ignore(1000, ' ');
+        file >> result;
+    }
+    result *= sysconf(_SC_PAGESIZE);
     if (max < result) max = result;
     return result;
 }
