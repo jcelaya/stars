@@ -23,6 +23,7 @@
 #include "SimTask.hpp"
 #include "Logger.hpp"
 #include "TaskStateChgMsg.hpp"
+#include "TaskDescription.hpp"
 #include "Simulator.hpp"
 #include "PeerCompNode.hpp"
 
@@ -40,7 +41,7 @@ SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDes
 
 int SimTask::getStatus() const {
     if (timer == -1) return Prepared;
-    else if (finishTime > Simulator::getInstance().getCurrentTime()) return Running;
+    else if (finishTime > Simulator::getCurrentTime()) return Running;
     else return Finished;
 }
 
@@ -52,7 +53,7 @@ void SimTask::run() {
         tfm->setOldState(Running);
         tfm->setNewState(Finished);
         timer = Simulator::getInstance().getCurrentNode().setTimer(taskDuration, tfm);
-        finishTime = Simulator::getInstance().getCurrentTime() + taskDuration;
+        finishTime = Simulator::getCurrentTime() + taskDuration;
         LogMsg("Sim.Task", DEBUG) << "Running task " << taskId << " until " << finishTime;
     }
 }
@@ -60,14 +61,14 @@ void SimTask::run() {
 
 void SimTask::abort() {
     // Cancel timer only if the task is running
-    if (timer != -1 && finishTime > Simulator::getInstance().getCurrentTime())
+    if (timer != -1 && finishTime > Simulator::getCurrentTime())
         Simulator::getInstance().cancelTimer(timer);
 }
 
 
 Duration SimTask::getEstimatedDuration() const {
     if (timer == -1) return taskDuration;
-    else if (finishTime > Simulator::getInstance().getCurrentTime())
-        return finishTime - Simulator::getInstance().getCurrentTime();
+    else if (finishTime > Simulator::getCurrentTime())
+        return finishTime - Simulator::getCurrentTime();
     else return Duration();
 }

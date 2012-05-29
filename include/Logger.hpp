@@ -25,11 +25,23 @@
 
 #include <string>
 #include <ostream>
-#include <list>
 
 
 class LogMsg {
 public:
+    class AbstractTypeContainer {
+    public:
+        AbstractTypeContainer() : next(NULL) {}
+        virtual ~AbstractTypeContainer() {}
+        virtual void output(std::ostream & os) const = 0;
+        friend std::ostream & operator<<(std::ostream & os, const AbstractTypeContainer & r) {
+            r.output(os);
+            return os;
+        }
+        
+        AbstractTypeContainer * next;
+    };
+    
     /**
      * Initializes the logging facility with a configuration string. The string contains the same
      * pairs, separated by a semicolon.
@@ -45,63 +57,43 @@ public:
         setPriority(config.substr(start));
     }
     
-    LogMsg(const char * c, int p) : category(c), priority(p) {}
+    LogMsg(const char * c, int p) : first(NULL), last(NULL), category(c), priority(p) {}
     
     ~LogMsg() {
-        if (!values.empty()) {
-            log(category, priority, values);
-            while (!values.empty()) {
-                delete values.front();
-                values.pop_front();
+        if (first != NULL) {
+            log(category, priority, first);
+            while (first != NULL) {
+                AbstractTypeContainer * next = first->next;
+                delete first;
+                first = next;
             }
         }
     }
     
     template <typename T> LogMsg & operator<<(const T & value) {
-        values.push_back(new TypeReference<T>(value));
-        return *this;
-    }
-    
-    LogMsg & operator<<(const char * value) {
-        values.push_back(new ConstStringReference(value));
+        AbstractTypeContainer * n = new TypeReference<T>(value);
+        if (first == NULL)
+            first = last = n;
+        else
+            last = last->next = n;
         return *this;
     }
 
 private:
-    class AbstractTypeContainer {
-    public:
-        virtual ~AbstractTypeContainer() {}
-        virtual void output(std::ostream & os) const = 0;
-        friend std::ostream & operator<<(std::ostream & os, const AbstractTypeContainer & r) {
-            r.output(os);
-            return os;
-        }
-    };
-    
-    class ConstStringReference : public AbstractTypeContainer {
-        const char * value;
-        ConstStringReference() : value(NULL) {}
-        
-    public:
-        ConstStringReference(const char * i) : value(i) {}
-        void output(std::ostream & os) const {
-            os << std::string(value);
-        }
-    };
-    
     template <typename T> class TypeReference : public AbstractTypeContainer {
         const T * value;
     public:
         TypeReference(const T & i) : value(&i) {}
+        TypeReference(const T * i) : value(i) {}
         void output(std::ostream & os) const {
             os << *value;
         }
     };
     
-    std::list<AbstractTypeContainer *> values;
+    AbstractTypeContainer * first, * last;
     std::string category;
     int priority;
-    static void log(const std::string & category, int priority, const std::list<AbstractTypeContainer *> & values);
+    static void log(const std::string & category, int priority, AbstractTypeContainer * values);
     static void setPriority(const std::string & catPrio);
 };
 

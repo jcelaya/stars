@@ -49,46 +49,41 @@ using namespace boost::gregorian;
 int Simulator::Event::lastEventId = 0;
 
 
-bool Simulator::isLogEnabled(const std::string & category, int priority) {
-    return debugFile.is_open() && Category::getInstance(category).isPriorityEnabled(priority);
-}
-
-
-void LogMsg::log(const std::string & category, int priority, const list<LogMsg::AbstractTypeContainer *> & values) {
-    if (category == "Sim.Progress") {
-        ostringstream oss;
-        for (list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); ++it)
-            oss << **it;
-
-        Simulator::getInstance().progressLog(oss.str());
-    }
-    else if (Simulator::getInstance().isLogEnabled(category, priority)) {
-        ostringstream oss;
-        for (list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); ++it)
-            oss << **it;
-        
-        Simulator::getInstance().log(category, priority, oss.str());
-    }
-}
-
-
-void Simulator::log(const std::string & category, int priority, const string & msg) {
-    Duration realTime(getRealTime().total_microseconds());
-    Time curTime = time;
-    debugArchive << realTime << ' ' << curTime << ' ';
-    if(currentNode != NULL)
-        debugArchive << currentNode->getLocalAddress() << ',';
+void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
+    if (category == "Sim.Progress")
+        Simulator::getInstance().progressLog(values);
     else
-        debugArchive << "sim.control ";
-    debugArchive << category << '(' << priority << ')' << ' ' << msg << endl;
+        Simulator::getInstance().log(category, priority, values);
 }
 
+// TODO: log with XBT
+void Simulator::log(const std::string& category, int priority, LogMsg::AbstractTypeContainer* values) {
+    if (debugFile.is_open() && Category::getInstance(category).isPriorityEnabled(priority)) {
+        Duration realTime(getRealTime().total_microseconds());
+        Time curTime = time;
+        debugArchive << realTime << ' ' << curTime << ' ';
+        if(currentNode != NULL)
+            debugArchive << currentNode->getLocalAddress() << ',';
+        else
+            debugArchive << "sim.control ";
+        debugArchive << category << '(' << priority << ')' << ' ';
+        for (LogMsg::AbstractTypeContainer * it = values; it != NULL; it = it->next)
+            debugArchive << *it;
+        debugArchive << endl;
+    }
+}
 
-void Simulator::progressLog(const string & msg) {
-    cout << '#' << getpid() << ": " << msg << endl;
+// TODO: log with XBT
+void Simulator::progressLog(LogMsg::AbstractTypeContainer * values) {
+    cout << '#' << getpid() << ": ";
+    for (LogMsg::AbstractTypeContainer * it = values; it != NULL; it = it->next)
+        cout << *it;
+    cout << endl;
     
     if (progressFile.is_open()) {
-        progressFile << msg << endl;
+        for (LogMsg::AbstractTypeContainer * it = values; it != NULL; it = it->next)
+            progressFile << *it;
+        progressFile << endl;
     }
 }
 
@@ -214,8 +209,8 @@ void Simulator::setProperties(Properties & property) {
     progressFile.open(resultDir / logFile);
     debugFile.open(resultDir / "debug.log.gz");
     if (debugFile.is_open()) {
-        debugArchive.push(debugFile);
         debugArchive.push(boost::iostreams::gzip_compressor());
+        debugArchive.push(debugFile);
     }
     LogMsg::initLog(property("log_conf_string", string("")));
     LogMsg("Sim.Progress", 0) << "Running simulation test at " << microsec_clock::local_time() << ": " << property;

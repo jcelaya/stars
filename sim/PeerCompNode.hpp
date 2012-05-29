@@ -30,7 +30,7 @@ namespace fs = boost::filesystem;
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/scoped_ptr.hpp>
 namespace iost = boost::iostreams;
-#include <log4cpp/Priority.hh>
+#include <msg/msg.h>
 #include "CommLayer.hpp"
 #include "Logger.hpp"
 #include "Properties.hpp"
@@ -57,45 +57,32 @@ class PeerCompNodeFactory;
  * Dispatcher objects to them.
  */
 class PeerCompNode : public CommLayer {
-    friend class PeerCompNodeFactory;
-
-    int schedulerType;
-    boost::scoped_ptr<StructureNode> structureNode;
-    boost::scoped_ptr<ResourceNode> resourceNode;
-    boost::scoped_ptr<SubmissionNode> submissionNode;
-    boost::scoped_ptr<Scheduler> scheduler;
-    boost::scoped_ptr<DispatcherInterface> dispatcher;
-    boost::scoped_ptr<MinStretchDispatcher> minStretchDisp;
-    SimAppDatabase db;
-    double power;
-    unsigned long int mem;
-    unsigned long int disk;
-
 public:
-
     enum {
         SimpleSchedulerClass = 0,
         FCFSSchedulerClass = 1,
         EDFSchedulerClass = 2,
         MinStretchSchedulerClass = 3,
     };
-
+    
     PeerCompNode() {}
     PeerCompNode(const PeerCompNode & copy) {}
+    
     PeerCompNode & operator=(const PeerCompNode & copy) {
         return *this;
     }
-    void finish();
-
+    
+    void mainLoop();
+    
     void receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
         enqueueMessage(CommAddress(src, ConfigurationManager::getInstance().getPort()), msg);
         processNextMessage();
     }
-
+    
     void setLocalAddress(const CommAddress & local) {
         localAddress = local;
     }
-
+    
     // setup() must be called before these methods
     StructureNode & getS() const {
         return *structureNode;
@@ -112,7 +99,7 @@ public:
     SimAppDatabase & getDatabase() {
         return db;
     }
-
+    
     double getAveragePower() const {
         return power;
     }
@@ -125,31 +112,47 @@ public:
     int getSchedulerType() const {
         return schedulerType;
     }
-
-//     boost::shared_ptr<AvailabilityInformation> getBranchInfo() const;
-//     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
-//     unsigned int getSNLevel() const;
-// 
-//     void showRecursive(log4cpp::Priority::Value prio, unsigned int level, const std::string & prefix = "");
-//     void showPartialTree(bool isBranch, log4cpp::Priority::Value prio = log4cpp::Priority::DEBUG);
-//     unsigned int getRoot() const;
-//     static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
-//     static void checkTree();
-//     static void saveState(const Properties & property);
-// 
-//     void serializeState(portable_binary_oarchive & ar);
-//     void serializeState(portable_binary_iarchive & ar);
-//     void generateRNode(uint32_t rfather);
-//     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, int level);
-//     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
-//     template <class T>
-//     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, int level);
-//     template <class T>
-//     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
-
+    
+    //     boost::shared_ptr<AvailabilityInformation> getBranchInfo() const;
+    //     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
+    //     unsigned int getSNLevel() const;
+    // 
+    //     void showRecursive(log4cpp::Priority::Value prio, unsigned int level, const std::string & prefix = "");
+    //     void showPartialTree(bool isBranch, log4cpp::Priority::Value prio = log4cpp::Priority::DEBUG);
+    //     unsigned int getRoot() const;
+    //     static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
+    //     static void checkTree();
+    //     static void saveState(const Properties & property);
+    // 
+    //     void serializeState(portable_binary_oarchive & ar);
+    //     void serializeState(portable_binary_iarchive & ar);
+    //     void generateRNode(uint32_t rfather);
+    //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, int level);
+    //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
+    //     template <class T>
+    //     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, int level);
+    //     template <class T>
+    //     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
+    
     friend std::ostream & operator<<(std::ostream & os, const PeerCompNode & n) {
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
     }
+    
+private:
+    friend class PeerCompNodeFactory;
+
+    m_host_t simHost;
+    int schedulerType;
+    boost::scoped_ptr<StructureNode> structureNode;
+    boost::scoped_ptr<ResourceNode> resourceNode;
+    boost::scoped_ptr<SubmissionNode> submissionNode;
+    boost::scoped_ptr<Scheduler> scheduler;
+    boost::scoped_ptr<DispatcherInterface> dispatcher;
+    boost::scoped_ptr<MinStretchDispatcher> minStretchDisp;
+    SimAppDatabase db;
+    double power;
+    unsigned long int mem;
+    unsigned long int disk;
 };
 
 
@@ -172,7 +175,7 @@ class PeerCompNodeFactory {
     //boost::scoped_ptr<boost::archive::polymorphic_binary_iarchive> ia;
 
 public:
-    PeerCompNodeFactory(const Properties & property);
+    void setupFactory(const Properties & property);
 
     void setupNode(uint32_t local, PeerCompNode & node);
 };

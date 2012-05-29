@@ -187,10 +187,9 @@ public:
     int setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg);
     void cancelTimer(int timerId);
 
-    void progressLog(const std::string & msg);
-    bool isLogEnabled(const std::string & category, int priority);
-    void log(const std::string & category, int priority, const std::string & msg);
-
+    void progressLog(LogMsg::AbstractTypeContainer* values);
+    void log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values);
+    
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
 
     // Return a random double in interval (0, 1]

@@ -22,7 +22,6 @@
 
 #include <sstream>
 #include <boost/date_time/gregorian/gregorian.hpp>
-#include <log4cpp/Category.hh>
 #include "PeerCompNode.hpp"
 #include "ResourceNode.hpp"
 #include "StructureNode.hpp"
@@ -48,13 +47,10 @@ using boost::shared_ptr;
 using boost::scoped_ptr;
 
 
-static log4cpp::Category & treeCat = log4cpp::Category::getInstance("Sim.Tree");
-
-
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
     PeerCompNode & node;
 public:
-    SimExecutionEnvironment(PeerCompNode & n) : node(n) {}
+    SimExecutionEnvironment() : node(Simulator::getCurrentNode()) {}
 
     double getAveragePower() const {
         return node.getAveragePower();
@@ -77,7 +73,7 @@ public:
 // Rewritten methods
 // Execution environment
 Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl()
-        : impl(new SimExecutionEnvironment(Simulator::getInstance().getCurrentNode())) {}
+        : impl(new SimExecutionEnvironment()) {}
 
 
 // CommLayer
@@ -86,7 +82,7 @@ CommLayer::CommLayer() : exitSignaled(false) {}
 
 CommLayer & CommLayer::getInstance() {
     // Always called from PeerCompLib!!
-    return Simulator::getInstance().getCurrentNode();
+    return Simulator::getCurrentNode();
 }
 
 
@@ -107,33 +103,16 @@ void CommLayer::cancelTimer(int timerId) {
 
 // Time
 Time Time::getCurrentTime() {
-    return Simulator::getInstance().getCurrentTime();
+    return Time(int64_t(MSG_get_clock() * 1000000));
 }
 
 
 std::ostream & operator<<(std::ostream & os, const Time & r) {
-    static ptime firstRef = ptime(date(2000, Jan, 1), seconds(0));
-    try {
-        return os << (firstRef + microseconds(r.getRawDate()));
-    } catch (...) {
-        return os << "wrong date (" << r.getRawDate() << ")?";
-    }
+    return os << Duration(r.getRawDate());
 }
 
 
-void PeerCompNode::finish() {
-    // Very important to set current node before destroying services
-    //Simulator::getInstance().setCurrentNode(getLocalAddress().getIPNum());
-    structureNode.reset();
-    resourceNode.reset();
-    submissionNode.reset();
-    scheduler.reset();
-    dispatcher.reset();
-    minStretchDisp.reset();
-}
-
-
-PeerCompNodeFactory::PeerCompNodeFactory(const Properties & property) {
+void PeerCompNodeFactory::setupFactory(const Properties & property) {
     SimAppDatabase::reset();
     fanout = property("fanout", 2);
     minCPU = property("min_cpu", 1000.0);
@@ -173,6 +152,7 @@ PeerCompNodeFactory::PeerCompNodeFactory(const Properties & property) {
 
 void PeerCompNodeFactory::setupNode(uint32_t local, PeerCompNode & node) {
     node.setLocalAddress(CommAddress(local, ConfigurationManager::getInstance().getPort()));
+    node.simHost = MSG_host_self();
     // Execution power follows discretized pareto distribution, with k=1
     node.power = Simulator::discretePareto(minCPU, maxCPU, stepCPU, 1.0);
     node.mem = Simulator::uniform(minMem, maxMem, stepMem);
@@ -202,6 +182,24 @@ void PeerCompNodeFactory::setupNode(uint32_t local, PeerCompNode & node) {
         //node.serializeState(*ia);
         break;
     }
+}
+
+
+void PeerCompNode::mainLoop() {
+    // TODO
+    // This method is the main method of the peer
+    
+    // Event loop: receive messages from the simulator and treat them
+    // There must be some way of gracely terminating the loop, so that the destructors of the services are
+    // executed in this thread
+
+    // Gracely terminate the services
+    structureNode.reset();
+    resourceNode.reset();
+    submissionNode.reset();
+    scheduler.reset();
+    dispatcher.reset();
+    minStretchDisp.reset();
 }
 
 

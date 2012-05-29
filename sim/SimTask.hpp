@@ -24,8 +24,7 @@
 #define SIMTASK_H_
 
 #include "Task.hpp"
-#include "TaskDescription.hpp"
-#include "Simulator.hpp"
+class TaskDescription;
 
 
 class SimTask : public Task {

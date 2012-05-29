@@ -30,6 +30,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <msg/msg.h>
 #include "BasicMsg.hpp"
 #include "PeerCompNode.hpp"
 #include "Properties.hpp"
@@ -37,6 +38,7 @@
 #include "PeerCompStatistics.hpp"
 #include "PerformanceStatistics.hpp"
 class PerfectScheduler;
+class SimulationCase;
 
 
 class Simulator {
@@ -46,58 +48,60 @@ public:
         return instance;
     }
 
-    ~Simulator();
-
-    void setProperties(Properties & property);
-    void run();
-    void stop() {
-        doStop = true;
-    }
-    bool isPrepared() const {
-        return !doStop;
-    }
-    void showStatistics();
+    bool run(Properties & property);
+    
+    /**
+     * The entry point for every process.
+     */
+    static int processFunction(int argc, char * argv[]);
 
     unsigned long int getNumNodes() const {
         return routingTable.size();
     }
+    
     PeerCompNode & getNode(unsigned int i) {
         return routingTable[i];
     }
-    PeerCompNode & getCurrentNode() {
-        return *currentNode;
-    }
+    
     const boost::filesystem::path & getResultDir() const {
         return resultDir;
     }
-    PerformanceStatistics & getPStats() {
-        return pstats;
+    
+    static PeerCompNode & getCurrentNode() {
+        return *static_cast<PeerCompNode *>(MSG_host_get_data(MSG_host_self()));
     }
-    PeerCompStatistics & getPCStats() {
-        return pcstats;
-    }
+    
+//     PerformanceStatistics & getPStats() {
+//         return pstats;
+//     }
+//     PeerCompStatistics & getPCStats() {
+//         return pcstats;
+//     }
 
     // Network methods
     unsigned int sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg);
+    
     unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
                                Duration d = Duration(0.0), bool withOpDuration = false);
 
     // Time methods
-    Time getCurrentTime() const {
-        return time;
+    static Time getCurrentTime() {
+        return Time(int64_t(MSG_get_clock() * 1000000));
     }
+    
     boost::posix_time::time_duration getRealTime() const {
-        return real_time + (boost::posix_time::microsec_clock::local_time() - start);
+        return boost::posix_time::microsec_clock::local_time() - simStart;
     }
+
     int setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg);
+
     void cancelTimer(int timerId);
 
-    void progressLog(const std::string & msg);
-    bool isLogEnabled(const std::string & category, int priority);
-    void log(const std::string & category, int priority, const std::string & msg);
-    
-    static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
+    // Log methods
+    void progressLog(const char * msg);
 
+    void log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values);
+    
     // Return a random double in interval (0, 1]
     static double uniform01() {
         double r = (std::rand() + 1.0) / (RAND_MAX + 1.0);
@@ -142,31 +146,31 @@ public:
     }
 
 private:
+    // Helpers
+    unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
+    
     // Simulation framework
     std::vector<PeerCompNode> routingTable;
-    Time time;
     std::string platformFile;
-    std::string applicationFile;
-
-    PeerCompNode * currentNode;
+    PeerCompNodeFactory nodeFactory;
+    boost::shared_ptr<SimulationCase> simCase;
+    
     boost::filesystem::path resultDir;
     boost::filesystem::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
-    PerformanceStatistics pstats;
 
     // Simulation global statistics
-    PeerCompStatistics pcstats;
-    boost::posix_time::ptime start, end, opStart;
-    boost::posix_time::time_duration real_time;
-    bool measureSize;
+    // TODO: beware concurrency
+    //PerformanceStatistics pstats;
+    //PeerCompStatistics pcstats;
+    boost::posix_time::ptime simStart, opStart;
     boost::posix_time::time_duration maxRealTime;
     Duration maxSimTime;
     unsigned int maxMemUsage;
     unsigned int showStep;
-    bool doStop;
 
     // Singleton
-    Simulator();
+    Simulator() {}
 };
 
 #endif /*SIMULATOR_H_*/

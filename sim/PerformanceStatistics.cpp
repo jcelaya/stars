@@ -75,7 +75,7 @@ void PerformanceStatistics::savePartialStatistics() {
 
     // Save statistics
     Simulator & sim = Simulator::getInstance();
-    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << sim.getCurrentTime() << endl;
+    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Simulator::getCurrentTime() << endl;
     for (list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
         os << "   " << it->ev->first << ": "
         << it->ev->second.partialNumEvents << " events at "
@@ -103,7 +103,7 @@ void PerformanceStatistics::saveTotalStatistics() {
     // Save statistics
     Simulator & sim = Simulator::getInstance();
     os << "Final Statistics" << endl;
-    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << sim.getCurrentTime() << endl;
+    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Simulator::getCurrentTime() << endl;
     for (list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
         os << "   " << it->ev->first << ": "
         << it->ev->second.totalNumEvents << " events at "

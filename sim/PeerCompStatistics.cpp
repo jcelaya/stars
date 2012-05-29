@@ -37,12 +37,12 @@ PeerCompStatistics::PeerCompStatistics() : sim(Simulator::getInstance()) {
 
 // Queue statistics
 void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
-    Simulator::getInstance().getPCStats().queueChangedStatistics(rid, numAccepted, queueEnd);
+    //Simulator::getInstance().getPCStats().queueChangedStatistics(rid, numAccepted, queueEnd);
 }
 
 
 void PeerCompStatistics::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
-    Time now = sim.getCurrentTime();
+    Time now = Simulator::getCurrentTime();
     if (maxQueue < queueEnd) {
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
         << ",queue length updated" << std::endl;
@@ -55,7 +55,7 @@ void PeerCompStatistics::queueChangedStatistics(unsigned int rid, unsigned int n
 
 
 void PeerCompStatistics::saveQueueLengthStatistics() {
-    Time now = sim.getCurrentTime();
+    Time now = Simulator::getCurrentTime();
     queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << ",end" << std::endl;
 }
 

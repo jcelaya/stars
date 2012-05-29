@@ -25,6 +25,7 @@
 #include "Logger.hpp"
 
 
+namespace {
 // time_duration fix >2 hour digits
 struct fix2hourdigits {
     fix2hourdigits() {
@@ -32,6 +33,7 @@ struct fix2hourdigits {
         boost::posix_time::time_facet::default_time_duration_format = format;
     }
 } fix2hourdigits_var;
+}
 
 
 void LogMsg::setPriority(const std::string & catPrio) {
@@ -50,11 +52,11 @@ void LogMsg::setPriority(const std::string & catPrio) {
 }
 
 
-void LogMsg::log(const std::string & category, int priority, const std::list<LogMsg::AbstractTypeContainer *> & values) {
+void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
     log4cpp::Category & cat = log4cpp::Category::getInstance(category);
     if (cat.isPriorityEnabled(priority)) {
         log4cpp::CategoryStream cs = cat.getStream(priority);
-        for (std::list<LogMsg::AbstractTypeContainer *>::const_iterator it = values.begin(); it != values.end(); it++)
-            cs << **it;
+        for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
+            cs << *it;
     }
 }

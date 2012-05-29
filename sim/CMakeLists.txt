@@ -8,7 +8,18 @@ if(SIMGRID_FOUND)
     include_directories(.)
 
     # Sources
-    file(GLOB starssim_sources *.cpp simulations/*.cpp)
+    set(starssim_sources
+        Distributions.cpp
+        MemoryManager.cpp
+        PeerCompNode.cpp
+        PeerCompStatistics.cpp
+        PerformanceStatistics.cpp
+        Properties.cpp
+        SimAppDatabase.cpp
+        SimTask.cpp
+        SimulationCase.cpp
+        Simulator.cpp
+        cases/Structure.cpp)
 
     set(STARS_LIBRARIES stars-${CMAKE_BUILD_TYPE})
 
@@ -16,4 +27,3 @@ if(SIMGRID_FOUND)
     add_executable(stars-simgrid ${starssim_sources})
     target_link_libraries(stars-simgrid ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES})
 endif(SIMGRID_FOUND)
-
