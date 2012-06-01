@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,85 +23,114 @@
 #ifndef SIMULATOR_H_
 #define SIMULATOR_H_
 
-#include <map>
 #include <vector>
 #include <cmath>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/scoped_array.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <boost/thread/mutex.hpp>
 #include <msg/msg.h>
-#include "BasicMsg.hpp"
 #include "PeerCompNode.hpp"
+#include "SimulationCase.hpp"
 #include "Properties.hpp"
 #include "Time.hpp"
 #include "PeerCompStatistics.hpp"
 #include "PerformanceStatistics.hpp"
-class PerfectScheduler;
-class SimulationCase;
+class BasicMsg;
 
 
+/**
+ * Main simulator class.
+ * 
+ * This class interfaces the rest of the simulation components and the STaRS library
+ * with SimGrid.
+ */
 class Simulator {
 public:
+    /**
+     * Returns the singleton instance.
+     */
     static Simulator & getInstance() {
         static Simulator instance;
         return instance;
     }
 
+    /**
+     * Run a simulation case.
+     * 
+     * @param property The set of properties of this case. Refer to class Properties for
+     * the set of standard properties.
+     */
     bool run(Properties & property);
     
+    void stop() { end = true; }
+    
+    bool doContinue();
+    
     /**
-     * The entry point for every process.
+     * Returns the SimulationCase instance that is being run.
      */
-    static int processFunction(int argc, char * argv[]);
-
+    SimulationCase & getCase() { return *simCase; }
+    
+    /**
+     * Returns the number of nodes in the table. This is actually the number of processes,
+     * which in practice is the same as the number of hosts.
+     */
     unsigned long int getNumNodes() const {
-        return routingTable.size();
+        return MSG_get_host_number();
     }
     
     PeerCompNode & getNode(unsigned int i) {
         return routingTable[i];
     }
     
+    /**
+     * Returns the path of the directory containing the result files, such as logs.
+     */
     const boost::filesystem::path & getResultDir() const {
         return resultDir;
     }
     
+    /**
+     * Returns the PeerCompNode instance associated to the current process.
+     */
     static PeerCompNode & getCurrentNode() {
         return *static_cast<PeerCompNode *>(MSG_host_get_data(MSG_host_self()));
     }
     
-//     PerformanceStatistics & getPStats() {
-//         return pstats;
-//     }
+    /**
+     * Returns the PerformanceStatistics object, to record a new event.
+     */
+    PerformanceStatistics & getPerformanceStatistics() {
+        return pstats;
+    }
+
 //     PeerCompStatistics & getPCStats() {
 //         return pcstats;
 //     }
 
     // Network methods
-    unsigned int sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg);
-    
-    unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
-                               Duration d = Duration(0.0), bool withOpDuration = false);
+//     unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
+//                                Duration d = Duration(0.0), bool withOpDuration = false);
 
     // Time methods
+    /**
+     * Returns the current simulated time.
+     */
     static Time getCurrentTime() {
         return Time(int64_t(MSG_get_clock() * 1000000));
     }
     
+    /**
+     * Returns the elapsed time since the simulation started. It does not take into account
+     * the time needed to prepare the simulation case.
+     */
     boost::posix_time::time_duration getRealTime() const {
         return boost::posix_time::microsec_clock::local_time() - simStart;
     }
 
-    int setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg);
-
-    void cancelTimer(int timerId);
-
-    // Log methods
-    void progressLog(const char * msg);
-
-    void log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values);
-    
     // Return a random double in interval (0, 1]
     static double uniform01() {
         double r = (std::rand() + 1.0) / (RAND_MAX + 1.0);
@@ -146,30 +175,39 @@ public:
     }
 
 private:
-    // Helpers
-    unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
+    // Log methods
+    friend class LogMsg;
+    
+    /**
+     * Logs a message to the log file.
+     * @param category The category of the message, with subcategories separated with dots.
+     * @param priority The priority of the message, as stated by log4cpp.
+     * @param values The list of values to be logged.
+     */
+    void log(const char *  category, int priority, LogMsg::AbstractTypeContainer * values);
     
     // Simulation framework
-    std::vector<PeerCompNode> routingTable;
-    std::string platformFile;
-    PeerCompNodeFactory nodeFactory;
-    boost::shared_ptr<SimulationCase> simCase;
+    boost::scoped_array<PeerCompNode> routingTable;   ///< The set of PeerCompNodes in this simulation.
+    boost::scoped_ptr<SimulationCase> simCase;        ///< The current simulation case. Currently, only one is allowed per execution.
+    bool end;                                         ///< Signals the end of the simulation
     
-    boost::filesystem::path resultDir;
-    boost::filesystem::ofstream progressFile, debugFile;
-    boost::iostreams::filtering_ostream debugArchive;
+    boost::filesystem::path resultDir;                  ///< The path to the directory that contains the results.
+    boost::filesystem::ofstream debugFile;              ///< The log4cpp file.
+    boost::iostreams::filtering_ostream debugArchive;   ///< GZip filter for the log file.
+    boost::mutex debugMutex;                            ///< Mutex to write to the log file.
 
     // Simulation global statistics
-    // TODO: beware concurrency
-    //PerformanceStatistics pstats;
+    PerformanceStatistics pstats;
     //PeerCompStatistics pcstats;
-    boost::posix_time::ptime simStart, opStart;
-    boost::posix_time::time_duration maxRealTime;
+    boost::posix_time::ptime simStart;              ///< Start time of the simulation.
+    boost::posix_time::ptime nextProgress;          ///< Time to show next progress step
+    boost::posix_time::ptime opStart;
+    boost::posix_time::time_duration maxRealTime;   ///< Foo
     Duration maxSimTime;
     unsigned int maxMemUsage;
     unsigned int showStep;
 
-    // Singleton
+    /// Default constructor, it's private to disallow instantiation outside getInstance() method.
     Simulator() {}
 };
 

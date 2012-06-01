@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -80,24 +80,38 @@ Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl()
 CommLayer::CommLayer() : exitSignaled(false) {}
 
 
+// The following functions must allways be called from an agent's thread
 CommLayer & CommLayer::getInstance() {
-    // Always called from PeerCompLib!!
     return Simulator::getCurrentNode();
 }
 
 
+namespace {
+    void deleteFailedMsg(void * task) {
+        delete static_cast<BasicMsg *>(MSG_task_get_data(static_cast<m_task_t>(task)));
+        MSG_task_destroy(static_cast<m_task_t>(task));
+    }
+}
+
+
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
-    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), shared_ptr<BasicMsg>(msg));
+    if (dst == getLocalAddress()) {
+        enqueueMessage(dst, boost::shared_ptr<BasicMsg>(msg));
+        return 0;
+    } else {
+        unsigned long int size = PeerCompNode::getMsgSize(msg) + 90;
+        MSG_task_dsend(MSG_task_create("foo", 0, size, msg), Simulator::getInstance().getNode(dst.getIPNum()).getMailbox().c_str(), deleteFailedMsg);
+        return size;
+    }
 }
 
 
 int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
-    return Simulator::getInstance().setTimer(localAddress.getIPNum(), time, msg);
-}
-
-
-void CommLayer::cancelTimer(int timerId) {
-    Simulator::getInstance().cancelTimer(timerId);
+    // Add a task to the timer structure
+    Timer t(time, msg);
+    timerList.push_front(t);
+    timerList.sort();
+    return t.id;
 }
 
 
@@ -112,6 +126,7 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 }
 
 
+// Factory methods
 void PeerCompNodeFactory::setupFactory(const Properties & property) {
     SimAppDatabase::reset();
     fanout = property("fanout", 2);
@@ -150,9 +165,7 @@ void PeerCompNodeFactory::setupFactory(const Properties & property) {
 }
 
 
-void PeerCompNodeFactory::setupNode(uint32_t local, PeerCompNode & node) {
-    node.setLocalAddress(CommAddress(local, ConfigurationManager::getInstance().getPort()));
-    node.simHost = MSG_host_self();
+void PeerCompNodeFactory::setupNode(PeerCompNode & node) {
     // Execution power follows discretized pareto distribution, with k=1
     node.power = Simulator::discretePareto(minCPU, maxCPU, stepCPU, 1.0);
     node.mem = Simulator::uniform(minMem, maxMem, stepMem);
@@ -185,14 +198,70 @@ void PeerCompNodeFactory::setupNode(uint32_t local, PeerCompNode & node) {
 }
 
 
-void PeerCompNode::mainLoop() {
-    // TODO
-    // This method is the main method of the peer
+int PeerCompNode::processFunction(int argc, char * argv[]) {
+    // NOTE: Beware concurrency!!!!
+    // Initialise the current node
+    Simulator & sim = Simulator::getInstance();
+    PeerCompNode & node = Simulator::getCurrentNode();
+    PeerCompNodeFactory::getInstance().setupNode(node);
+    LogMsg("Sim.Process", DEBUG) << "Peer running at " << MSG_host_get_name(node.getHost()) << " with address " << node.getLocalAddress();
     
-    // Event loop: receive messages from the simulator and treat them
-    // There must be some way of gracely terminating the loop, so that the destructors of the services are
-    // executed in this thread
+    // Message loop
+    while(sim.doContinue()) {
+        // Event loop: receive messages from the simulator and treat them
+        m_task_t task = NULL;
+        double timeout = node.getTimeout();
+        msg_comm_t comm = MSG_task_irecv(&task, node.getMailbox().c_str());
+        if (MSG_comm_wait(comm, timeout) == MSG_OK) {
+            MSG_comm_destroy(comm);
+            BasicMsg * msg = static_cast<BasicMsg *>(MSG_task_get_data(task));
+            const CommAddress & src = static_cast<PeerCompNode *>(MSG_host_get_data(MSG_task_get_source(task)))->getLocalAddress();
+            node.enqueueMessage(src, boost::shared_ptr<BasicMsg>(msg));
+            while (!node.messageQueue.empty())
+                node.processNextMessage();
+        } else {
+            MSG_comm_destroy(comm);
+            // Check timers
+            node.checkExpired();
+        }
+    }
+    
+    node.finish();
+    return 0;
+}
 
+
+unsigned long int PeerCompNode::getMsgSize(BasicMsg * msg) {
+    unsigned long int size = 0;
+    std::stringstream ss;
+    portable_binary_oarchive oa(ss);
+    oa << msg;
+    size = ss.tellp();
+    return size;
+}
+
+
+void PeerCompNode::checkExpired() {
+    Time ct = Time::getCurrentTime();
+    while (!timerList.empty()) {
+        if (timerList.front().timeout <= ct) {
+            enqueueMessage(localAddress, timerList.front().msg);
+            timerList.pop_front();
+        } else break;
+    }
+}
+
+
+void PeerCompNode::setAddressAndHost(unsigned int addr, m_host_t host) {
+    localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
+    simHost = host;
+    ostringstream oss;
+    oss << localAddress;
+    mailbox = oss.str();
+}
+
+
+void PeerCompNode::finish() {
     // Gracely terminate the services
     structureNode.reset();
     resourceNode.reset();

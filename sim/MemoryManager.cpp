@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,15 +20,15 @@
  *
  */
 
-#include "MemoryManager.hpp"
 #include <sys/user.h>
 #include <unistd.h>
 #include <fstream>
 #include <cstring>
-using namespace std;
+#include "MemoryManager.hpp"
 
 
-MemoryManager::MemoryManager() : max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(getpid()) {
+MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(sysconf(_SC_PAGESIZE)),
+        pid(getpid()), nextUpdate(boost::posix_time::microsec_clock::local_time() - boost::posix_time::seconds(1)) {
     p = &pidText[14];
     strcpy(p--, "/stat");
     while (pid > 0) {
@@ -40,22 +40,22 @@ MemoryManager::MemoryManager() : max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(ge
 }
 
 
-unsigned long int MemoryManager::getMaxMemory() {
-    unsigned long int result;
-    string dummy;
-    ifstream file("/proc/meminfo");
-    file >> dummy >> result;
-    return (result << 1) * 461;   // Approx 90% of total memory
-}
-
-
-unsigned long int MemoryManager::getUsedMemory() {
-    unsigned long int result = 0;
-    ifstream file(p);
-    for (int i = 0; file.good() && i < 23; i++)
-        file.ignore(1000, ' ');
-    file >> result;
-    result *= pagesize;
-    if (max < result) max = result;
-    return result;
+void MemoryManager::update() {
+    boost::mutex::scoped_lock lock(m);
+    boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+    if (now >= nextUpdate) {
+        std::string dummy;
+        std::ifstream meminfo("/proc/meminfo");
+        meminfo >> dummy >> max;
+        max = (max << 1) * 461;   // Approx 90% of total memory
+        
+        std::ifstream file(p);
+        for (int i = 0; file.good() && i < 23; ++i)
+            file.ignore(1000, ' ');
+        file >> current;
+        current *= pagesize;
+        if (maxUsed < current) maxUsed = current;
+        
+        nextUpdate = now + boost::posix_time::seconds(5);
+    }
 }

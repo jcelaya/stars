@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,8 +33,7 @@ unsigned int SimTask::runningTasks = 0;
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
     runningTasks++;
-    taskDuration = Duration(description.getLength() /
-                            (double)Simulator::getInstance().getCurrentNode().getAveragePower());
+    taskDuration = Duration(description.getLength() / Simulator::getCurrentNode().getAveragePower());
     LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
 }
 
@@ -52,7 +51,7 @@ void SimTask::run() {
         tfm->setTaskId(taskId);
         tfm->setOldState(Running);
         tfm->setNewState(Finished);
-        timer = Simulator::getInstance().getCurrentNode().setTimer(taskDuration, tfm);
+        timer = Simulator::getCurrentNode().setTimer(taskDuration, tfm);
         finishTime = Simulator::getCurrentTime() + taskDuration;
         LogMsg("Sim.Task", DEBUG) << "Running task " << taskId << " until " << finishTime;
     }
@@ -62,7 +61,7 @@ void SimTask::run() {
 void SimTask::abort() {
     // Cancel timer only if the task is running
     if (timer != -1 && finishTime > Simulator::getCurrentTime())
-        Simulator::getInstance().cancelTimer(timer);
+        Simulator::getCurrentNode().cancelTimer(timer);
 }
 
 

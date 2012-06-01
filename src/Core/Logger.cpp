@@ -52,7 +52,7 @@ void LogMsg::setPriority(const std::string & catPrio) {
 }
 
 
-void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
+void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
     log4cpp::Category & cat = log4cpp::Category::getInstance(category);
     if (cat.isPriorityEnabled(priority)) {
         log4cpp::CategoryStream cs = cat.getStream(priority);

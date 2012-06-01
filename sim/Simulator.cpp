@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,9 +23,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <csignal>
-#include <iostream>
 #include <sstream>
-#include <algorithm>
 #include <log4cpp/Category.hh>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <xbt/log.h>
@@ -40,10 +38,8 @@ namespace fs = boost::filesystem;
 namespace pt = boost::posix_time;
 
 
-#define PROGRESS(x) {std::ostringstream foo; foo << x; progressLog(foo.str().c_str());}
-
-XBT_LOG_NEW_CATEGORY(Sim, "Simulation messages");
-XBT_LOG_NEW_DEFAULT_SUBCATEGORY(Progress, Sim, "Simulation progress messages");
+XBT_LOG_NEW_DEFAULT_CATEGORY(Progress, "Simulation progress messages");
+#define PROGRESS(x) {std::ostringstream foo; foo << x; XBT_CRITICAL("%s", foo.str().c_str());}
 
 
 namespace {
@@ -61,30 +57,14 @@ namespace {
 }
 
 
-// TODO: log with XBT
-void LogMsg::setPriority(const std::string & catPrio) {
-//     int pos = catPrio.find_first_of('=');
-//     if (pos == (int)std::string::npos) return;
-//     std::string category = catPrio.substr(0, pos);
-//     std::string priority = catPrio.substr(pos + 1);
-//     try {
-//         log4cpp::Priority::Value p = log4cpp::Priority::getPriorityValue(priority);
-//         if (category == "root") {
-//             log4cpp::Category::setRootPriority(p);
-//         } else {
-//             log4cpp::Category::getInstance(category).setPriority(p);
-//         }
-//     } catch (std::invalid_argument & e) {}
+void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
+    Simulator::getInstance().log(category, priority, values);
 }
 
 
-void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
-    Simulator::getInstance().log(category, log4cpp2XBTPrio[priority], values);
-}
-
-// TODO: log with XBT
-void Simulator::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
+void Simulator::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
     if (debugFile.is_open() && log4cpp::Category::getInstance(category).isPriorityEnabled(priority)) {
+        boost::mutex::scoped_lock lock(debugMutex);
         debugArchive << Duration(getRealTime().total_microseconds()) << ' ' << getCurrentTime() << ' '
                 << getCurrentNode().getLocalAddress() << ','
                 << category << '(' << priority << ')' << ' ';
@@ -94,29 +74,22 @@ void Simulator::log(const std::string & category, int priority, LogMsg::Abstract
     }
 }
 
-void Simulator::progressLog(const char * msg) {
-    XBT_CLOG(Progress, xbt_log_priority_critical, "#%d: %s", getpid(), msg);
-    
-    if (progressFile.is_open()) {
-        progressFile << msg << std::endl;
-    }
-}
-
 
 void finish(int param) {
-    std::cout << "Stopping due to user signal" << std::endl;
-    MSG_process_killall(-1);
+    XBT_CRITICAL("Stopping due to user signal");
+    Simulator::getInstance().stop();
 }
 
 
 int main(int argc, char * argv[]) {
+    xbt_log_control_set("root.fmt:%m%n");
 #ifdef __x86_64__
-    std::cout << "STaRS SimGrid-based simulator 64bits PID " << getpid() << std::endl;
+    XBT_CRITICAL("STaRS SimGrid-based simulator 64bits PID %d", getpid());
 #else
-    std::cout << "STaRS SimGrid-based simulator 32bits PID " << getpid() << std::endl;
-#endif
+    XBT_CRITICAL("STaRS SimGrid-based simulator 32bits PID %d", getpid());
+    #endif
     if (argc != 2) {
-        std::cout << "Usage: stars-sim config_file" << std::endl;
+        XBT_CRITICAL("Usage: stars-sim config_file");
         return 1;
     }
 
@@ -127,17 +100,14 @@ int main(int argc, char * argv[]) {
     setrlimit(RLIMIT_CORE, &zeroLimit);
 #endif
 
-    MemoryManager::getInstance().reset();
-    Simulator & sim = Simulator::getInstance();
     std::signal(SIGUSR1, finish);
     
     // Init simulation framework
     MSG_global_init(&argc, argv);
-    MSG_set_channel_number(1);
 
     Properties property;
     property.loadFromFile(std::string(argv[1]));
-    bool result = sim.run(property);
+    bool result = Simulator::getInstance().run(property);
     
     // Cleanup
     MSG_clean();
@@ -163,43 +133,47 @@ static bool checkLogFile(const fs::path & logFile) {
 
 
 bool Simulator::run(Properties & property) {
+    // Simulator starts running
     pt::ptime start = pt::microsec_clock::local_time();
     
-    boost::shared_ptr<SimulationCase> simCase = CaseFactory::getInstance().createCase(property("case_name", std::string("")), property);
+    // Create simulation case
+    simCase.reset(CaseFactory::getInstance().createCase(property("case_name", std::string("")), property));
     if (!simCase.get()) {
-        PROGRESS("ERROR: No test exists with name \"" << property("case_name", std::string("")) << '"');
+        XBT_CRITICAL("ERROR: No test exists with name \"%s\"", property("case_name", std::string("")).c_str());
         return false;
     }
+    end = false;
     
-    //pstats.startEvent("Prepare simulation case");
+    // Prepare simulation case
+    pstats.startEvent("Prepare simulation case");
     
     // Set logging
     resultDir = property("results_dir", std::string("./results"));
     if (!fs::exists(resultDir)) fs::create_directories(resultDir);
-    fs::path logFile("execution.log");
-    if (fs::exists(resultDir / logFile) && !property("overwrite", false) && checkLogFile(resultDir / logFile)) {
-        PROGRESS("Log file exists at " << (resultDir / logFile));
+    fs::path logFile(resultDir / "execution.log");
+    if (fs::exists(logFile) && !property("overwrite", false) && checkLogFile(logFile)) {
+        XBT_CRITICAL("Log file exists at %s", logFile.c_str());
         return true;
     }
-    PROGRESS("Logging to " << (resultDir / logFile));
-
-    progressFile.open(resultDir / logFile);
-    debugFile.open(resultDir / "debug.log");
+    pstats.openFile(resultDir);
+    
+    xbt_log_appender_set(&_simgrid_log_category__Progress, xbt_log_appender_file_new(const_cast<char *>(logFile.c_str())));
+    xbt_log_layout_set(&_simgrid_log_category__Progress, xbt_log_layout_format_new(const_cast<char *>("%m%n")));
+    xbt_log_additivity_set(&_simgrid_log_category__Progress, 1);
+    debugFile.open(resultDir / "debug.log.gz");
     if (debugFile.is_open()) {
         debugArchive.push(boost::iostreams::gzip_compressor());
         debugArchive.push(debugFile);
     }
-    xbt_log_control_set(property("log_conf_string", std::string("")).c_str());
+    LogMsg::initLog(property("log_conf_string", std::string("root=WARN")));
     PROGRESS("Running simulation test at " << pt::microsec_clock::local_time() << ": " << property);
 
-    //pstats.openFile(resultDir);
-    
     // Simulation variables
     maxRealTime = pt::seconds(property("max_time", 0));
     maxSimTime = Duration(property("max_sim_time", 0.0));
     maxMemUsage = property("max_mem", 0U);
     srand(property("seed", 12345));
-    showStep = property("show_step", 100000);
+    showStep = property("show_step", 5);
 
     // Library config
     ConfigurationManager::getInstance().setUpdateBandwidth(property("update_bw", 1000.0));
@@ -207,129 +181,80 @@ bool Simulator::run(Properties & property) {
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
     ConfigurationManager::getInstance().setWorkingPath(resultDir);
 
-    nodeFactory.setupFactory(property);
-    platformFile = property("platform_file", std::string());
-    MSG_create_environment(platformFile.c_str());
+    // Platform setup
+    PeerCompNodeFactory::getInstance().setupFactory(property);
+    MSG_create_environment(property("platform_file", std::string()).c_str());
     m_host_t * hosts = MSG_get_host_table();
-    int numNodes = MSG_get_host_number();
-    routingTable.resize(numNodes);
+    unsigned int numNodes = MSG_get_host_number();
+    routingTable.reset(new PeerCompNode[numNodes]);
     // For every host in the platform, set Simulator::processFunction as the process function
-    for (int i = 0; i < numNodes; ++i) {
+    for (unsigned int i = 0; i < numNodes; ++i) {
         MSG_host_set_data(hosts[i], &routingTable[i]);
-        MSG_process_create(NULL, Simulator::processFunction, NULL, hosts[i]);
+        routingTable[i].setAddressAndHost(i, hosts[i]);
+        MSG_process_create(NULL, PeerCompNode::processFunction, NULL, hosts[i]);
     }
     
-    PROGRESS(MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation network.");
+    XBT_CRITICAL("%d bytes to prepare simulation network", (int)MemoryManager::getInstance().getMaxUsedMemory());
     
     simCase->preStart();
-    //pstats.endEvent("Prepare simulation case");
+    pstats.endEvent("Prepare simulation case");
     
     // Run simulation
     simStart = pt::microsec_clock::local_time();
+    nextProgress = simStart + pt::seconds(showStep);
     MSG_error_t res = MSG_main();
 
     simCase->postEnd();
     // Show statistics
-    pt::ptime end = pt::microsec_clock::local_time();
-    pt::time_duration simRealTime = end - simStart;
-    PROGRESS("" << simRealTime << " (" << getCurrentTime() << ", " << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
+    pt::ptime now = pt::microsec_clock::local_time();
+    pt::time_duration simRealTime = now - simStart;
+    PROGRESS(simRealTime << " (" << getCurrentTime() << ", "
+        << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
         << MemoryManager::getInstance().getUsedMemory() << " mem   100%");
     //pcstats.saveTotalStatistics();
-    //pstats.saveTotalStatistics();
-    PROGRESS("Ending test at " << end << ". Lasted " << (end - start)
+    pstats.saveTotalStatistics();
+    PROGRESS("Ending test at " << now << ". Lasted " << (now - start)
         << " and used " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes.");
     
     return res == MSG_OK;
 }
 
 
-//void Simulator::run() {
-//     while (!events.empty() && !doStop && simCase.doContinue()) {
-//         if (maxEvents && numEvents >= maxEvents) {
-//             LogMsg("Sim.Progress", 0) << "Maximum number of events limit reached: " << maxEvents;
-//             break;
-//         } else if (maxRealTime > seconds(0) && microsec_clock::local_time() - realStart >= maxRealTime) {
-//             LogMsg("Sim.Progress", 0) << "Maximum real time limit reached: " << maxRealTime;
-//             break;
-//         } else if (maxSimTime > Duration(0.0) && time - Time() >= maxSimTime) {
-//             LogMsg("Sim.Progress", 0) << "Maximum simulation time limit reached: " << maxSimTime;
-//             break;
-//         } else if (maxMemUsage && numEvents % 1000 == 0 && (MemoryManager::getInstance().getMaxUsedMemory() >> 20) > maxMemUsage) {
-//             LogMsg("Sim.Progress", 0) << "Maximum memory usage limit reached: " << maxMemUsage;
-//             break;
-//         }
-//         stepForward();
-//         if (numEvents % showStep == 0) {
-//             end = microsec_clock::local_time();
-//             real_time += end - start;
-//             double real_duration = (end - start).total_microseconds() / 1000000.0;
-//             start = end;
-//             // Show statistics
-//             LogMsg("Sim.Progress", 0) << real_time << " (" << time << ")   "
-//             << numEvents << " ev (" << (showStep / real_duration) << " ev/s)   "
-//             << MemoryManager::getInstance().getUsedMemory() << " mem   "
-//             << simCase.getCompletedPercent() << "%   "
-//             << SimTask::getRunningTasks() << " tasks";
-//             pstats.savePartialStatistics();
-//         }
-//     }
-//}
-
-
-int Simulator::processFunction(int argc, char * argv[]) {
-    // Initialise the current node with:
-    //   - Data from the simulation case properties
-    //   - Its local address
-    //   - Its m_host_t value
-    Simulator & sim = Simulator::getInstance();
-    PeerCompNode & node = getCurrentNode();
-    uint32_t local = &node - &sim.routingTable[0];
-    sim.nodeFactory.setupNode(local, node);
-    // Start its message loop
-    node.mainLoop();
-}
-
-
-unsigned long int Simulator::getMsgSize(boost::shared_ptr<BasicMsg> msg) {
-    unsigned long int size = 0;
-    try {
-        std::stringstream ss;
-        portable_binary_oarchive oa(ss);
-        BasicMsg * tmp = msg.get();
-        oa << tmp;
-        size = ss.tellp();
-    } catch (...) {
-        PROGRESS("Error serializing message of type " << msg->getName());
+bool Simulator::doContinue() {
+    if (end) return false;
+    
+    if (&getCurrentNode() == &routingTable[0]) {
+        // Only the first node checks finish conditions
+        pt::ptime now = pt::microsec_clock::local_time();
+        if (maxSimTime > Duration(0.0) && Duration(MSG_get_clock()) > maxSimTime) {
+            PROGRESS("Maximum simulation time limit reached: " << maxSimTime);
+            end = true;
+        } else if (maxRealTime > pt::seconds(0) && now - simStart >= maxRealTime) {
+            PROGRESS("Maximum real time limit reached: " << maxRealTime);
+            end = true;
+        } else if (maxMemUsage && (MemoryManager::getInstance().getMaxUsedMemory() >> 20) > maxMemUsage) {
+            XBT_CRITICAL("Maximum memory usage limit reached: %d", maxMemUsage);
+            end = true;
+        } else end = !simCase->doContinue();
+        if (now >= nextProgress) {
+            // Show statistics
+            pt::time_duration simRealTime = now - simStart;
+            PROGRESS(simRealTime << " (" << getCurrentTime() << ", "
+                << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
+                << MemoryManager::getInstance().getUsedMemory() << " mem   "
+                << simCase->getCompletedPercent() << "%   "
+                << SimTask::getRunningTasks() << " tasks");
+            pstats.savePartialStatistics();
+            nextProgress = now + pt::seconds(showStep);
+        }
     }
-    return size;
+    
+    return !end;
 }
 
 
-unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg) {
-    // NOTE: msg must not be clonned, to track messages.
-
-    // Measure operation duration, only if inEvent().
-    //Duration opDuration(inEvent() ? (microsec_clock::local_time() - opStart).total_microseconds() : 0.0);
-
-    unsigned long int size = src != dst ? getMsgSize(msg) + 90 : 0;
-    return size;
-}
-
-
-unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
-                                      Duration d, bool withOpDuration) {
-    // NOTE: msg must not be clonned, to track messages.
-
-    unsigned long int size = getMsgSize(msg);
-    if (withOpDuration)
-        d += Duration((pt::microsec_clock::local_time() - opStart).total_microseconds());
-    return size;
-}
-
-
-int Simulator::setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg) {
-}
-
-
-void Simulator::cancelTimer(int timerId) {
-}
+// unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
+//                                       Duration d, bool withOpDuration) {
+//     unsigned long int size = getMsgSize(msg);
+//     return size;
+// }

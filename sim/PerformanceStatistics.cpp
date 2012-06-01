@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,11 +33,13 @@ void PerformanceStatistics::openFile(const fs::path & statDir) {
 
 
 void PerformanceStatistics::startEvent(const std::string & ev) {
+    boost::mutex::scoped_lock lock(m);
     handleTimeStatistics[ev].start = boost::posix_time::microsec_clock::local_time();
 }
 
 
 void PerformanceStatistics::endEvent(const std::string & ev) {
+    boost::mutex::scoped_lock lock(m);
     boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
     EventStats & es = handleTimeStatistics[ev];
     es.partialNumEvents++;
@@ -66,6 +68,7 @@ struct TimePerEvent {
 
 
 void PerformanceStatistics::savePartialStatistics() {
+    // NOTE: Not protected by the mutex, this method should be called always from just one thread
     list<TimePerEvent> v;
     for (map<string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
         if (it->second.partialNumEvents > 0)
@@ -93,6 +96,7 @@ void PerformanceStatistics::savePartialStatistics() {
 
 
 void PerformanceStatistics::saveTotalStatistics() {
+    // NOTE: Not protected by the mutex, this method should be called always from just one thread
     list<TimePerEvent> v;
     for (map<string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
         if (it->second.totalNumEvents > 0)

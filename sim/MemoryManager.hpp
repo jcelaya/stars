@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,15 +24,21 @@
 #define MEMORYMANAGER_H_
 
 #include <sys/types.h>
+#include <boost/thread/mutex.hpp>
+#include <boost/date_time/posix_time/ptime.hpp>
 
 
 class MemoryManager {
-    unsigned long int max;
+    unsigned long int current, maxUsed, max;
     long int pagesize;
     pid_t pid;
     char pidText[20], * p;
+    boost::posix_time::ptime nextUpdate;
+    boost::mutex m;
     
     MemoryManager();
+    
+    void update();
 
 public:
     static MemoryManager & getInstance() {
@@ -40,17 +46,23 @@ public:
         return instance;
     }
 
-    unsigned long int getMaxMemory();
-
-    unsigned long int getUsedMemory();
-
-    unsigned long int getMaxUsedMemory() {
-        getUsedMemory();
+    unsigned long int getMaxMemory() {
+        update();
         return max;
     }
 
+    unsigned long int getUsedMemory() {
+        update();
+        return current;
+    }
+
+    unsigned long int getMaxUsedMemory() {
+        update();
+        return maxUsed;
+    }
+
     void reset() {
-        max = 0;
+        max = maxUsed = current = 0;
     }
 };
 

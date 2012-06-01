@@ -1,8 +1,8 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
  *  PeerComp is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,21 +68,15 @@ public:
     PeerCompNode() {}
     PeerCompNode(const PeerCompNode & copy) {}
     
-    PeerCompNode & operator=(const PeerCompNode & copy) {
-        return *this;
+    void setAddressAndHost(unsigned int addr, m_host_t host);
+    
+    m_host_t getHost() const {
+        return simHost;
     }
-    
-    void mainLoop();
-    
-    void receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
-        enqueueMessage(CommAddress(src, ConfigurationManager::getInstance().getPort()), msg);
-        processNextMessage();
+    const std::string & getMailbox() const {
+        return mailbox;
     }
-    
-    void setLocalAddress(const CommAddress & local) {
-        localAddress = local;
-    }
-    
+
     // setup() must be called before these methods
     StructureNode & getS() const {
         return *structureNode;
@@ -138,10 +132,30 @@ public:
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
     }
     
+    /**
+     * The entry point for every process. Each host is assigned this function as its entry
+     * point. The private data of each process is its corresponding PeerCompNode object.
+     */
+    static int processFunction(int argc, char * argv[]);
+    
+    /**
+     * Measures the size of a serialized BasicMsg-derived object.
+     */
+    static unsigned long int getMsgSize(BasicMsg * msg);
+    
 private:
+    void finish();
+    
+    double getTimeout() const {
+        return timerList.empty() ? 5.0 : (timerList.front().timeout - Time::getCurrentTime()).seconds();
+    }
+    
+    void checkExpired();
+    
     friend class PeerCompNodeFactory;
 
     m_host_t simHost;
+    std::string mailbox;
     int schedulerType;
     boost::scoped_ptr<StructureNode> structureNode;
     boost::scoped_ptr<ResourceNode> resourceNode;
@@ -172,12 +186,18 @@ class PeerCompNodeFactory {
     fs::ifstream inFile;
     iost::filtering_streambuf<iost::input> in;
     boost::scoped_ptr<portable_binary_iarchive> ia;
-    //boost::scoped_ptr<boost::archive::polymorphic_binary_iarchive> ia;
+    
+    PeerCompNodeFactory() {}
 
 public:
+    static PeerCompNodeFactory & getInstance() {
+        static PeerCompNodeFactory instance;
+        return instance;
+    }
+    
     void setupFactory(const Properties & property);
 
-    void setupNode(uint32_t local, PeerCompNode & node);
+    void setupNode(PeerCompNode & node);
 };
 
 #endif /*PEERCOMPNODE_H_*/

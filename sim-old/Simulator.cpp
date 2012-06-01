@@ -49,7 +49,7 @@ using namespace boost::gregorian;
 int Simulator::Event::lastEventId = 0;
 
 
-void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values) {
+void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
     if (category == "Sim.Progress")
         Simulator::getInstance().progressLog(values);
     else
@@ -57,7 +57,7 @@ void LogMsg::log(const std::string & category, int priority, LogMsg::AbstractTyp
 }
 
 // TODO: log with XBT
-void Simulator::log(const std::string& category, int priority, LogMsg::AbstractTypeContainer* values) {
+void Simulator::log(const char * category, int priority, LogMsg::AbstractTypeContainer* values) {
     if (debugFile.is_open() && Category::getInstance(category).isPriorityEnabled(priority)) {
         Duration realTime(getRealTime().total_microseconds());
         Time curTime = time;

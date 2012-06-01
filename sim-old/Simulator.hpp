@@ -188,7 +188,7 @@ public:
     void cancelTimer(int timerId);
 
     void progressLog(LogMsg::AbstractTypeContainer* values);
-    void log(const std::string & category, int priority, LogMsg::AbstractTypeContainer * values);
+    void log(const char *  category, int priority, LogMsg::AbstractTypeContainer * values);
     
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
 

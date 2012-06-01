@@ -91,9 +91,9 @@ private:
     };
     
     AbstractTypeContainer * first, * last;
-    std::string category;
+    const char * category;
     int priority;
-    static void log(const std::string & category, int priority, AbstractTypeContainer * values);
+    static void log(const char * category, int priority, AbstractTypeContainer * values);
     static void setPriority(const std::string & catPrio);
 };
 
