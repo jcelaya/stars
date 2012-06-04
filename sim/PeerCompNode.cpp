@@ -128,7 +128,6 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 
 // Factory methods
 void PeerCompNodeFactory::setupFactory(const Properties & property) {
-    SimAppDatabase::reset();
     fanout = property("fanout", 2);
     minCPU = property("min_cpu", 1000.0);
     maxCPU = property("max_cpu", 3000.0);
@@ -170,64 +169,92 @@ void PeerCompNodeFactory::setupNode(PeerCompNode & node) {
     node.power = Simulator::discretePareto(minCPU, maxCPU, stepCPU, 1.0);
     node.mem = Simulator::uniform(minMem, maxMem, stepMem);
     node.disk = Simulator::uniform(minDisk, maxDisk, stepDisk);
-    node.structureNode.reset(new StructureNode(fanout));
-    node.resourceNode.reset(new ResourceNode(*node.structureNode));
-    node.submissionNode.reset(new SubmissionNode(*node.resourceNode));
     node.schedulerType = sched;
-    switch (node.schedulerType) {
-    case PeerCompNode::SimpleSchedulerClass:
-        node.scheduler.reset(new SimpleScheduler(*node.resourceNode));
-        node.dispatcher.reset(new SimpleDispatcher(*node.structureNode));
-        break;
-    case PeerCompNode::FCFSSchedulerClass:
-        node.scheduler.reset(new FCFSScheduler(*node.resourceNode));
-        node.dispatcher.reset(new QueueBalancingDispatcher(*node.structureNode));
-        break;
-    case PeerCompNode::EDFSchedulerClass:
-        node.scheduler.reset(new EDFScheduler(*node.resourceNode));
-        node.dispatcher.reset(new DeadlineDispatcher(*node.structureNode));
-        break;
-    case PeerCompNode::MinStretchSchedulerClass:
-        node.scheduler.reset(new MinStretchScheduler(*node.resourceNode));
-        node.minStretchDisp.reset(new MinStretchDispatcher(*node.structureNode));
-        break;
-    default:
-        //node.serializeState(*ia);
-        break;
+}
+
+
+void PeerCompNode::createServices() {
+    structureNode.reset(new StructureNode(2));
+    resourceNode.reset(new ResourceNode(*structureNode));
+    submissionNode.reset(new SubmissionNode(*resourceNode));
+    switch (schedulerType) {
+        case PeerCompNode::SimpleSchedulerClass:
+            scheduler.reset(new SimpleScheduler(*resourceNode));
+            dispatcher.reset(new SimpleDispatcher(*structureNode));
+            break;
+        case PeerCompNode::FCFSSchedulerClass:
+            scheduler.reset(new FCFSScheduler(*resourceNode));
+            dispatcher.reset(new QueueBalancingDispatcher(*structureNode));
+            break;
+        case PeerCompNode::EDFSchedulerClass:
+            scheduler.reset(new EDFScheduler(*resourceNode));
+            dispatcher.reset(new DeadlineDispatcher(*structureNode));
+            break;
+        case PeerCompNode::MinStretchSchedulerClass:
+            scheduler.reset(new MinStretchScheduler(*resourceNode));
+            minStretchDisp.reset(new MinStretchDispatcher(*structureNode));
+            break;
+        default:
+            //serializeState(*ia);
+            break;
     }
 }
 
 
+void PeerCompNode::destroyServices() {
+    // Gracely terminate the services
+    structureNode.reset();
+    resourceNode.reset();
+    submissionNode.reset();
+    scheduler.reset();
+    dispatcher.reset();
+    minStretchDisp.reset();
+}
+
+
 int PeerCompNode::processFunction(int argc, char * argv[]) {
-    // NOTE: Beware concurrency!!!!
     // Initialise the current node
-    Simulator & sim = Simulator::getInstance();
     PeerCompNode & node = Simulator::getCurrentNode();
     PeerCompNodeFactory::getInstance().setupNode(node);
-    LogMsg("Sim.Process", DEBUG) << "Peer running at " << MSG_host_get_name(node.getHost()) << " with address " << node.getLocalAddress();
+    node.mainLoop();
+    return 0;
+}
+
+
+void PeerCompNode::mainLoop() {
+    Simulator & sim = Simulator::getInstance();
+    LogMsg("Sim.Process", DEBUG) << "Peer running at " << MSG_host_get_name(simHost) << " with address " << localAddress;
+    createServices();
     
     // Message loop
     while(sim.doContinue()) {
         // Event loop: receive messages from the simulator and treat them
         m_task_t task = NULL;
-        double timeout = node.getTimeout();
-        msg_comm_t comm = MSG_task_irecv(&task, node.getMailbox().c_str());
+        double timeout = timerList.empty() ? 5.0 : (timerList.front().timeout - Time::getCurrentTime()).seconds();
+        msg_comm_t comm = MSG_task_irecv(&task, mailbox.c_str());
         if (MSG_comm_wait(comm, timeout) == MSG_OK) {
             MSG_comm_destroy(comm);
             BasicMsg * msg = static_cast<BasicMsg *>(MSG_task_get_data(task));
             const CommAddress & src = static_cast<PeerCompNode *>(MSG_host_get_data(MSG_task_get_source(task)))->getLocalAddress();
-            node.enqueueMessage(src, boost::shared_ptr<BasicMsg>(msg));
-            while (!node.messageQueue.empty())
-                node.processNextMessage();
+            enqueueMessage(src, boost::shared_ptr<BasicMsg>(msg));
         } else {
             MSG_comm_destroy(comm);
             // Check timers
-            node.checkExpired();
+            Time ct = Time::getCurrentTime();
+            while (!timerList.empty() && timerList.front().timeout <= ct) {
+                enqueueMessage(localAddress, timerList.front().msg);
+                timerList.pop_front();
+            }
+        }
+        while (!messageQueue.empty()) {
+            std::string eventName = messageQueue.front().second->getName();
+            sim.getPerformanceStatistics().startEvent(eventName);
+            processNextMessage();
+            sim.getPerformanceStatistics().endEvent(eventName);
         }
     }
-    
-    node.finish();
-    return 0;
+
+    destroyServices();
 }
 
 
@@ -241,34 +268,12 @@ unsigned long int PeerCompNode::getMsgSize(BasicMsg * msg) {
 }
 
 
-void PeerCompNode::checkExpired() {
-    Time ct = Time::getCurrentTime();
-    while (!timerList.empty()) {
-        if (timerList.front().timeout <= ct) {
-            enqueueMessage(localAddress, timerList.front().msg);
-            timerList.pop_front();
-        } else break;
-    }
-}
-
-
 void PeerCompNode::setAddressAndHost(unsigned int addr, m_host_t host) {
     localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
     simHost = host;
     ostringstream oss;
     oss << localAddress;
     mailbox = oss.str();
-}
-
-
-void PeerCompNode::finish() {
-    // Gracely terminate the services
-    structureNode.reset();
-    resourceNode.reset();
-    submissionNode.reset();
-    scheduler.reset();
-    dispatcher.reset();
-    minStretchDisp.reset();
 }
 
 

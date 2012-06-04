@@ -144,13 +144,10 @@ public:
     static unsigned long int getMsgSize(BasicMsg * msg);
     
 private:
-    void finish();
+    void mainLoop();
     
-    double getTimeout() const {
-        return timerList.empty() ? 5.0 : (timerList.front().timeout - Time::getCurrentTime()).seconds();
-    }
-    
-    void checkExpired();
+    void createServices();
+    void destroyServices();
     
     friend class PeerCompNodeFactory;
 

@@ -88,10 +88,7 @@ void PerformanceStatistics::savePartialStatistics() {
         it->ev->second.partialHandleTime = 0.0;
     }
 
-    // Harvest memory occupation statistics
-//     os << "Database applications: " << SimAppDatabase::getTotalApps() << " apps in " << SimAppDatabase::getTotalAppsMem() << " bytes" << endl;
-//     os << "Database instances: " << SimAppDatabase::getTotalInstances() << " instances in " << SimAppDatabase::getTotalInstancesMem() << " bytes" << endl;
-//     os << "Database requests: " << SimAppDatabase::getTotalRequests() << " requests in " << SimAppDatabase::getTotalRequestsMem() << " bytes" << endl;
+    // TODO: Harvest memory occupation statistics
 }
 
 

@@ -194,7 +194,7 @@ bool Simulator::run(Properties & property) {
         MSG_process_create(NULL, PeerCompNode::processFunction, NULL, hosts[i]);
     }
     
-    XBT_CRITICAL("%d bytes to prepare simulation network", (int)MemoryManager::getInstance().getMaxUsedMemory());
+    XBT_CRITICAL("%d nodes, %d bytes to prepare simulation network", numNodes, (int)MemoryManager::getInstance().getMaxUsedMemory());
     
     simCase->preStart();
     pstats.endEvent("Prepare simulation case");

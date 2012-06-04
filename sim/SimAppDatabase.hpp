@@ -60,25 +60,7 @@ public:
                    << ", n=" << r.numNodes << ", a=" << r.acceptedTasks << ", t=" << r.tasks.size() << ")";
         }
     };
-
-private:
-    friend class TaskBagAppDatabase;
-
-    std::pair<std::string, TaskDescription> lastApp;
-    std::map<std::string, TaskDescription> apps;
-    std::map<long int, AppInstance> instances;
-    std::map<long int, Request> requests;
-
-    static unsigned long int totalApps, totalAppsMemory;
-    static unsigned long int totalInstances, totalInstancesMemory;
-    static unsigned long int totalRequests, totalRequestsMemory;
-
-    static long int lastInstance, lastRequest;
-
-    friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
-
-public:
-
+    
     void createAppDescription(const std::string & name, const TaskDescription & req);
     void dropAppDescription(const std::string & name);
     const std::pair<std::string, TaskDescription> & getLastApp() const {
@@ -99,32 +81,17 @@ public:
     void updateDeadline(long int appId, Time nd) {
         instances.find(appId)->second.req.setDeadline(nd);
     }
+    
+private:
+    friend class TaskBagAppDatabase;
 
-    static SimAppDatabase & getCurrentDatabase();
-    static void reset() {
-        totalApps = totalAppsMemory = totalInstances = totalInstancesMemory = totalRequests = totalRequestsMemory = lastInstance = lastRequest = 0;
-    }
-    static long int getLastInstance() {
-        return lastInstance;
-    }
-    static unsigned long int getTotalApps() {
-        return totalApps;
-    }
-    static unsigned long int getTotalAppsMem() {
-        return totalAppsMemory;
-    }
-    static unsigned long int getTotalInstances() {
-        return totalInstances;
-    }
-    static unsigned long int getTotalInstancesMem() {
-        return totalInstancesMemory;
-    }
-    static unsigned long int getTotalRequests() {
-        return totalRequests;
-    }
-    static unsigned long int getTotalRequestsMem() {
-        return totalRequestsMemory;
-    }
+    std::pair<std::string, TaskDescription> lastApp;
+    std::map<std::string, TaskDescription> apps;
+    std::map<long int, AppInstance> instances;
+    std::map<long int, Request> requests;
+    long int lastInstance, lastRequest;
+
+    friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
 };
 
 #endif /* SIMAPPDATABASE_H_ */
