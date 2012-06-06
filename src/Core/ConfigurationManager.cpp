@@ -39,7 +39,7 @@ ConfigurationManager::ConfigurationManager() : description("Allowed options") {
     // Default values
     workingPath = boost::filesystem::initial_path();
     updateBW = 1000.0;
-    stretchRatio = 2.0;
+    slownessRatio = 2.0;
     port = 2030;
     uiPort = 2031;
 #ifdef _DEBUG_

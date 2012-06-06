@@ -294,81 +294,52 @@ double TimeConstraintInfo::ATFunction::minAndLoss(const ATFunction & l, const AT
 
 
 namespace TCISteps {
-template <int numF> struct lcStep {
-    vector<pair<Time, uint64_t> > points;
-    double * c;
-    double mm;
-    double lasty;
-    void operator()(Time a, Time b, double fa[numF], double m[numF], int i) {
-        double newm = 0.0;
-        for (int j = 0; j < numF; j++)
-            newm += c[j] * m[j];
-        if (mm != newm) {
-            lasty = 0.0;
-            for (int j = 0; j < numF; j++)
-                lasty += c[j] * fa[j];
-            points.push_back(make_pair(a, lasty));
-            mm = newm;
+    struct lcStep {
+        vector<pair<Time, uint64_t> > points;
+        double c[2];
+        double mm;
+        double lasty;
+        void operator()(Time a, Time b, double fa[2], double m[2], int i) {
+            double newm = c[0] * m[0] + c[1] * m[1];
+            if (mm != newm) {
+                lasty = c[0] * fa[0] + c[1] * fa[1];
+                points.push_back(make_pair(a, lasty));
+                mm = newm;
+            }
+            lasty = c[0] * (fa[0] + m[0] * (b - a).seconds()) + c[1] * (fa[1] + m[1] * (b - a).seconds());
+            
         }
-        lasty = 0.0;
-        for (int j = 0; j < numF; j++)
-            lasty += c[j] * (fa[j] + m[j] * (b - a).seconds());
-
-    }
-    lcStep(unsigned int maxPoints, double _c[]) : c(_c), mm(0.0), lasty(0.0) {
-        points.reserve(maxPoints);
-    }
-};
+        lcStep(unsigned int maxPoints, double lc, double rc) : mm(0.0), lasty(0.0) {
+            points.reserve(maxPoints);
+            c[0] = lc;
+            c[1] = rc;
+        }
+    };
 }
 
-template <int numF> void TimeConstraintInfo::ATFunction::lc(const ATFunction * (&f)[numF], double(&c)[numF]) {
+void TimeConstraintInfo::ATFunction::lc(const ATFunction & l, const ATFunction & r, double lc, double rc) {
     Time ct = Time::getCurrentTime(), horizon = ct;
     unsigned int size = 0;
-    for (int i = 0; i < numF; i++)
-        if (!f[i]->points.empty()) {
-            if (horizon < f[i]->points.back().first) horizon = f[i]->points.back().first;
-            size += f[i]->points.size();
-        }
+    if (!l.points.empty()) {
+        if (horizon < l.points.back().first) horizon = l.points.back().first;
+        size += l.points.size();
+    }
+    if (!r.points.empty()) {
+        if (horizon < r.points.back().first) horizon = r.points.back().first;
+        size += r.points.size();
+    }
     if (size > 0) {
         // Enough space for all the points
-        TCISteps::lcStep<numF> ms(2 * size, c);
-        stepper<numF>(f, ct, horizon, ms);
+        TCISteps::lcStep ms(2 * size, lc, rc);
+        const ATFunction * f[2] = { &l, &r };
+        stepper(f, ct, horizon, ms);
         ms.points.push_back(make_pair(horizon, (uint64_t)ms.lasty));
         points.swap(ms.points);
         points.reserve(points.size());
     }
     // Trivial case
-    slope = 0.0;
-    for (int i = 0; i < numF; i++)
-        slope += c[i] * f[i]->slope;
+    slope = lc * l.slope + rc * r.slope;
 }
-
-// Instantiate lc for 2, 3, 4 and 5 functions
-static struct lcinstantiate {
-    lcinstantiate() {
-        TimeConstraintInfo::ATFunction d;
-        {
-            const TimeConstraintInfo::ATFunction * f[2] = {&d, &d};
-            double c[2];
-            TimeConstraintInfo::ATFunction().lc(f, c);
-        }
-        {
-            const TimeConstraintInfo::ATFunction * f[3] = {&d, &d, &d};
-            double c[3];
-            TimeConstraintInfo::ATFunction().lc(f, c);
-        }
-        {
-            const TimeConstraintInfo::ATFunction * f[4] = {&d, &d, &d, &d};
-            double c[4];
-            TimeConstraintInfo::ATFunction().lc(f, c);
-        }
-        {
-            const TimeConstraintInfo::ATFunction * f[5] = {&d, &d, &d, &d, &d};
-            double c[5];
-            TimeConstraintInfo::ATFunction().lc(f, c);
-        }
-    }
-} lcinstantiate_var;
 
 
 // A search algorithm to find best reduced solution

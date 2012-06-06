@@ -25,10 +25,10 @@
 #include "BasicAvailabilityInfo.hpp"
 #include "QueueBalancingInfo.hpp"
 #include "TimeConstraintInfo.hpp"
-#include "StretchInformation.hpp"
+#include "SlownessInformation.hpp"
 
 BOOST_CLASS_EXPORT(AvailabilityInformation);
 BOOST_CLASS_EXPORT(BasicAvailabilityInfo);
 BOOST_CLASS_EXPORT(TimeConstraintInfo);
 BOOST_CLASS_EXPORT(QueueBalancingInfo);
-BOOST_CLASS_EXPORT(StretchInformation);
+BOOST_CLASS_EXPORT(SlownessInformation);

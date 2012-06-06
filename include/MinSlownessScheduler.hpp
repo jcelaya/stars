@@ -20,11 +20,11 @@
  *
  */
 
-#ifndef MINSTRETCHSCHEDULER_H_
-#define MINSTRETCHSCHEDULER_H_
+#ifndef MINSLOWNESSSCHEDULER_H_
+#define MINSLOWNESSSCHEDULER_H_
 
 #include "Scheduler.hpp"
-#include "StretchInformation.hpp"
+#include "SlownessInformation.hpp"
 
 
 /**
@@ -33,13 +33,43 @@
  * This scheduler calculates the minimum stretch that can be assigned to all applications,
  * by calculating the deadlines so that they are all met.
  */
-class MinStretchScheduler: public Scheduler {
+class MinSlownessScheduler: public Scheduler {
 public:
+    struct TaskProxy {
+        boost::shared_ptr<Task> origin;
+        int id;
+        double r, a, t, d, tsum;
+        TaskProxy() {}
+        TaskProxy(double _a, double power) : id(-1), r(0.0), a(_a), t(a / power) {}
+        TaskProxy(const boost::shared_ptr<Task> & task, Time ref) :     origin(task), id(task->getTaskId()), r((task->getCreationTime() - ref).seconds()),
+                a(task->getDescription().getLength()), t(task->getEstimatedDuration().seconds()) {}
+        double getDeadline(double L) const {
+            return L * a + r;
+        }
+        void setSlowness(double L) {
+            d = getDeadline(L);
+        }
+        bool operator<(const TaskProxy & rapp) const {
+            return d < rapp.d || (d == rapp.d && a < rapp.a);
+        }
+
+        friend std::ostream & operator<<(std::ostream & os, const TaskProxy & o) {
+            return os << "a=" << o.a << " r=" << o.r;
+        }
+
+        static void sort(std::vector<TaskProxy> & curTasks, double slowness);
+
+        static bool meetDeadlines(const std::vector<TaskProxy> & curTasks, double slowness);
+
+        static void sortMinSlowness(std::vector<TaskProxy> & curTasks, const std::vector<double> & lBounds);
+    };
+
+
     /**
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MinStretchScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+    MinSlownessScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
         reschedule();
         // The emptiness must also be notified.
         notifySchedule();
@@ -51,21 +81,21 @@ public:
      * @param result The resulting list of applications.
      * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
      */
-    static double sortMinStretch(const std::list<boost::shared_ptr<Task> > & tasks, std::list<StretchInformation::AppDesc> & result);
+    static double sortMinSlowness(std::list<boost::shared_ptr<Task> > & tasks);
 
     // This is documented in Scheduler
     virtual unsigned int accept(const TaskBagMsg & msg);
 
     // This is documented in Scheduler
-    virtual const StretchInformation & getAvailability() const {
+    virtual const SlownessInformation & getAvailability() const {
         return info;
     }
 
 private:
-    StretchInformation info;
+    SlownessInformation info;
 
     // This is documented in Scheduler
     virtual void reschedule();
 };
 
-#endif /* MINSTRETCHSCHEDULER_H_ */
+#endif /* MINSLOWNESSSCHEDULER_H_ */

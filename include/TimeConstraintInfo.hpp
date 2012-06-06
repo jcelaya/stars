@@ -129,11 +129,11 @@ public:
                           const Time & ref, const Time & h);
 
         /**
-         * Calculates the linear combination of functions f and coefficients c
+         * Calculates the linear combination of two functions
          * @param f Array of functions
          * @param c Array of function coefficients
          */
-        template <int numF> void lc(const ATFunction * (&f)[numF], double(&c)[numF]);
+        void lc(const ATFunction & l, const ATFunction & r, double lc, double rc);
 
         /**
          * Reduces the number of points of the function to a specific number, resulting in a function

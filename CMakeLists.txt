@@ -32,5 +32,4 @@ find_package(Log4CPP REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(test)
-add_subdirectory(sim-old)
 add_subdirectory(sim)

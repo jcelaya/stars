@@ -3,7 +3,7 @@ set(stars_sources ${stars_sources}
     ExecutionManager/EDFScheduler.cpp
     ExecutionManager/FCFSScheduler.cpp
     ExecutionManager/LinearAvailabilityFunction.cpp
-    ExecutionManager/MinStretchScheduler.cpp
+    ExecutionManager/MinSlownessScheduler.cpp
     ExecutionManager/Scheduler.cpp
     ExecutionManager/SimpleScheduler.cpp
     ExecutionManager/Task.cpp

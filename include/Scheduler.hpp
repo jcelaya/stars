@@ -48,6 +48,8 @@ public:
      */
     class ExecutionEnvironment {
     public:
+        virtual ~ExecutionEnvironment() {}
+        
         /**
          * Returns the average computing power of this node, with the offline time taken into account.
          * TODO: Count number of processors.

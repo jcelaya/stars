@@ -40,7 +40,7 @@ class ConfigurationManager {
     /// Working directory of the application.
     boost::filesystem::path workingPath;
     double updateBW;          ///< Update max bandwidth for availability information
-    double stretchRatio;      ///< Maximum relation between maximum and minimum stretch
+    double slownessRatio;     ///< Maximum relation between maximum and minimum slowness
     uint16_t port;            ///< TCP port to listen to
     uint16_t uiPort;          ///< TCP port for UI connections
     std::string logString;    ///< Logging configuration string
@@ -104,17 +104,17 @@ public:
     }
 
     /**
-     * Returns the maximum relation between maximum and minimum stretch.
+     * Returns the maximum relation between maximum and minimum slowness.
      */
-    double getStretchRatio() const {
-        return stretchRatio;
+    double getSlownessRatio() const {
+        return slownessRatio;
     }
 
     /**
-     * Sets the maximum relation between maximum and minimum stretch.
+     * Sets the maximum relation between maximum and minimum slowness.
      */
-    void setStretchRatio(double sr) {
-        stretchRatio = sr;
+    void setSlownessRatio(double sr) {
+        slownessRatio = sr;
     }
 
     /**
