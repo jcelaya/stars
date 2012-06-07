@@ -28,16 +28,13 @@ class TaskDescription;
 
 
 class SimTask : public Task {
-    static unsigned int runningTasks;
     int timer;
     Duration taskDuration;
     Time finishTime;
 
 public:
     SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d);
-    ~SimTask() {
-        runningTasks--;
-    }
+    ~SimTask();
 
     int getStatus() const;
 
@@ -46,10 +43,6 @@ public:
     void abort();
 
     Duration getEstimatedDuration() const;
-
-    static unsigned int getRunningTasks() {
-        return runningTasks;
-    }
 };
 
 #endif /*SIMTASK_H_*/

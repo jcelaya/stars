@@ -20,35 +20,47 @@
  *
  */
 
-#ifndef PEERCOMPSTATISTICS_H_
-#define PEERCOMPSTATISTICS_H_
+#ifndef LIBSTARSSTATISTICS_H_
+#define LIBSTARSSTATISTICS_H_
 
 #include <boost/filesystem/fstream.hpp>
 #include "Time.hpp"
-class Simulator;
 
 
-class PeerCompStatistics {
+class LibStarsStatistics {
 public:
-    PeerCompStatistics();
-
+    /// Open the statistics file at the given directory.
+    void openStatsFiles();
+    
     void saveTotalStatistics() {
         saveCPUStatistics();
+        finishQueueLengthStatistics();
+        finishThroughputStatistics();
     }
 
     // Public statistics handlers
     void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
 
-private:
-    Simulator & sim;
+    void taskStarted() { ++existingTasks; }
+    void taskFinished(bool successful);
+    unsigned long int getExistingTasks() const { return existingTasks; }
 
+private:
     // Queue Statistics
-    void saveQueueLengthStatistics();
+    void finishQueueLengthStatistics();
     boost::filesystem::ofstream queueos;
     Time maxQueue;
 
     // CPU Statistics
     void saveCPUStatistics();
+    
+    // Throughput statistics
+    void finishThroughputStatistics();
+    boost::filesystem::ofstream throughputos;
+    unsigned long int existingTasks;
+    Time lastTSample;
+    unsigned int partialFinishedTasks, totalFinishedTasks;
+    static const double delayTSample = 60;
 };
 
-#endif /* PEERCOMPSTATISTICS_H_ */
+#endif /* LIBSTARSSTATISTICS_H_ */

@@ -64,7 +64,7 @@ public:
      * @param sn The StructureNode of this branch.
      */
     Dispatcher(StructureNode & sn) :
-            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(Time::getCurrentTime()), inChange(false) {}
+            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {}
 
     virtual ~Dispatcher() {}
 
@@ -104,8 +104,6 @@ public:
     template<class Archive> void serializeState(Archive & ar) {
         // Only works in stable: no change, no delayed update
         ar & father & children;
-        if (IS_LOADING())
-            recomputeInfo();
     }
 
     struct Link {
@@ -126,7 +124,12 @@ public:
         infoChanged = false;
         return tmp;
     }
-
+    
+    /**
+     * Calculates the availability information of this branch.
+     */
+    virtual void recomputeInfo() = 0;
+    
 protected:
     /// Info about the rest of the tree
     Link father;
@@ -261,11 +264,6 @@ protected:
      * @param msg TaskBagMsg message with task group information.
      */
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg) = 0;
-
-    /**
-     * Calculates the availability information of this branch.
-     */
-    virtual void recomputeInfo() = 0;
 
 private:
     // This is documented in StructureNodeObserver

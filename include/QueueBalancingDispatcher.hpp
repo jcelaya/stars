@@ -41,15 +41,15 @@ public:
      * @param sn The StructureNode of this branch.
      */
     QueueBalancingDispatcher(StructureNode & sn) : Dispatcher(sn) {}
-
+    
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
+    
 private:
     struct DecissionInfo;
 
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
-
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
 };
 
 #endif /*QUEUEBALANCINGDISPATCHER_H_*/

@@ -45,8 +45,7 @@ class CommLayer;
  */
 class Service {
 public:
-    Service();
-    virtual ~Service();
+    virtual ~Service() {}
 
 protected:
     friend class CommLayer;
@@ -242,14 +241,5 @@ private:
     CommLayer(const CommLayer &);
     CommLayer & operator=(const CommLayer &);
 };
-
-
-inline Service::Service() {
-    CommLayer::getInstance().registerService(this);
-}
-
-inline Service::~Service() {
-    CommLayer::getInstance().unregisterService(this);
-}
 
 #endif /*COMMLAYER_H_*/

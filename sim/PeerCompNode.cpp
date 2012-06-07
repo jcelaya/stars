@@ -22,6 +22,7 @@
 
 #include <sstream>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 #include "PeerCompNode.hpp"
 #include "ResourceNode.hpp"
 #include "StructureNode.hpp"
@@ -32,12 +33,13 @@
 #include "QueueBalancingDispatcher.hpp"
 #include "SimpleScheduler.hpp"
 #include "SimpleDispatcher.hpp"
-#include "MinStretchScheduler.hpp"
-#include "MinStretchDispatcher.hpp"
+#include "MinSlownessScheduler.hpp"
+#include "MinSlownessDispatcher.hpp"
 #include "Simulator.hpp"
 #include "Time.hpp"
 #include "SimTask.hpp"
 #include "Logger.hpp"
+#include "ConfigurationManager.hpp"
 using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
@@ -48,20 +50,19 @@ using boost::scoped_ptr;
 
 
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
-    PeerCompNode & node;
 public:
-    SimExecutionEnvironment() : node(Simulator::getCurrentNode()) {}
+    SimExecutionEnvironment() {}
 
     double getAveragePower() const {
-        return node.getAveragePower();
+        return Simulator::getCurrentNode().getAveragePower();
     }
 
     unsigned long int getAvailableMemory() const {
-        return node.getAvailableMemory();
+        return Simulator::getCurrentNode().getAvailableMemory();
     }
 
     unsigned long int getAvailableDisk() const {
-        return node.getAvailableDisk();
+        return Simulator::getCurrentNode().getAvailableDisk();
     }
 
     shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
@@ -117,7 +118,7 @@ int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
 
 // Time
 Time Time::getCurrentTime() {
-    return Time(int64_t(MSG_get_clock() * 1000000));
+    return Time((int64_t)(MSG_get_clock() * 1000000));
 }
 
 
@@ -126,19 +127,68 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 }
 
 
-// Factory methods
-void PeerCompNodeFactory::setupFactory(const Properties & property) {
-    fanout = property("fanout", 2);
-    minCPU = property("min_cpu", 1000.0);
-    maxCPU = property("max_cpu", 3000.0);
-    stepCPU = property("step_cpu", 200.0);
-    minMem = property("min_mem", 256);
-    maxMem = property("max_mem", 4096);
-    stepMem = property("step_mem", 256);
-    minDisk = property("min_disk", 64);
-    maxDisk = property("max_disk", 1000);
-    stepDisk = property("step_disk", 100);
-    inFileName = property("in_file", string(""));
+// Configuration object
+struct StarsNodeConfiguration {
+    int minMem;
+    int maxMem;
+    int stepMem;
+    int minDisk;
+    int maxDisk;
+    int stepDisk;
+    int sched;
+    std::string inFileName;
+    fs::ifstream inFile;
+    iost::filtering_streambuf<iost::input> in;
+    boost::scoped_ptr<portable_binary_iarchive> ia;
+    std::string outFileName;
+    fs::ofstream outFile;
+    iost::filtering_streambuf<iost::output> out;
+    boost::scoped_ptr<portable_binary_oarchive> oa;
+    
+    static StarsNodeConfiguration & getInstance() {
+        static StarsNodeConfiguration instance;
+        return instance;
+    }
+    
+    void setup(const Properties & property) {
+        minMem = property("min_mem", 256);
+        maxMem = property("max_mem", 4096);
+        stepMem = property("step_mem", 256);
+        minDisk = property("min_disk", 64);
+        maxDisk = property("max_disk", 1000);
+        stepDisk = property("step_disk", 100);
+        inFileName = property("in_file", string(""));
+        outFileName = property("out_file", string(""));
+        string s = property("scheduler", string("DS"));
+        if (s == "DS") sched = PeerCompNode::EDFSchedulerClass;
+        else if (s == "MS") sched = PeerCompNode::MinSlownessSchedulerClass;
+        else if (s == "FCFS") sched = PeerCompNode::FCFSSchedulerClass;
+        else sched = PeerCompNode::SimpleSchedulerClass;
+        if (inFileName != "") {
+            inFile.exceptions(ios_base::failbit | ios_base::badbit);
+            inFile.open(inFileName, ios_base::binary);
+            if (inFileName.substr(inFileName.length() - 3) == ".gz")
+                in.push(iost::gzip_decompressor());
+            in.push(inFile);
+            ia.reset(new portable_binary_iarchive(in, 0));
+        }
+        if (outFileName != "") {
+            outFile.exceptions(ios_base::failbit | ios_base::badbit);
+            outFile.open(outFileName, ios_base::binary);
+            if (outFileName.substr(outFileName.length() - 3) == ".gz")
+                out.push(iost::gzip_compressor());
+            out.push(outFile);
+            oa.reset(new portable_binary_oarchive(out, 0));
+        }
+    }
+};
+
+
+void PeerCompNode::libStarsConfigure(const Properties & property) {
+    ConfigurationManager::getInstance().setUpdateBandwidth(property("update_bw", 1000.0));
+    ConfigurationManager::getInstance().setSlownessRatio(property("stretch_ratio", 2.0));
+    ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
+    ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
     unsigned int clustersBase = property("avail_clusters_base", 0U);
     if (clustersBase) {
         BasicAvailabilityInfo::setNumClusters(clustersBase * clustersBase);
@@ -146,85 +196,49 @@ void PeerCompNodeFactory::setupFactory(const Properties & property) {
         TimeConstraintInfo::setNumClusters(clustersBase * clustersBase * clustersBase);
     }
     TimeConstraintInfo::setNumRefPoints(property("tci_ref_points", 8U));
-    if (inFileName == "") {
-        string s = property("scheduler", string("DS"));
-        if (s == "DS") sched = PeerCompNode::EDFSchedulerClass;
-        else if (s == "MS") sched = PeerCompNode::MinStretchSchedulerClass;
-        else if (s == "FCFS") sched = PeerCompNode::FCFSSchedulerClass;
-        else if (s == "SS") sched = PeerCompNode::SimpleSchedulerClass;
-        else sched = PeerCompNode::EDFSchedulerClass;
-    } else {
-        sched = -1;
-        inFile.exceptions(ios_base::failbit | ios_base::badbit);
-        inFile.open(inFileName, ios_base::binary);
-        in.push(iost::zlib_decompressor());
-        in.push(inFile);
-        ia.reset(new portable_binary_iarchive(in, 0));
-    }
+    StarsNodeConfiguration::getInstance().setup(property);
 }
 
 
-void PeerCompNodeFactory::setupNode(PeerCompNode & node) {
-    // Execution power follows discretized pareto distribution, with k=1
-    node.power = Simulator::discretePareto(minCPU, maxCPU, stepCPU, 1.0);
-    node.mem = Simulator::uniform(minMem, maxMem, stepMem);
-    node.disk = Simulator::uniform(minDisk, maxDisk, stepDisk);
-    node.schedulerType = sched;
-}
+void PeerCompNode::setup(unsigned int addr, m_host_t host) {
+    localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
+    simHost = host;
+    ostringstream oss;
+    oss << localAddress;
+    mailbox = oss.str();
+    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    power = MSG_get_host_speed(simHost);
+    // NOTE: using the same seed generates the same set of memory and disk values between simulations
+//     const char * memoryStr = MSG_host_get_property_value(simHost, "mem");
+//     if (memoryStr)
+//         istringstream(string(memoryStr)) >> mem;
+//     else
+        mem = Simulator::uniform(cfg.minMem, cfg.maxMem, cfg.stepMem);
+//     const char * diskStr = MSG_host_get_property_value(simHost, "dsk");
+//     if (diskStr)
+//         istringstream(string(diskStr)) >> disk;
+//     else
+        disk = Simulator::uniform(cfg.minDisk, cfg.maxDisk, cfg.stepDisk);
+    schedulerType = cfg.sched;
 
-
-void PeerCompNode::createServices() {
-    structureNode.reset(new StructureNode(2));
-    resourceNode.reset(new ResourceNode(*structureNode));
-    submissionNode.reset(new SubmissionNode(*resourceNode));
-    switch (schedulerType) {
-        case PeerCompNode::SimpleSchedulerClass:
-            scheduler.reset(new SimpleScheduler(*resourceNode));
-            dispatcher.reset(new SimpleDispatcher(*structureNode));
-            break;
-        case PeerCompNode::FCFSSchedulerClass:
-            scheduler.reset(new FCFSScheduler(*resourceNode));
-            dispatcher.reset(new QueueBalancingDispatcher(*structureNode));
-            break;
-        case PeerCompNode::EDFSchedulerClass:
-            scheduler.reset(new EDFScheduler(*resourceNode));
-            dispatcher.reset(new DeadlineDispatcher(*structureNode));
-            break;
-        case PeerCompNode::MinStretchSchedulerClass:
-            scheduler.reset(new MinStretchScheduler(*resourceNode));
-            minStretchDisp.reset(new MinStretchDispatcher(*structureNode));
-            break;
-        default:
-            //serializeState(*ia);
-            break;
-    }
-}
-
-
-void PeerCompNode::destroyServices() {
-    // Gracely terminate the services
-    structureNode.reset();
-    resourceNode.reset();
-    submissionNode.reset();
-    scheduler.reset();
-    dispatcher.reset();
-    minStretchDisp.reset();
+    createServices();
+    // Load service state if needed
+    if (cfg.inFile.is_open())
+        serializeState(*cfg.ia);
 }
 
 
 int PeerCompNode::processFunction(int argc, char * argv[]) {
-    // Initialise the current node
-    PeerCompNode & node = Simulator::getCurrentNode();
-    PeerCompNodeFactory::getInstance().setupNode(node);
-    node.mainLoop();
-    return 0;
+    return Simulator::getCurrentNode().mainLoop();
 }
 
 
-void PeerCompNode::mainLoop() {
+int PeerCompNode::mainLoop() {
     Simulator & sim = Simulator::getInstance();
-    LogMsg("Sim.Process", DEBUG) << "Peer running at " << MSG_host_get_name(simHost) << " with address " << localAddress;
-    createServices();
+    LogMsg("Sim.Process", INFO) << "Peer running at " << MSG_host_get_name(simHost) << " with address " << localAddress;
+    
+    // Initial tasks
+    scheduler->rescheduleAt(Time::getCurrentTime());
     
     // Message loop
     while(sim.doContinue()) {
@@ -253,8 +267,98 @@ void PeerCompNode::mainLoop() {
             sim.getPerformanceStatistics().endEvent(eventName);
         }
     }
+    
+    // Cleanup
+    services.clear();
 
+    return 0;
+}
+
+
+void PeerCompNode::finish()  {
+    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    if (cfg.outFile.is_open())
+        serializeState(*cfg.oa);
     destroyServices();
+}
+
+
+void PeerCompNode::serializeState(portable_binary_oarchive & ar) {
+    structureNode->serializeState(ar);
+    resourceNode->serializeState(ar);
+    switch (schedulerType) {
+        case SimpleSchedulerClass:
+            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case FCFSSchedulerClass:
+            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case EDFSchedulerClass:
+            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case MinSlownessSchedulerClass:
+            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        default:
+            break;
+    }
+}
+
+
+void PeerCompNode::serializeState(portable_binary_iarchive & ar) {
+    structureNode->serializeState(ar);
+    resourceNode->serializeState(ar);
+    switch (schedulerType) {
+        case SimpleSchedulerClass:
+            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case FCFSSchedulerClass:
+            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case EDFSchedulerClass:
+            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        case MinSlownessSchedulerClass:
+            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            break;
+        default:
+            break;
+    }
+}
+
+
+void PeerCompNode::createServices() {
+    structureNode.reset(new StructureNode(2));
+    resourceNode.reset(new ResourceNode(*structureNode));
+    submissionNode.reset(new SubmissionNode(*resourceNode));
+    switch (schedulerType) {
+        case PeerCompNode::FCFSSchedulerClass:
+            scheduler.reset(new FCFSScheduler(*resourceNode));
+            dispatcher.reset(new QueueBalancingDispatcher(*structureNode));
+            break;
+        case PeerCompNode::EDFSchedulerClass:
+            scheduler.reset(new EDFScheduler(*resourceNode));
+            dispatcher.reset(new DeadlineDispatcher(*structureNode));
+            break;
+        case PeerCompNode::MinSlownessSchedulerClass:
+            scheduler.reset(new MinSlownessScheduler(*resourceNode));
+            dispatcher.reset(new MinSlownessDispatcher(*structureNode));
+            break;
+        default:
+            scheduler.reset(new SimpleScheduler(*resourceNode));
+            dispatcher.reset(new SimpleDispatcher(*structureNode));
+            break;
+    }
+}
+
+
+void PeerCompNode::destroyServices() {
+    // Gracely terminate the services
+    structureNode.reset();
+    resourceNode.reset();
+    submissionNode.reset();
+    scheduler.reset();
+    dispatcher.reset();
 }
 
 
@@ -265,15 +369,6 @@ unsigned long int PeerCompNode::getMsgSize(BasicMsg * msg) {
     oa << msg;
     size = ss.tellp();
     return size;
-}
-
-
-void PeerCompNode::setAddressAndHost(unsigned int addr, m_host_t host) {
-    localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
-    simHost = host;
-    ostringstream oss;
-    oss << localAddress;
-    mailbox = oss.str();
 }
 
 
@@ -410,85 +505,6 @@ void PeerCompNode::setAddressAndHost(unsigned int addr, m_host_t host) {
 // }
 // 
 // 
-// void PeerCompNode::saveState(const Properties & property) {
-//     std::string outFileName = property("out_file", string(""));
-//     if (outFileName != "") {
-//         fs::ofstream file;
-//         file.exceptions(ios_base::failbit | ios_base::badbit);
-//         file.open(outFileName, ios_base::binary);
-//         filtering_streambuf<iost::output> out;
-//         out.push(iost::zlib_compressor());
-//         out.push(file);
-//         portable_binary_oarchive oa(out, 0);
-//         unsigned int n = Simulator::getInstance().getNumNodes();
-//         for (unsigned int i = 0; i < n; i++) {
-//             // Save PeerCompNode state
-//             Simulator::getInstance().getNode(i).serializeState(oa);
-//         }
-//     }
-// }
-// 
-// 
-// void PeerCompNode::serializeState(portable_binary_oarchive & ar) {
-//     ar << schedulerType << power << mem << disk;
-//     structureNode->serializeState(ar);
-//     resourceNode->serializeState(ar);
-//     switch (schedulerType) {
-//     case SimpleSchedulerClass:
-//         static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
-//         break;
-//     case FCFSSchedulerClass:
-//         static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
-//         break;
-//     case EDFSchedulerClass:
-//         static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
-//         break;
-//     case MinStretchSchedulerClass:
-//         minStretchDisp->serializeState(ar);
-//         break;
-//     default:
-//         break;
-//     }
-// }
-// 
-// 
-// void PeerCompNode::serializeState(portable_binary_iarchive & ar) {
-//     ar >> schedulerType >> power >> mem >> disk;
-//     structureNode->serializeState(ar);
-//     resourceNode->serializeState(ar);
-//     switch (schedulerType) {
-//     case SimpleSchedulerClass: {
-//         SimpleDispatcher * d = new SimpleDispatcher(*structureNode);
-//         d->serializeState(ar);
-//         dispatcher.reset(d);
-//         scheduler.reset(new SimpleScheduler(*resourceNode));
-//     }
-//     break;
-//     case FCFSSchedulerClass: {
-//         QueueBalancingDispatcher * d = new QueueBalancingDispatcher(*structureNode);
-//         d->serializeState(ar);
-//         dispatcher.reset(d);
-//         scheduler.reset(new FCFSScheduler(*resourceNode));
-//     }
-//     break;
-//     case EDFSchedulerClass: {
-//         DeadlineDispatcher * d = new DeadlineDispatcher(*structureNode);
-//         d->serializeState(ar);
-//         dispatcher.reset(d);
-//         scheduler.reset(new EDFScheduler(*resourceNode));
-//     }
-//     break;
-//     case MinStretchSchedulerClass: {
-//         MinStretchDispatcher * d = new MinStretchDispatcher(*structureNode);
-//         d->serializeState(ar);
-//         minStretchDisp.reset(d);
-//         scheduler.reset(new MinStretchScheduler(*resourceNode));
-//     }
-//     break;
-//     default:
-//         break;
-//     }
-// }
 // 
 // 
 // class MemoryOutArchive {

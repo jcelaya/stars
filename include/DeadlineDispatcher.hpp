@@ -41,7 +41,10 @@ public:
      * @param sn The StructureNode of this branch.
      */
     DeadlineDispatcher(StructureNode & sn) : Dispatcher(sn) {}
-
+    
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
+    
 private:
     struct DecissionInfo;
     struct RecentRequest {
@@ -62,9 +65,6 @@ private:
      * @param msg TaskBagMsg message with task group information.
      */
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
-
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
 };
 
 #endif /*DeadlineDispatcher_H_*/

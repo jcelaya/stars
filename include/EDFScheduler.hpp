@@ -50,11 +50,7 @@ public:
      * Creates a new EDFScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-        reschedule();
-        // The emptiness must also be notified.
-        notifySchedule();
-    }
+    EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {}
 
     // This is documented in Scheduler
     unsigned int accept(const TaskBagMsg & msg);

@@ -27,7 +27,6 @@
 namespace fs = boost::filesystem;
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
 #include <boost/scoped_ptr.hpp>
 namespace iost = boost::iostreams;
 #include <msg/msg.h>
@@ -42,12 +41,8 @@ namespace iost = boost::iostreams;
 #include "ResourceNode.hpp"
 #include "Scheduler.hpp"
 #include "Dispatcher.hpp"
-#include "MinStretchDispatcher.hpp"
 #include "AvailabilityInformation.hpp"
-class Simulator;
 
-
-class PeerCompNodeFactory;
 
 /**
  * \brief A node of the PeerComp platform.
@@ -62,13 +57,19 @@ public:
         SimpleSchedulerClass = 0,
         FCFSSchedulerClass = 1,
         EDFSchedulerClass = 2,
-        MinStretchSchedulerClass = 3,
+        MinSlownessSchedulerClass = 3,
     };
     
     PeerCompNode() {}
     PeerCompNode(const PeerCompNode & copy) {}
     
-    void setAddressAndHost(unsigned int addr, m_host_t host);
+    void setup(unsigned int addr, m_host_t host);
+    
+    void finish();
+    
+    void serializeState(portable_binary_oarchive & ar);
+    
+    void serializeState(portable_binary_iarchive & ar);
     
     m_host_t getHost() const {
         return simHost;
@@ -116,10 +117,7 @@ public:
     //     unsigned int getRoot() const;
     //     static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
     //     static void checkTree();
-    //     static void saveState(const Properties & property);
-    // 
-    //     void serializeState(portable_binary_oarchive & ar);
-    //     void serializeState(portable_binary_iarchive & ar);
+
     //     void generateRNode(uint32_t rfather);
     //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, int level);
     //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
@@ -143,14 +141,14 @@ public:
      */
     static unsigned long int getMsgSize(BasicMsg * msg);
     
+    static void libStarsConfigure(const Properties & property);
+    
 private:
-    void mainLoop();
+    int mainLoop();
     
     void createServices();
     void destroyServices();
     
-    friend class PeerCompNodeFactory;
-
     m_host_t simHost;
     std::string mailbox;
     int schedulerType;
@@ -159,42 +157,10 @@ private:
     boost::scoped_ptr<SubmissionNode> submissionNode;
     boost::scoped_ptr<Scheduler> scheduler;
     boost::scoped_ptr<DispatcherInterface> dispatcher;
-    boost::scoped_ptr<MinStretchDispatcher> minStretchDisp;
     SimAppDatabase db;
     double power;
     unsigned long int mem;
     unsigned long int disk;
-};
-
-
-class PeerCompNodeFactory {
-    int fanout;
-    double minCPU;
-    double maxCPU;
-    double stepCPU;
-    int minMem;
-    int maxMem;
-    int stepMem;
-    int minDisk;
-    int maxDisk;
-    int stepDisk;
-    int sched;
-    std::string inFileName;
-    fs::ifstream inFile;
-    iost::filtering_streambuf<iost::input> in;
-    boost::scoped_ptr<portable_binary_iarchive> ia;
-    
-    PeerCompNodeFactory() {}
-
-public:
-    static PeerCompNodeFactory & getInstance() {
-        static PeerCompNodeFactory instance;
-        return instance;
-    }
-    
-    void setupFactory(const Properties & property);
-
-    void setupNode(PeerCompNode & node);
 };
 
 #endif /*PEERCOMPNODE_H_*/

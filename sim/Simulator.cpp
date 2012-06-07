@@ -28,7 +28,6 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <xbt/log.h>
 #include "Logger.hpp"
-#include "ConfigurationManager.hpp"
 #include "Simulator.hpp"
 #include "SimulationCase.hpp"
 #include "SimTask.hpp"
@@ -147,7 +146,7 @@ bool Simulator::run(Properties & property) {
     // Prepare simulation case
     pstats.startEvent("Prepare simulation case");
     
-    // Set logging
+    // Get working directory, and check if the execution log exists and/or must be overwritten
     resultDir = property("results_dir", std::string("./results"));
     if (!fs::exists(resultDir)) fs::create_directories(resultDir);
     fs::path logFile(resultDir / "execution.log");
@@ -155,8 +154,10 @@ bool Simulator::run(Properties & property) {
         XBT_CRITICAL("Log file exists at %s", logFile.c_str());
         return true;
     }
-    pstats.openFile(resultDir);
+    pstats.openStatsFile();
+    starsStats.openStatsFiles();
     
+    // Set logging
     xbt_log_appender_set(&_simgrid_log_category__Progress, xbt_log_appender_file_new(const_cast<char *>(logFile.c_str())));
     xbt_log_layout_set(&_simgrid_log_category__Progress, xbt_log_layout_format_new(const_cast<char *>("%m%n")));
     xbt_log_additivity_set(&_simgrid_log_category__Progress, 1);
@@ -176,27 +177,23 @@ bool Simulator::run(Properties & property) {
     showStep = property("show_step", 5);
 
     // Library config
-    ConfigurationManager::getInstance().setUpdateBandwidth(property("update_bw", 1000.0));
-    ConfigurationManager::getInstance().setStretchRatio(property("stretch_ratio", 2.0));
-    ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
-    ConfigurationManager::getInstance().setWorkingPath(resultDir);
+    PeerCompNode::libStarsConfigure(property);
 
     // Platform setup
-    PeerCompNodeFactory::getInstance().setupFactory(property);
     MSG_create_environment(property("platform_file", std::string()).c_str());
     m_host_t * hosts = MSG_get_host_table();
     unsigned int numNodes = MSG_get_host_number();
     routingTable.reset(new PeerCompNode[numNodes]);
-    // For every host in the platform, set Simulator::processFunction as the process function
+    // For every host in the platform, set PeerCompNode::processFunction as the process function
     for (unsigned int i = 0; i < numNodes; ++i) {
         MSG_host_set_data(hosts[i], &routingTable[i]);
-        routingTable[i].setAddressAndHost(i, hosts[i]);
+        routingTable[i].setup(i, hosts[i]);
         MSG_process_create(NULL, PeerCompNode::processFunction, NULL, hosts[i]);
     }
     
-    XBT_CRITICAL("%d nodes, %d bytes to prepare simulation network", numNodes, (int)MemoryManager::getInstance().getMaxUsedMemory());
-    
     simCase->preStart();
+    
+    XBT_CRITICAL("%d nodes, %d bytes to prepare simulation network", numNodes, (int)MemoryManager::getInstance().getMaxUsedMemory());
     pstats.endEvent("Prepare simulation case");
     
     // Run simulation
@@ -211,8 +208,14 @@ bool Simulator::run(Properties & property) {
     PROGRESS(simRealTime << " (" << getCurrentTime() << ", "
         << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
         << MemoryManager::getInstance().getUsedMemory() << " mem   100%");
-    //pcstats.saveTotalStatistics();
+    starsStats.saveTotalStatistics();
     pstats.saveTotalStatistics();
+    
+    // Finish
+    for (unsigned int i = 0; i < numNodes; ++i) {
+        routingTable[i].finish();
+    }
+    
     PROGRESS("Ending test at " << now << ". Lasted " << (now - start)
         << " and used " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes.");
     
@@ -243,7 +246,7 @@ bool Simulator::doContinue() {
                 << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
                 << simCase->getCompletedPercent() << "%   "
-                << SimTask::getRunningTasks() << " tasks");
+                << starsStats.getExistingTasks() << " tasks");
             pstats.savePartialStatistics();
             nextProgress = now + pt::seconds(showStep);
         }

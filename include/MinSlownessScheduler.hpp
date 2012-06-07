@@ -69,11 +69,7 @@ public:
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MinSlownessScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-        reschedule();
-        // The emptiness must also be notified.
-        notifySchedule();
-    }
+    MinSlownessScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {}
 
     /**
      * Generates a list of applications from a task queue, sorted so that they have the minimum stretch.

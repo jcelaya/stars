@@ -27,8 +27,8 @@ namespace fs = boost::filesystem;
 using namespace std;
 
 
-void PerformanceStatistics::openFile(const fs::path & statDir) {
-    os.open(statDir / fs::path("perf.stat"));
+void PerformanceStatistics::openStatsFile() {
+    os.open(Simulator::getInstance().getResultDir() / fs::path("perf.stat"));
 }
 
 

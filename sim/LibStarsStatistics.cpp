@@ -21,17 +21,22 @@
  */
 
 #include "ConfigurationManager.hpp"
-#include "PeerCompStatistics.hpp"
+#include "LibStarsStatistics.hpp"
 #include "Simulator.hpp"
 #include "PeerCompNode.hpp"
 #include "Scheduler.hpp"
 #include "Distributions.hpp"
 
 
-PeerCompStatistics::PeerCompStatistics() : sim(Simulator::getInstance()) {
+void LibStarsStatistics::openStatsFiles() {
+    const boost::filesystem::path & statDir = Simulator::getInstance().getResultDir();
     // Queue statistics
-    queueos.open(sim.getResultDir() / boost::filesystem::path("queue_length.stat"));
+    queueos.open(statDir / boost::filesystem::path("queue_length.stat"));
     queueos << "# Time, max, comment" << std::setprecision(3) << std::fixed << std::endl;
+    // Throughput statistics
+    throughputos.open(statDir / fs::path("throughput.stat"));
+    throughputos << "# Time, tasks finished per second, total tasks finished" << std::endl;
+    throughputos << "0,0,0";
 }
 
 
@@ -41,26 +46,49 @@ void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepte
 }
 
 
-void PeerCompStatistics::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
+void LibStarsStatistics::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
     Time now = Simulator::getCurrentTime();
     if (maxQueue < queueEnd) {
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
         << ",queue length updated" << std::endl;
         maxQueue = queueEnd;
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
-        << ',' << numAccepted << " new tasks accepted at " << sim.getCurrentNode().getLocalAddress()
+        << ',' << numAccepted << " new tasks accepted at " << Simulator::getCurrentNode().getLocalAddress()
         << " for request " << rid << std::endl;
     }
 }
 
 
-void PeerCompStatistics::saveQueueLengthStatistics() {
+void LibStarsStatistics::finishQueueLengthStatistics() {
     Time now = Simulator::getCurrentTime();
     queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << ",end" << std::endl;
 }
 
 
-void PeerCompStatistics::saveCPUStatistics() {
+void LibStarsStatistics::finishThroughputStatistics() {
+    Time now = Simulator::getCurrentTime();
+    double elapsed = (now - lastTSample).seconds();
+    throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ',' << (partialFinishedTasks / elapsed) << ',' << totalFinishedTasks << std::endl;
+}
+
+
+void LibStarsStatistics::taskFinished(bool successful) {
+    --existingTasks;
+    if (successful) {
+        partialFinishedTasks++;
+        totalFinishedTasks++;
+        Time now = Simulator::getCurrentTime();
+        double elapsed = (now - lastTSample).seconds();
+        if (elapsed >= delayTSample) {
+            throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ',' << (partialFinishedTasks / elapsed) << ',' << totalFinishedTasks << std::endl;
+            partialFinishedTasks = 0;
+            lastTSample = now;
+        }
+    }
+}
+
+
+void LibStarsStatistics::saveCPUStatistics() {
     Simulator & sim = Simulator::getInstance();
     boost::filesystem::ofstream os(sim.getResultDir() / boost::filesystem::path("cpu.stat"));
     os << std::setprecision(6) << std::fixed;

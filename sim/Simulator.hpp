@@ -36,7 +36,7 @@
 #include "SimulationCase.hpp"
 #include "Properties.hpp"
 #include "Time.hpp"
-#include "PeerCompStatistics.hpp"
+#include "LibStarsStatistics.hpp"
 #include "PerformanceStatistics.hpp"
 class BasicMsg;
 
@@ -107,9 +107,9 @@ public:
         return pstats;
     }
 
-//     PeerCompStatistics & getPCStats() {
-//         return pcstats;
-//     }
+    LibStarsStatistics & getStarsStatistics() {
+        return starsStats;
+    }
 
     // Network methods
 //     unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
@@ -120,7 +120,7 @@ public:
      * Returns the current simulated time.
      */
     static Time getCurrentTime() {
-        return Time(int64_t(MSG_get_clock() * 1000000));
+        return Time((int64_t)(MSG_get_clock() * 1000000));
     }
     
     /**
@@ -198,7 +198,7 @@ private:
 
     // Simulation global statistics
     PerformanceStatistics pstats;
-    //PeerCompStatistics pcstats;
+    LibStarsStatistics starsStats;
     boost::posix_time::ptime simStart;              ///< Start time of the simulation.
     boost::posix_time::ptime nextProgress;          ///< Time to show next progress step
     boost::posix_time::ptime opStart;

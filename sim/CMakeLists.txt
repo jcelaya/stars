@@ -12,7 +12,7 @@ if(SIMGRID_FOUND)
         Distributions.cpp
         MemoryManager.cpp
         PeerCompNode.cpp
-        PeerCompStatistics.cpp
+        LibStarsStatistics.cpp
         PerformanceStatistics.cpp
         Properties.cpp
         SimAppDatabase.cpp

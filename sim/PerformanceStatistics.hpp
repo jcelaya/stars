@@ -49,7 +49,7 @@ public:
     };
 
     /// Open the statistics file at the given directory.
-    void openFile(const boost::filesystem::path & statDir);
+    void openStatsFile();
     
     /**
      * Start measuring a certain kind of event.

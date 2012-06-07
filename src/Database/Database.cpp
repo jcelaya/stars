@@ -27,7 +27,6 @@ using namespace boost;
 
 
 Database::Database(const boost::filesystem::path & dbFile) : db(NULL) {
-    LogMsg("Database", DEBUG) << "Opening database in " << dbFile;
     if (sqlite3_open(dbFile.string().c_str(), &db))
         throw Exception(*this) << "Error opening database";
     // We usually want foreign key constraints

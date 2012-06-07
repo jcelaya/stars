@@ -38,15 +38,15 @@ class SimpleDispatcher: public Dispatcher<BasicAvailabilityInfo> {
      */
     void handle(const CommAddress & src, const TaskBagMsg & msg);
 
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
-
 public:
     /**
      * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
     SimpleDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
 };
 
 #endif /* SIMPLEDISPATCHER_H_ */

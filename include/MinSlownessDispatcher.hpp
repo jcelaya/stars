@@ -41,13 +41,13 @@ public:
      * @param sn The StructureNode of this branch.
      */
     MinSlownessDispatcher(StructureNode & sn) : Dispatcher(sn) {}
-
+    
+    // This is documented in Dispatcher.
+    virtual void recomputeInfo();
+    
 private:
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
-
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
 };
 
 #endif /* MINSLOWNESSDISPATCHER_H_ */

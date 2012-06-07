@@ -27,14 +27,17 @@
 #include "Simulator.hpp"
 #include "PeerCompNode.hpp"
 
-unsigned int SimTask::runningTasks = 0;
-
 
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
-    runningTasks++;
+    Simulator::getInstance().getStarsStatistics().taskStarted();
     taskDuration = Duration(description.getLength() / Simulator::getCurrentNode().getAveragePower());
     LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
+}
+
+
+SimTask::~SimTask() {
+    Simulator::getInstance().getStarsStatistics().taskFinished(timer != -1);
 }
 
 
@@ -60,8 +63,10 @@ void SimTask::run() {
 
 void SimTask::abort() {
     // Cancel timer only if the task is running
-    if (timer != -1 && finishTime > Simulator::getCurrentTime())
+    if (timer != -1 && finishTime > Simulator::getCurrentTime()) {
         Simulator::getCurrentNode().cancelTimer(timer);
+        timer = -1;
+    }
 }
 
 

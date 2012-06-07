@@ -116,8 +116,12 @@ public:
         return tasksExecuted;
     }
 
-
-
+    /**
+     * Programs a new reschedule timer, canceling the previous one.
+     * @param r The new reschedule time.
+     */
+    void rescheduleAt(Time r);
+    
 protected:
     class ExecutionEnvironmentImpl {
     public:
@@ -129,12 +133,6 @@ protected:
     uint32_t seqNum;                   ///< Sequence number for the AvailabilityInformation message
     /// Hidden implementation of the execution environment
     ExecutionEnvironmentImpl backend;
-
-    /**
-     * Programs a new reschedule timer, canceling the previous one.
-     * @param r The new reschedule time.
-     */
-    void rescheduleAt(Time r);
 
     void setMonitorTimer();
 
