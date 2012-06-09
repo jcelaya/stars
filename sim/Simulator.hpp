@@ -32,7 +32,7 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/thread/mutex.hpp>
 #include <msg/msg.h>
-#include "PeerCompNode.hpp"
+#include "StarsNode.hpp"
 #include "SimulationCase.hpp"
 #include "Properties.hpp"
 #include "Time.hpp"
@@ -82,7 +82,7 @@ public:
         return MSG_get_host_number();
     }
     
-    PeerCompNode & getNode(unsigned int i) {
+    StarsNode & getNode(unsigned int i) {
         return routingTable[i];
     }
     
@@ -93,11 +93,15 @@ public:
         return resultDir;
     }
     
+    bool isInSimulation() const {
+        return inSimulation;
+    }
+    
     /**
      * Returns the PeerCompNode instance associated to the current process.
      */
-    static PeerCompNode & getCurrentNode() {
-        return *static_cast<PeerCompNode *>(MSG_host_get_data(MSG_host_self()));
+    static StarsNode & getCurrentNode() {
+        return *static_cast<StarsNode *>(MSG_host_get_data(MSG_host_self()));
     }
     
     /**
@@ -187,9 +191,10 @@ private:
     void log(const char *  category, int priority, LogMsg::AbstractTypeContainer * values);
     
     // Simulation framework
-    boost::scoped_array<PeerCompNode> routingTable;   ///< The set of PeerCompNodes in this simulation.
-    boost::scoped_ptr<SimulationCase> simCase;        ///< The current simulation case. Currently, only one is allowed per execution.
-    bool end;                                         ///< Signals the end of the simulation
+    boost::scoped_array<StarsNode> routingTable;   ///< The set of PeerCompNodes in this simulation.
+    boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
+    bool end;                                      ///< Signals the end of the simulation
+    bool inSimulation;                             ///< States if the currently running code is inside MSG_main
     
     boost::filesystem::path resultDir;                  ///< The path to the directory that contains the results.
     boost::filesystem::ofstream debugFile;              ///< The log4cpp file.

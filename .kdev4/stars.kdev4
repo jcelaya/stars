@@ -7,7 +7,7 @@ CMakeDir=/usr/share/cmake-2.8/Modules
 Current CMake Binary=file:///usr/bin/cmake
 CurrentBuildDir=file:///home/javi/projects/stars/build
 CurrentBuildType=Debug
-CurrentInstallDir=
+CurrentInstallDir=file:///usr/local
 Extra Arguments=
 ProjectRootRelative=./
 
@@ -25,12 +25,12 @@ Arguments=conf/example.conf
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default
-Executable=
+Executable=file:///home/javi/projects/stars/build/sim/stars-simgrid-Debug
 External Terminal=konsole --noclose --workdir %workdir -e %exe
 Project Target=stars,sim,stars-simgrid
 Use External Terminal=false
 Working Directory=file:///home/javi/projects/stars/build/sim
-isExecutable=false
+isExecutable=true
 
 [MakeBuilder]
 Abort on First Error=false

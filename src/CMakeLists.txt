@@ -13,9 +13,9 @@ add_subdirectory(SubmissionManager)
 add_subdirectory(WtUI)
 
 # add the library
-set(STARS_LIBRARIES stars-${CMAKE_BUILD_TYPE})
+set(STARS_LIBRARIES stars${BIN_SUFFIX})
 add_library(${STARS_LIBRARIES} SHARED ${stars_sources})
 
 # add the executable
-add_executable(stars-peer Core/main.cpp)
-target_link_libraries(stars-peer ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES})
+add_executable(stars-peer${BIN_SUFFIX} Core/main.cpp)
+target_link_libraries(stars-peer${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES})

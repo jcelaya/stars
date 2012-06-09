@@ -104,6 +104,8 @@ public:
     template<class Archive> void serializeState(Archive & ar) {
         // Only works in stable: no change, no delayed update
         ar & father & children;
+        if (IS_LOADING() && !father.waitingInfo.get())
+            recomputeInfo();
     }
 
     struct Link {

@@ -23,7 +23,6 @@
 #include "ConfigurationManager.hpp"
 #include "LibStarsStatistics.hpp"
 #include "Simulator.hpp"
-#include "PeerCompNode.hpp"
 #include "Scheduler.hpp"
 #include "Distributions.hpp"
 

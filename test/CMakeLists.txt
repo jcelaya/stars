@@ -12,10 +12,10 @@ add_subdirectory(GlobalScheduler)
 add_subdirectory(StructureManager)
 #add_subdirectory(SubmissionManager)
 
-set(STARS_LIBRARIES stars-${CMAKE_BUILD_TYPE})
+set(STARS_LIBRARIES stars${BIN_SUFFIX})
 
 # add the executable
-add_executable(stars-test TestSuite.cpp ${starstest_sources})
-target_link_libraries(stars-test ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES})
+add_executable(stars-test${BIN_SUFFIX} TestSuite.cpp ${starstest_sources})
+target_link_libraries(stars-test${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES})
 
-add_test(test-all stars-test)
+add_test(test-all stars-test${BIN_SUFFIX})

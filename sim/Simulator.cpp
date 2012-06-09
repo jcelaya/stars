@@ -27,6 +27,7 @@
 #include <log4cpp/Category.hh>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <xbt/log.h>
+#include "config.h"
 #include "Logger.hpp"
 #include "Simulator.hpp"
 #include "SimulationCase.hpp"
@@ -64,9 +65,11 @@ void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContai
 void Simulator::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
     if (debugFile.is_open() && log4cpp::Category::getInstance(category).isPriorityEnabled(priority)) {
         boost::mutex::scoped_lock lock(debugMutex);
-        debugArchive << Duration(getRealTime().total_microseconds()) << ' ' << getCurrentTime() << ' '
-                << getCurrentNode().getLocalAddress() << ','
-                << category << '(' << priority << ')' << ' ';
+        if (inSimulation)
+            debugArchive << Duration(getRealTime().total_microseconds()) << ' ' << getCurrentTime() << ' ' << getCurrentNode().getLocalAddress() << ',';
+        else
+            debugArchive << "sim_init,";
+        debugArchive << category << '(' << priority << ')' << ' ';
         for (LogMsg::AbstractTypeContainer * it = values; it != NULL; it = it->next)
             debugArchive << *it;
         debugArchive << std::endl;
@@ -83,10 +86,11 @@ void finish(int param) {
 int main(int argc, char * argv[]) {
     xbt_log_control_set("root.fmt:%m%n");
 #ifdef __x86_64__
-    XBT_CRITICAL("STaRS SimGrid-based simulator 64bits PID %d", getpid());
+    int bits = 64;
 #else
-    XBT_CRITICAL("STaRS SimGrid-based simulator 32bits PID %d", getpid());
-    #endif
+    int bits = 32;
+#endif
+    XBT_CRITICAL("STaRS v. %s.%s SimGrid-based simulator %dbits PID %d", STARS_VERSION_MAJOR, STARS_VERSION_MINOR, bits, getpid());
     if (argc != 2) {
         XBT_CRITICAL("Usage: stars-sim config_file");
         return 1;
@@ -134,6 +138,7 @@ static bool checkLogFile(const fs::path & logFile) {
 bool Simulator::run(Properties & property) {
     // Simulator starts running
     pt::ptime start = pt::microsec_clock::local_time();
+    inSimulation = false;
     
     // Create simulation case
     simCase.reset(CaseFactory::getInstance().createCase(property("case_name", std::string("")), property));
@@ -168,7 +173,7 @@ bool Simulator::run(Properties & property) {
     }
     LogMsg::initLog(property("log_conf_string", std::string("root=WARN")));
     PROGRESS("Running simulation test at " << pt::microsec_clock::local_time() << ": " << property);
-
+    
     // Simulation variables
     maxRealTime = pt::seconds(property("max_time", 0));
     maxSimTime = Duration(property("max_sim_time", 0.0));
@@ -177,18 +182,18 @@ bool Simulator::run(Properties & property) {
     showStep = property("show_step", 5);
 
     // Library config
-    PeerCompNode::libStarsConfigure(property);
+    StarsNode::libStarsConfigure(property);
 
     // Platform setup
     MSG_create_environment(property("platform_file", std::string()).c_str());
     m_host_t * hosts = MSG_get_host_table();
     unsigned int numNodes = MSG_get_host_number();
-    routingTable.reset(new PeerCompNode[numNodes]);
-    // For every host in the platform, set PeerCompNode::processFunction as the process function
+    routingTable.reset(new StarsNode[numNodes]);
+    // For every host in the platform, set StarsNode::processFunction as the process function
     for (unsigned int i = 0; i < numNodes; ++i) {
         MSG_host_set_data(hosts[i], &routingTable[i]);
         routingTable[i].setup(i, hosts[i]);
-        MSG_process_create(NULL, PeerCompNode::processFunction, NULL, hosts[i]);
+        MSG_process_create(NULL, StarsNode::processFunction, NULL, hosts[i]);
     }
     
     simCase->preStart();
@@ -199,8 +204,10 @@ bool Simulator::run(Properties & property) {
     // Run simulation
     simStart = pt::microsec_clock::local_time();
     nextProgress = simStart + pt::seconds(showStep);
+    inSimulation = true;
     MSG_error_t res = MSG_main();
-
+    inSimulation = false;
+    
     simCase->postEnd();
     // Show statistics
     pt::ptime now = pt::microsec_clock::local_time();

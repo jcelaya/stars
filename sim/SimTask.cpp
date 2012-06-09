@@ -25,7 +25,6 @@
 #include "TaskStateChgMsg.hpp"
 #include "TaskDescription.hpp"
 #include "Simulator.hpp"
-#include "PeerCompNode.hpp"
 
 
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :

@@ -11,7 +11,7 @@ if(SIMGRID_FOUND)
     set(starssim_sources
         Distributions.cpp
         MemoryManager.cpp
-        PeerCompNode.cpp
+        StarsNode.cpp
         LibStarsStatistics.cpp
         PerformanceStatistics.cpp
         Properties.cpp
@@ -19,11 +19,12 @@ if(SIMGRID_FOUND)
         SimTask.cpp
         SimulationCase.cpp
         Simulator.cpp
+        cases/Dummy.cpp
         cases/Structure.cpp)
 
-    set(STARS_LIBRARIES stars-${CMAKE_BUILD_TYPE})
+    set(STARS_LIBRARIES stars${BIN_SUFFIX})
 
     # add the executable
-    add_executable(stars-simgrid ${starssim_sources})
-    target_link_libraries(stars-simgrid ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES})
+    add_executable(stars-simgrid${BIN_SUFFIX} ${starssim_sources})
+    target_link_libraries(stars-simgrid${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES})
 endif(SIMGRID_FOUND)
