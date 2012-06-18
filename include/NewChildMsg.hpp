@@ -35,26 +35,14 @@
  * they will have to send an UpdateMsg.
  */
 class NewChildMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & child & seq & replace;
-    }
-
-    CommAddress child;   ///< The new child address
-    uint64_t seq;                    ///< Sequence number, to only apply the last changes
-    bool replace;                    ///< Tells whether the new child replaces the sender or is added
-
 public:
+    MESSAGE_SUBCLASS(NewChildMsg);
+    
     /**
      * Default constructor.
      */
     NewChildMsg() : seq(0), replace(false) {}
     NewChildMsg(const NewChildMsg & copy) : TransactionMsg(copy), child(copy.child), seq(copy.seq), replace(copy.replace) {}
-
-    // This is documented in BasicMsg
-    virtual NewChildMsg * clone() const {
-        return new NewChildMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -111,10 +99,11 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("NewChildMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, child, seq, replace);
+private:
+    CommAddress child;   ///< The new child address
+    uint64_t seq;                    ///< Sequence number, to only apply the last changes
+    bool replace;                    ///< Tells whether the new child replaces the sender or is added
 };
 
 #endif /*NEWCHILDMSG_H_*/

@@ -1,4 +1,4 @@
 set(stars_sources ${stars_sources}
-    SubmissionManager/SubmissionMsgExport.cpp
     SubmissionManager/SubmissionNode.cpp
+    SubmissionManager/SubmissionMsgExport.cpp
     PARENT_SCOPE)

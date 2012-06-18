@@ -94,7 +94,7 @@ void ResourceNode::notifyFather() {
             notifiedZoneDesc.reset(new ZoneDescription(*zoneDesc));
             DEBUG_LOG("There were changes. Sending update to the father");
             UpdateZoneMsg * u = new UpdateZoneMsg;
-            u->setZone(notifiedZoneDesc);
+            u->setZone(*notifiedZoneDesc);
             u->setSequence(seq++);
             CommLayer::getInstance().sendMessage(father, u);
         }

@@ -20,26 +20,26 @@
  *
  */
 
-#include "../SimulationCase.hpp"
+#include "SimulationCase.hpp"
 
 
 // Copy-Paste to create new test hehehe
-class DummyTest : public SimulationCase {
+class Dummy : public SimulationCase {
 public:
-    DummyTest(const Properties & p) : SimulationCase(p) {
+    Dummy(const Properties & p) : SimulationCase(p) {
         // Prepare the properties
     }
     
-    static const std::string getName() { return std::string("DummyTest"); }
+    static const std::string getName() { return std::string("dummy_case"); }
     
-    void preStart() {
+    virtual void preStart() {
         // Before running simulation
         // NOTE: outside MSG_main, do not call Time::getCurrentTime() or Simulator::getCurrentNode() !!
     }
     
-    void postEnd() {
+    virtual void postEnd() {
         // After ending simulation
         // NOTE: outside MSG_main, do not call Time::getCurrentTime() or Simulator::getCurrentNode() !!
     }
 };
-REGISTER_SIMULATION_CASE(DummyTest);
+REGISTER_SIMULATION_CASE(Dummy);

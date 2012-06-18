@@ -24,7 +24,6 @@
 #define RESOURCEINFORMATION_H_
 
 #include "BasicMsg.hpp"
-#include "Task.hpp"
 
 
 /**
@@ -78,16 +77,10 @@ public:
     /// Reduces the size of this availability summary so that it is bounded by a certain limit.
     virtual void reduce() = 0;
 
+    MSGPACK_DEFINE(seq, fromSch);
 protected:
     uint32_t seq;   ///< Sequence number, to provide message ordering.
     bool fromSch;   ///< Whether the message comes from the scheduler or the dispatcher
-
-private:
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & seq & fromSch;
-        if (IS_SAVING()) reduce();
-    }
 };
 
 #endif /*RESOURCEINFORMATION_H_*/

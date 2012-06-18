@@ -27,22 +27,9 @@
 
 
 class AcceptTaskMsg: public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & requestId & firstTask & lastTask & heartbeat;
-    }
-
-    int64_t requestId;    ///< Request ID relative to the requester
-    uint32_t firstTask;   ///< Id of the first task in the interval to assign.
-    uint32_t lastTask;    ///< Id of the last task in the interval to assign.
-    int32_t heartbeat;     ///< seconds until next monitoring report
-
 public:
-    // This is described in BasicMsg
-    virtual AcceptTaskMsg * clone() const {
-        return new AcceptTaskMsg(*this);
-    }
-
+    MESSAGE_SUBCLASS(AcceptTaskMsg);
+    
     /**
      * Obtains the request ID
      */
@@ -108,10 +95,12 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("AcceptTaskMsg");
-    }
+    MSGPACK_DEFINE(requestId, firstTask, lastTask, heartbeat);
+private:
+    int64_t requestId;    ///< Request ID relative to the requester
+    uint32_t firstTask;   ///< Id of the first task in the interval to assign.
+    uint32_t lastTask;    ///< Id of the last task in the interval to assign.
+    int32_t heartbeat;     ///< seconds until next monitoring report
 };
 
 #endif /* ACCEPTTASKMSG_H_ */

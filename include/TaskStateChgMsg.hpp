@@ -32,20 +32,9 @@
  * This kind of TaskEventMsg is received whenever the sending task changes its state.
  */
 class TaskStateChgMsg : public TaskEventMsg {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TaskEventMsg) & oldState & newState;
-    }
-
-    int32_t oldState;   ///< The old state of the task
-    int32_t newState;   ///< The new state
-
 public:
-    // This is documented in BasicMsg
-    virtual TaskStateChgMsg * clone() const {
-        return new TaskStateChgMsg(*this);
-    }
-
+    MESSAGE_SUBCLASS(TaskStateChgMsg);    
+    
     /**
      * Returns the state the task was in before it changed.
      * @return The old state.
@@ -81,10 +70,10 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("TaskStateChgMsg");
-    }
+    MSGPACK_DEFINE((TaskEventMsg &)*this, oldState, newState);
+private:
+    int32_t oldState;   ///< The old state of the task
+    int32_t newState;   ///< The new state
 };
 
 #endif /*TASKSTATECHGMSG_H_*/

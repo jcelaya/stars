@@ -47,7 +47,9 @@ public:
      * Creates a new FCFSScheduler with an empty list and an empty AvailabilityFunction.
      * @param e Execution node associated with this scheduler.
      */
-    FCFSScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {}
+    FCFSScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+        reschedule();
+    }
 
     // This is documented in Scheduler
     virtual const QueueBalancingInfo & getAvailability() const {

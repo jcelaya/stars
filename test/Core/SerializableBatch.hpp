@@ -24,17 +24,15 @@
 #define SERIALIZABLEBATCH_HPP_
 
 #include <cstdlib>
+#include <cmath>
 #include <boost/test/unit_test.hpp>
 #include "BasicMsg.hpp"
 
 
 class SerializableBatch : public BasicMsg {
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg);
-        ar & u8 & u16 & u32 & u64 & i8 & i16 & i32 & i64 & b & d & v & l & p & s;
-    }
-
 public:
+    MSGPACK_DEFINE(u8, u16, u32, u64, i8, i16, i32, i64, b, d, v, l, p, s);
+    
     uint8_t u8;
     uint16_t u16;
     uint32_t u32;
@@ -50,6 +48,8 @@ public:
     std::pair<uint8_t, int16_t> p;
     std::string s;
 
+    MESSAGE_SUBCLASS(SerializableBatch);
+    
     static int random() {
         return std::rand() - RAND_MAX / 2;
     }
@@ -92,17 +92,8 @@ public:
         return result;
     }
 
-    SerializableBatch * clone() const {
-        return new SerializableBatch(*this);
-    }
-
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
-
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("SerializableBatch");
-    }
 };
 
 #endif /* SERIALIZABLEBATCH_HPP_ */

@@ -21,16 +21,16 @@ Name=New Native Application Configuration
 Type=Native Application
 
 [Launch][Launch Configuration 0][Data]
-Arguments=conf/example.conf
+Arguments=conf/poissonExample.conf
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default
 Executable=file:///home/javi/projects/stars/build/sim/stars-simgrid-Debug
 External Terminal=konsole --noclose --workdir %workdir -e %exe
-Project Target=stars,sim,stars-simgrid
+Project Target=stars,sim,stars-simgrid-Debug
 Use External Terminal=false
 Working Directory=file:///home/javi/projects/stars/build/sim
-isExecutable=true
+isExecutable=false
 
 [MakeBuilder]
 Abort on First Error=false

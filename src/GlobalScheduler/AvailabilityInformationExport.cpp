@@ -20,15 +20,12 @@
  *
  */
 
-#include "BoostSerializationArchiveExport.hpp"
-#include "AvailabilityInformation.hpp"
 #include "BasicAvailabilityInfo.hpp"
 #include "QueueBalancingInfo.hpp"
 #include "TimeConstraintInfo.hpp"
 #include "SlownessInformation.hpp"
 
-BOOST_CLASS_EXPORT(AvailabilityInformation);
-BOOST_CLASS_EXPORT(BasicAvailabilityInfo);
-BOOST_CLASS_EXPORT(TimeConstraintInfo);
-BOOST_CLASS_EXPORT(QueueBalancingInfo);
-BOOST_CLASS_EXPORT(SlownessInformation);
+REGISTER_MESSAGE(BasicAvailabilityInfo);
+REGISTER_MESSAGE(TimeConstraintInfo);
+REGISTER_MESSAGE(QueueBalancingInfo);
+REGISTER_MESSAGE(SlownessInformation);

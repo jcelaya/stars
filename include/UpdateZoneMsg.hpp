@@ -36,25 +36,14 @@
  * This message contains the information aggregated by each zone.
  */
 class UpdateZoneMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & zone & seq;
-    }
-
-    boost::shared_ptr<ZoneDescription> zone;   ///< The information of the resources managed by this node
-    uint64_t seq;                       ///< Sequence number, to only apply the last changes
-
 public:
+    MESSAGE_SUBCLASS(UpdateZoneMsg);
+    
     /// Default constructor
     UpdateZoneMsg() : seq(0) {}
     /// Copy constructor
     UpdateZoneMsg(const UpdateZoneMsg & copy) : TransactionMsg(copy),
-            zone(copy.zone.get() ? new ZoneDescription(*copy.zone) : NULL), seq(copy.seq) {}
-
-    // This is documented in BasicMsg
-    virtual UpdateZoneMsg * clone() const {
-        return new UpdateZoneMsg(*this);
-    }
+            zone(copy.zone), seq(copy.seq) {}
 
     // Getters and Setters
 
@@ -62,7 +51,7 @@ public:
      * Returns a pointer to the information of the resources managed by the sender node.
      * @return Pointer to the information.
      */
-    boost::shared_ptr<ZoneDescription> getZone() const {
+    ZoneDescription getZone() const {
         return zone;
     }
 
@@ -70,7 +59,7 @@ public:
      * Sets the information of the resources managed by the sender node.
      * @param info The information of the resources managed by the sender node.
      */
-    void setZone(const boost::shared_ptr<ZoneDescription> & info) {
+    void setZone(const ZoneDescription & info) {
         zone = info;
     }
 
@@ -94,10 +83,10 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("UpdateZoneMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, zone, seq);
+private:
+    ZoneDescription zone;   ///< The information of the resources managed by this node
+    uint64_t seq;                       ///< Sequence number, to only apply the last changes
 };
 
 #endif /*UPDATEZONEMSG_H_*/

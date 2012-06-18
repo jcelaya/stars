@@ -23,6 +23,7 @@
 #ifndef PERFORMANCESTATISTICS_H_
 #define PERFORMANCESTATISTICS_H_
 
+#include <vector>
 #include <map>
 #include <string>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -39,7 +40,6 @@ public:
      * A record for a certain kind of event.
      */
     struct EventStats {
-        boost::posix_time::ptime start;       ///< Starting time of the last measurement.
         unsigned long int totalNumEvents;     ///< Total number of events throughout the simulation.
         unsigned long int partialNumEvents;   ///< Number of events recorded since the last report.
         double totalHandleTime;               ///< Total time spent in this kind of event.
@@ -48,6 +48,10 @@ public:
         EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
     };
 
+    void resizeNumNodes(size_t n) {
+        start.resize(n);
+    }
+    
     /// Open the statistics file at the given directory.
     void openStatsFile();
     
@@ -80,6 +84,8 @@ public:
     void saveTotalStatistics();
 
 private:
+    /// Last measurement starting time per node and event type
+    std::vector<std::map<std::string, boost::posix_time::ptime> > start;
     std::map<std::string, EventStats> handleTimeStatistics;   ///< Association between event names and statistics.
     boost::filesystem::ofstream os;                           ///< Output file.
     boost::mutex m;                                           ///< Access mutex.

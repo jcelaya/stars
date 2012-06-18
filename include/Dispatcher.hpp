@@ -33,7 +33,7 @@
 class AvailabilityInformation;
 
 
-class DispatcherInterface {
+class DispatcherInterface : public Service {
 public:
     virtual ~DispatcherInterface() {}
 
@@ -55,7 +55,7 @@ public:
 
 
 template <class T>
-class Dispatcher: public Service, public DispatcherInterface, public StructureNodeObserver {
+class Dispatcher : public DispatcherInterface, public StructureNodeObserver {
 public:
     typedef T availInfoType;
 
@@ -102,12 +102,15 @@ public:
      * Serializes/unserializes the state of a dispatcher.
      */
     template<class Archive> void serializeState(Archive & ar) {
-        // Only works in stable: no change, no delayed update
-        ar & father & children;
-        if (IS_LOADING() && !father.waitingInfo.get())
-            recomputeInfo();
+        // Serialization only works if not in a transaction
+        father.serializeState(ar);
+        size_t s = children.size();
+        ar & s;
+        children.resize(s);
+        for (size_t i = 0; i < s; ++i)
+            children[i].serializeState(ar);
     }
-
+    
     struct Link {
         CommAddress addr;
         boost::shared_ptr<T> availInfo;
@@ -115,11 +118,11 @@ public:
         boost::shared_ptr<T> notifiedInfo;
         Link() {}
         Link(const CommAddress & a) : addr(a) {}
+        template<class Archive> void serializeState(Archive & ar) {
+            // Serialization only works if not in a transaction
+            ar & addr & availInfo & waitingInfo & notifiedInfo;
+        }
     };
-
-    template <class Archive> friend void serialize(Archive & ar, Link & l, const unsigned int version) {
-        ar & l.addr & l.availInfo & l.waitingInfo & l.notifiedInfo;
-    }
 
     virtual bool changed() {
         bool tmp = infoChanged;
@@ -238,7 +241,9 @@ protected:
                 father.notifiedInfo.reset(father.waitingInfo->clone());
                 father.notifiedInfo->setSeq(seq);
                 father.notifiedInfo->setFromSch(false);
-                sentSize += CommLayer::getInstance().sendMessage(father.addr, father.notifiedInfo->clone());
+                T * sendMsg = father.notifiedInfo->clone();
+                sendMsg->reduce();
+                sentSize += CommLayer::getInstance().sendMessage(father.addr, sendMsg);
             }
             if (!inChange && !structureNode.isRNChildren()) {
                 // Notify the children
@@ -250,7 +255,9 @@ protected:
                         children[i].notifiedInfo.reset(children[i].waitingInfo->clone());
                         children[i].notifiedInfo->setSeq(seq);
                         children[i].notifiedInfo->setFromSch(false);
-                        sentSize += CommLayer::getInstance().sendMessage(children[i].addr, children[i].notifiedInfo->clone());
+                        T * sendMsg = children[i].notifiedInfo->clone();
+                        sendMsg->reduce();
+                        sentSize += CommLayer::getInstance().sendMessage(children[i].addr, sendMsg);
                     }
                 }
             }

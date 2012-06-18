@@ -33,19 +33,10 @@ TransactionId createRandomId();
 
 
 class TransactionMsg: public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & transaction;
-    }
-
-protected:
-    TransactionId transaction;   ///< Transaction ID, to relate messages to each other
-
 public:
+    MESSAGE_SUBCLASS(TransactionMsg);
+    
     TransactionMsg(TransactionId trans = 0) : transaction(trans) {}
-
-    // This is documented in BasicMsg
-    virtual TransactionMsg * clone() const = 0;
 
     // Getters and Setters
 
@@ -72,6 +63,10 @@ public:
     virtual void output(std::ostream& os) const {
         os << "tid(" << transaction << ')';
     }
+    
+    MSGPACK_DEFINE(transaction);
+protected:
+    TransactionId transaction;   ///< Transaction ID, to relate messages to each other
 };
 
 #endif /* TRANSACTIONMSG_H_ */

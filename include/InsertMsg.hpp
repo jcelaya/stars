@@ -32,25 +32,14 @@
  * This class of message notifies that an Execution node wants to enter the network.
  */
 class InsertMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & who & forRN;
-    }
-
-    CommAddress who;   ///< The resource node address.
-    bool forRN;        ///< To say whether this message is for the ResourceNode or the StructureNode
-
 public:
+    MESSAGE_SUBCLASS(InsertMsg);
+    
     /**
      * Sets the service as StructureNodeServiceId.
      */
     InsertMsg() : forRN(false) {}
     ~InsertMsg() {}
-
-    // This is described in BasicMsg
-    virtual InsertMsg * clone() const {
-        return new InsertMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -91,10 +80,10 @@ public:
         os << "who(" << who << ')';
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("InsertMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, who, forRN);
+private:
+    CommAddress who;   ///< The resource node address.
+    bool forRN;        ///< To say whether this message is for the ResourceNode or the StructureNode
 };
 
 #endif /*INSERTMSG_H_*/

@@ -1,0 +1,27 @@
+#
+# Locate MsgPack include paths and libraries
+
+FIND_PATH(MSGPACK_INCLUDE_DIR msgpack.hpp
+  PATHS
+    /usr/local/include
+    /usr/include
+)
+
+FIND_LIBRARY(MSGPACK_LIBRARIES msgpack
+  PATHS
+    /usr/local/lib
+    /usr/lib
+)
+
+SET(MSGPACK_FOUND 0)
+IF(MSGPACK_INCLUDE_DIR)
+  IF(MSGPACK_LIBRARIES)
+    SET(MSGPACK_FOUND 1)
+    MESSAGE(STATUS "Found MessagePack")
+  ENDIF(MSGPACK_LIBRARIES)
+ENDIF(MSGPACK_INCLUDE_DIR)
+
+MARK_AS_ADVANCED(
+  MSGPACK_INCLUDE_DIR
+  MSGPACK_LIBRARIES
+)

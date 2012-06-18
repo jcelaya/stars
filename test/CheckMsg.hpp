@@ -26,8 +26,6 @@
 #include <sstream>
 #include <boost/test/unit_test.hpp>
 #include <boost/shared_ptr.hpp>
-#include "portable_binary_iarchive.hpp"
-#include "portable_binary_oarchive.hpp"
 #include "BasicMsg.hpp"
 #include "CommAddress.hpp"
 using boost::shared_ptr;
@@ -38,17 +36,20 @@ public:
     template<class Message>
     static unsigned int check(const Message & msg, shared_ptr<Message> & copy) {
         std::stringstream ss;
-        portable_binary_oarchive oa(ss);
-        shared_ptr<BasicMsg> out(msg.clone()), in;
+        msgpack::packer<std::ostream> pk(&ss);
+        BasicMsg * out = msg.clone(), * in;
         // Check clone
-        BOOST_REQUIRE(boost::dynamic_pointer_cast<Message>(out).get());
+        BOOST_REQUIRE(out);
         //BOOST_CHECK(msg == *boost::dynamic_pointer_cast<Message>(out));
-        oa << out;
+        out->pack(pk);
         unsigned int size = ss.tellp();
         BOOST_TEST_MESSAGE(msg.getName() << " of size " << size << " bytes.");
-        portable_binary_iarchive ia(ss);
-        ia >> in;
-        copy = boost::dynamic_pointer_cast<Message>(in);
+        msgpack::unpacker pac;
+        pac.reserve_buffer(size);
+        ss.readsome(pac.buffer(), size);
+        pac.buffer_consumed(size);
+        in = BasicMsg::unpackMessage(pac);
+        copy.reset(dynamic_cast<Message *>(in));
         BOOST_REQUIRE(copy.get());
         //BOOST_CHECK(msg == *copy);
         return size;

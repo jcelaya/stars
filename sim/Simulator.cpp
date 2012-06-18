@@ -33,7 +33,6 @@
 #include "SimulationCase.hpp"
 #include "SimTask.hpp"
 #include "MemoryManager.hpp"
-#include "portable_binary_oarchive.hpp"
 namespace fs = boost::filesystem;
 namespace pt = boost::posix_time;
 
@@ -66,7 +65,7 @@ void Simulator::log(const char * category, int priority, LogMsg::AbstractTypeCon
     if (debugFile.is_open() && log4cpp::Category::getInstance(category).isPriorityEnabled(priority)) {
         boost::mutex::scoped_lock lock(debugMutex);
         if (inSimulation)
-            debugArchive << Duration(getRealTime().total_microseconds()) << ' ' << getCurrentTime() << ' ' << getCurrentNode().getLocalAddress() << ',';
+            debugArchive << Duration(getRealTime().total_microseconds()) << ' ' << Time::getCurrentTime() << ' ' << getCurrentNode().getLocalAddress() << ',';
         else
             debugArchive << "sim_init,";
         debugArchive << category << '(' << priority << ')' << ' ';
@@ -90,8 +89,8 @@ int main(int argc, char * argv[]) {
 #else
     int bits = 32;
 #endif
-    XBT_CRITICAL("STaRS v. %s.%s SimGrid-based simulator %dbits PID %d", STARS_VERSION_MAJOR, STARS_VERSION_MINOR, bits, getpid());
-    if (argc != 2) {
+    XBT_CRITICAL("STaRS v%s.%s SimGrid-based simulator %dbits PID %d", STARS_VERSION_MAJOR, STARS_VERSION_MINOR, bits, getpid());
+    if (argc < 2) {
         XBT_CRITICAL("Usage: stars-sim config_file");
         return 1;
     }
@@ -139,6 +138,7 @@ bool Simulator::run(Properties & property) {
     // Simulator starts running
     pt::ptime start = pt::microsec_clock::local_time();
     inSimulation = false;
+    currentNode = 0;
     
     // Create simulation case
     simCase.reset(CaseFactory::getInstance().createCase(property("case_name", std::string("")), property));
@@ -149,6 +149,7 @@ bool Simulator::run(Properties & property) {
     end = false;
     
     // Prepare simulation case
+    pstats.resizeNumNodes(1);
     pstats.startEvent("Prepare simulation case");
     
     // Get working directory, and check if the execution log exists and/or must be overwritten
@@ -188,12 +189,13 @@ bool Simulator::run(Properties & property) {
     MSG_create_environment(property("platform_file", std::string()).c_str());
     m_host_t * hosts = MSG_get_host_table();
     unsigned int numNodes = MSG_get_host_number();
+    pstats.resizeNumNodes(numNodes);
     routingTable.reset(new StarsNode[numNodes]);
     // For every host in the platform, set StarsNode::processFunction as the process function
-    for (unsigned int i = 0; i < numNodes; ++i) {
-        MSG_host_set_data(hosts[i], &routingTable[i]);
-        routingTable[i].setup(i, hosts[i]);
-        MSG_process_create(NULL, StarsNode::processFunction, NULL, hosts[i]);
+    for (currentNode = 0; currentNode < numNodes; ++currentNode) {
+        MSG_host_set_data(hosts[currentNode], &routingTable[currentNode]);
+        routingTable[currentNode].setup(currentNode, hosts[currentNode]);
+        MSG_process_create(NULL, StarsNode::processFunction, NULL, hosts[currentNode]);
     }
     
     simCase->preStart();
@@ -212,15 +214,15 @@ bool Simulator::run(Properties & property) {
     // Show statistics
     pt::ptime now = pt::microsec_clock::local_time();
     pt::time_duration simRealTime = now - simStart;
-    PROGRESS(simRealTime << " (" << getCurrentTime() << ", "
-        << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
+    PROGRESS(simRealTime << " (" << Time::getCurrentTime() << ", "
+        << (Time::getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
         << MemoryManager::getInstance().getUsedMemory() << " mem   100%");
     starsStats.saveTotalStatistics();
     pstats.saveTotalStatistics();
     
     // Finish
-    for (unsigned int i = 0; i < numNodes; ++i) {
-        routingTable[i].finish();
+    for (currentNode = 0; currentNode < numNodes; ++currentNode) {
+        routingTable[currentNode].finish();
     }
     
     PROGRESS("Ending test at " << now << ". Lasted " << (now - start)
@@ -233,8 +235,8 @@ bool Simulator::run(Properties & property) {
 bool Simulator::doContinue() {
     if (end) return false;
     
-    if (&getCurrentNode() == &routingTable[0]) {
-        // Only the first node checks finish conditions
+    {
+        boost::mutex::scoped_lock lock(stepMutex);
         pt::ptime now = pt::microsec_clock::local_time();
         if (maxSimTime > Duration(0.0) && Duration(MSG_get_clock()) > maxSimTime) {
             PROGRESS("Maximum simulation time limit reached: " << maxSimTime);
@@ -245,12 +247,12 @@ bool Simulator::doContinue() {
         } else if (maxMemUsage && (MemoryManager::getInstance().getMaxUsedMemory() >> 20) > maxMemUsage) {
             XBT_CRITICAL("Maximum memory usage limit reached: %d", maxMemUsage);
             end = true;
-        } else end = !simCase->doContinue();
-        if (now >= nextProgress) {
+        }
+        if (!end && now >= nextProgress) {
             // Show statistics
             pt::time_duration simRealTime = now - simStart;
-            PROGRESS(simRealTime << " (" << getCurrentTime() << ", "
-                << (getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
+            PROGRESS(simRealTime << " (" << Time::getCurrentTime() << ", "
+                << (Time::getCurrentTime().getRawDate() / simRealTime.total_microseconds()) << " speedup)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
                 << simCase->getCompletedPercent() << "%   "
                 << starsStats.getExistingTasks() << " tasks");
@@ -261,10 +263,3 @@ bool Simulator::doContinue() {
     
     return !end;
 }
-
-
-// unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
-//                                       Duration d, bool withOpDuration) {
-//     unsigned long int size = getMsgSize(msg);
-//     return size;
-// }

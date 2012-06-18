@@ -29,21 +29,9 @@
 
 
 class TaskMonitorMsg: public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & tasks & states & heartbeat;
-    }
-
-    std::vector<std::pair<int64_t, uint32_t> > tasks;
-    std::vector<int32_t> states;
-    uint32_t heartbeat;     ///< seconds until next monitoring report
-
 public:
-    // This is documented in BasicMsg
-    virtual TaskMonitorMsg * clone() const {
-        return new TaskMonitorMsg(*this);
-    }
-
+    MESSAGE_SUBCLASS(TaskMonitorMsg);
+    
     /**
      * Returns the number of tasks
      */
@@ -103,10 +91,11 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("TaskMonitorMsg");
-    }
+    MSGPACK_DEFINE(tasks, states, heartbeat);
+private:
+    std::vector<std::pair<int64_t, uint32_t> > tasks;
+    std::vector<int32_t> states;
+    uint32_t heartbeat;     ///< seconds until next monitoring report
 };
 
 #endif /* TASKMONITORMSG_H_ */

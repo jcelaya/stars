@@ -30,22 +30,11 @@
  * Acknowledgement message in a transaction.
  */
 class AckMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & forRN & fromRN;
-    }
-
-    bool forRN;    ///< To say whether this message is for the ResourceNode or the StructureNode
-    bool fromRN;   ///< To say whether this message comes from the ResourceNode or the StructureNode
-
 public:
+    MESSAGE_SUBCLASS(AckMsg);
+    
     /// Constructor
     AckMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false), fromRN(false) {}
-
-    // This is described in BasicMsg
-    virtual AckMsg * clone() const {
-        return new AckMsg(*this);
-    }
 
     bool isForRN() const {
         return forRN;
@@ -66,10 +55,10 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("AckMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, forRN, fromRN);
+private:
+    bool forRN;    ///< To say whether this message is for the ResourceNode or the StructureNode
+    bool fromRN;   ///< To say whether this message comes from the ResourceNode or the StructureNode
 };
 
 #endif /*ACKMSG_H_*/

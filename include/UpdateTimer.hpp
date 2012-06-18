@@ -31,24 +31,13 @@
  * to the father without using more bandwidth than expected.
  */
 class UpdateTimer : public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg);
-    }
-
 public:
-    // This is documented in BasicMsg
-    virtual UpdateTimer * clone() const {
-        return new UpdateTimer(*this);
-    }
-
+    MESSAGE_SUBCLASS(UpdateTimer);
+    
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("UpdateTimer");
-    }
+    MSGPACK_DEFINE();
 };
 
 #endif /*UPDATETIMER_H_*/

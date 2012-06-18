@@ -29,20 +29,10 @@
  * Not acknowledgement message in a transaction.
  */
 class NackMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & forRN;
-    }
-
-    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
-
 public:
+    MESSAGE_SUBCLASS(NackMsg);
+    
     NackMsg(TransactionId trans = NULL_TRANSACTION_ID) : TransactionMsg(trans), forRN(false) {}
-
-    // This is documented in BasicMsg
-    virtual NackMsg * clone() const {
-        return new NackMsg(*this);
-    }
 
     bool isForRN() const {
         return forRN;
@@ -55,10 +45,9 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("NackMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, forRN);
+private:
+    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
 };
 
 #endif /*NACKMSG_H_*/

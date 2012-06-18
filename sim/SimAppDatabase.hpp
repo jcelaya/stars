@@ -27,6 +27,7 @@
 #include <list>
 #include <string>
 #include <vector>
+#include <boost/thread/mutex.hpp>
 #include "TaskBagAppDatabase.hpp"
 #include "CommAddress.hpp"
 
@@ -85,11 +86,22 @@ public:
 private:
     friend class TaskBagAppDatabase;
 
+    static long int getNextInstanceId() {
+        boost::mutex::scoped_lock lock(lastM);
+        return lastInstance++;
+    }
+    
+    static long int getNextRequestId() {
+        boost::mutex::scoped_lock lock(lastM);
+        return lastRequest++;
+    }
+    
     std::pair<std::string, TaskDescription> lastApp;
     std::map<std::string, TaskDescription> apps;
     std::map<long int, AppInstance> instances;
     std::map<long int, Request> requests;
-    long int lastInstance, lastRequest;
+    static boost::mutex lastM;
+    static long int lastInstance, lastRequest;
 
     friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
 };

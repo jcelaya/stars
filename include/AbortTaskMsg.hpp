@@ -28,20 +28,9 @@
 
 
 class AbortTaskMsg : public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & requestId & tasks;
-    }
-
-    int64_t requestId;        ///< Request ID relative to the requester
-    std::vector<uint32_t> tasks;   ///< Id of the aborted tasks
-
 public:
-    // This is described in BasicMsg
-    virtual AbortTaskMsg * clone() const {
-        return new AbortTaskMsg(*this);
-    }
-
+    MESSAGE_SUBCLASS(AbortTaskMsg);
+    
     /**
      * Obtains the request ID
      */
@@ -82,10 +71,10 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("AbortTaskMsg");
-    }
+    MSGPACK_DEFINE(requestId, tasks);
+private:
+    int64_t requestId;        ///< Request ID relative to the requester
+    std::vector<uint32_t> tasks;   ///< Id of the aborted tasks
 };
 
 #endif /* ABORTTASKMSG_H_ */

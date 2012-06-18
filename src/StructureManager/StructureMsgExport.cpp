@@ -20,7 +20,6 @@
  *
  */
 
-#include "BoostSerializationArchiveExport.hpp"
 #include "AckMsg.hpp"
 #include "CommitMsg.hpp"
 #include "InitStructNodeMsg.hpp"
@@ -36,17 +35,17 @@
 #include "TransactionMsg.hpp"
 #include "UpdateZoneMsg.hpp"
 
-BOOST_CLASS_EXPORT(AckMsg);
-BOOST_CLASS_EXPORT(CommitMsg);
-BOOST_CLASS_EXPORT(InitStructNodeMsg);
-BOOST_CLASS_EXPORT(InsertCommandMsg);
-BOOST_CLASS_EXPORT(InsertMsg);
-BOOST_CLASS_EXPORT(LeaveMsg);
-BOOST_CLASS_EXPORT(NackMsg);
-BOOST_CLASS_EXPORT(NewChildMsg);
-BOOST_CLASS_EXPORT(NewFatherMsg);
-BOOST_CLASS_EXPORT(NewStrNodeMsg);
-BOOST_CLASS_EXPORT(RollbackMsg);
-BOOST_CLASS_EXPORT(StrNodeNeededMsg);
-BOOST_CLASS_EXPORT(TransactionMsg);
-BOOST_CLASS_EXPORT(UpdateZoneMsg);
+REGISTER_MESSAGE(AckMsg);
+REGISTER_MESSAGE(CommitMsg);
+REGISTER_MESSAGE(InitStructNodeMsg);
+REGISTER_MESSAGE(InsertCommandMsg);
+REGISTER_MESSAGE(InsertMsg);
+REGISTER_MESSAGE(LeaveMsg);
+REGISTER_MESSAGE(NackMsg);
+REGISTER_MESSAGE(NewChildMsg);
+REGISTER_MESSAGE(NewFatherMsg);
+REGISTER_MESSAGE(NewStrNodeMsg);
+REGISTER_MESSAGE(RollbackMsg);
+REGISTER_MESSAGE(StrNodeNeededMsg);
+REGISTER_MESSAGE(TransactionMsg);
+REGISTER_MESSAGE(UpdateZoneMsg);

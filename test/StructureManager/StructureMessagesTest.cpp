@@ -22,8 +22,6 @@
  */
 
 #include <boost/test/floating_point_comparison.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
 #include <stdexcept>
 
 #include "CheckMsg.hpp"
@@ -165,14 +163,19 @@ BOOST_AUTO_TEST_CASE(testZoneDescription) {
 
     // Serialization
     stringstream ss;
-    portable_binary_oarchive oa(ss);
-    shared_ptr<ZoneDescription> ee(new ZoneDescription(zone));
-    oa << ee;
-    BOOST_TEST_MESSAGE("ZoneDescription size of " << ss.str().size() << " bytes.");
-    portable_binary_iarchive ia(ss);
-    shared_ptr<ZoneDescription> zone4;
-    ia >> zone4;
-    BOOST_CHECK_EQUAL(zone, *zone4);
+    msgpack::packer<std::ostream> pk(&ss);
+    pk.pack(zone);
+    unsigned int size = ss.tellp();
+    BOOST_TEST_MESSAGE("ZoneDescription size of " << size << " bytes.");
+    msgpack::unpacker pac;
+    pac.reserve_buffer(size);
+    ss.readsome(pac.buffer(), size);
+    pac.buffer_consumed(size);
+    ZoneDescription zone4;
+    msgpack::unpacked msg;
+    pac.next(&msg);
+    msg.get().convert(&zone4);
+    BOOST_CHECK_EQUAL(zone, zone4);
 }
 
 /// UpdateMsg
@@ -181,22 +184,20 @@ BOOST_AUTO_TEST_CASE(testUpdateZoneMsg) {
     UpdateZoneMsg i1, i2;
 
     // setZone
-    shared_ptr<ZoneDescription> zone(new ZoneDescription());
-    zone->setMinAddress(CommAddress("127.0.0.1", 2030));
-    zone->setMaxAddress(CommAddress("127.0.0.2", 2030));
-    zone->setAvailableStrNodes(4);
+    ZoneDescription zone;
+    zone.setMinAddress(CommAddress("127.0.0.1", 2030));
+    zone.setMaxAddress(CommAddress("127.0.0.2", 2030));
+    zone.setAvailableStrNodes(4);
     i1.setZone(zone);
 
     // getZone
-    BOOST_REQUIRE(i1.getZone().get() != NULL);
-    BOOST_CHECK(*i1.getZone() == *zone);
+    BOOST_CHECK(i1.getZone() == zone);
 
     // Serialization
     shared_ptr<UpdateZoneMsg> p;
     CheckMsgMethod::check(i1, p);
     UpdateZoneMsg & i3 = *p;
-    BOOST_REQUIRE(i3.getZone().get() != NULL);
-    BOOST_CHECK(*i3.getZone() == *i1.getZone());
+    BOOST_CHECK(i3.getZone() == i1.getZone());
 }
 
 /// StrNodeNeededMsg

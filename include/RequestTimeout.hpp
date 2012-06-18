@@ -26,19 +26,9 @@
 #include "BasicMsg.hpp"
 
 class RequestTimeout : public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & requestId;
-    }
-
-    int64_t requestId;
-
 public:
-    // This is documented in BasicMsg
-    virtual RequestTimeout * clone() const {
-        return new RequestTimeout(*this);
-    }
-
+    MESSAGE_SUBCLASS(RequestTimeout);
+    
     /**
      * Obtains the request ID
      */
@@ -56,10 +46,9 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("RequestTimeout");
-    }
+    MSGPACK_DEFINE(requestId);
+private:
+    int64_t requestId;
 };
 
 #endif /* REQUESTTIMEOUT_H_ */

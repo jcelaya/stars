@@ -47,7 +47,9 @@ public:
      * Creates a new SimpleScheduler with an empty task.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    SimpleScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {}
+    SimpleScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+        reschedule();
+    }
 
     // This is documented in Scheduler
     virtual const BasicAvailabilityInfo & getAvailability() const {

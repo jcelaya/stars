@@ -34,24 +34,14 @@
  * the available Structure node.
  */
 class NewStrNodeMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & whoOffers;
-    }
-
-    CommAddress whoOffers; ///< The calling node address
-
 public:
+    MESSAGE_SUBCLASS(NewStrNodeMsg);
+    
     /**
      * Default constructor.
      */
     NewStrNodeMsg() {}
     NewStrNodeMsg(const NewStrNodeMsg & copy) : TransactionMsg(copy), whoOffers(copy.whoOffers) {}
-
-    // This is documented in BasicMsg
-    virtual NewStrNodeMsg * clone() const {
-        return new NewStrNodeMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -74,10 +64,9 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("NewStrNodeMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, whoOffers);
+private:
+    CommAddress whoOffers; ///< The calling node address
 };
 
 #endif /*NEWSTRNODEMSG_H_*/

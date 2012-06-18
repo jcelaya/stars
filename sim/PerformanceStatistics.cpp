@@ -28,24 +28,27 @@ using namespace std;
 
 
 void PerformanceStatistics::openStatsFile() {
-    os.open(Simulator::getInstance().getResultDir() / fs::path("perf.stat"));
+    os.open(Simulator::getInstance().getResultDir() / fs::path("performance.stat"));
 }
 
 
 void PerformanceStatistics::startEvent(const std::string & ev) {
-    boost::mutex::scoped_lock lock(m);
-    handleTimeStatistics[ev].start = boost::posix_time::microsec_clock::local_time();
+    Simulator & sim = Simulator::getInstance();
+    uint32_t node = sim.isInSimulation() ? sim.getCurrentNode().getLocalAddress().getIPNum() : 0;
+    start[node][ev] = boost::posix_time::microsec_clock::local_time();
 }
 
 
 void PerformanceStatistics::endEvent(const std::string & ev) {
+    Simulator & sim = Simulator::getInstance();
+    uint32_t node = sim.isInSimulation() ? sim.getCurrentNode().getLocalAddress().getIPNum() : 0;
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time(), s = start[node][ev];
     boost::mutex::scoped_lock lock(m);
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
     EventStats & es = handleTimeStatistics[ev];
     es.partialNumEvents++;
     es.totalNumEvents++;
-    es.partialHandleTime += (end - es.start).total_microseconds();
-    es.totalHandleTime += (end - es.start).total_microseconds();
+    es.partialHandleTime += (end - s).total_microseconds();
+    es.totalHandleTime += (end - s).total_microseconds();
 }
 
 
@@ -78,7 +81,7 @@ void PerformanceStatistics::savePartialStatistics() {
 
     // Save statistics
     Simulator & sim = Simulator::getInstance();
-    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Simulator::getCurrentTime() << endl;
+    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Time::getCurrentTime() << endl;
     for (list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
         os << "   " << it->ev->first << ": "
         << it->ev->second.partialNumEvents << " events at "
@@ -104,7 +107,7 @@ void PerformanceStatistics::saveTotalStatistics() {
     // Save statistics
     Simulator & sim = Simulator::getInstance();
     os << "Final Statistics" << endl;
-    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Simulator::getCurrentTime() << endl;
+    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << Time::getCurrentTime() << endl;
     for (list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
         os << "   " << it->ev->first << ": "
         << it->ev->second.totalNumEvents << " events at "

@@ -30,26 +30,15 @@
  * \brief Message to leave the network.
  */
 class LeaveMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg);
-    }
-
 public:
+    MESSAGE_SUBCLASS(LeaveMsg);
+    
     LeaveMsg() {}
-
-    // This is documented in BasicMsg
-    virtual LeaveMsg * clone() const {
-        return new LeaveMsg(*this);
-    }
 
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("LeaveMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this);
 };
 
 #endif /*LEAVEMSG_H_*/

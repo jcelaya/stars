@@ -39,14 +39,6 @@
  * may be aggregated and used in the search algorithm.
  */
 class TimeConstraintInfo : public AvailabilityInformation {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(AvailabilityInformation) & summary & minM & maxM & minD & maxD & minA & maxA & horizon;
-        if (IS_LOADING())
-            for (unsigned int i = 0; i < summary.getSize(); i++)
-                summary[i].setReference(this);
-    }
-
 public:
 
     /**
@@ -64,20 +56,6 @@ public:
      * is that of one second after the current time.
      */
     class ATFunction {
-        SRLZ_API SRLZ_METHOD() {
-            // The functions are reduced when they are going to be sent, not before, to avoid loosing too much precision.
-            //reduce();
-            ar & points & slope;
-        }
-
-        /// Function points defining segments
-        std::vector<std::pair<Time, uint64_t> > points;
-        double slope;   ///< Slope at the end of the function
-
-        // Steps through a vector of functions, with all their slope-change points, and the points where the two first functions cross
-        template<int numF, class S> static void stepper(const ATFunction * (&f)[numF],
-                const Time & ref, const Time & h, S & step);
-
     public:
         /// Default constructor
         ATFunction() : slope(0.0) {}
@@ -196,6 +174,16 @@ public:
                 os << '(' << i->first << ',' << i->second << "),";
             return os << o.slope;
         }
+        
+        MSGPACK_DEFINE(points, slope);
+    private:
+        /// Function points defining segments
+        std::vector<std::pair<Time, uint64_t> > points;
+        double slope;   ///< Slope at the end of the function
+        
+        // Steps through a vector of functions, with all their slope-change points, and the points where the two first functions cross
+        template<int numF, class S> static void stepper(const ATFunction * (&f)[numF],
+                                                        const Time & ref, const Time & h, S & step);
     };
 
     /**
@@ -206,13 +194,8 @@ public:
      * The availability is considered constant after the last point
      */
     class MDFCluster {
-        SRLZ_API SRLZ_METHOD() {
-            ar & value & minM & accumMsq & accumMln & minD & accumDsq & accumDln & minA & accumAsq & accumMaxA;
-        }
-
-        TimeConstraintInfo * reference;
-
     public:
+        MSGPACK_DEFINE(value, minM, minD, minA, accumMsq, accumDsq, accumMln, accumDln, accumAsq, accumMaxA);
 
         uint32_t value;
         uint32_t minM, minD;
@@ -276,24 +259,11 @@ public:
             os << 'A' << o.minA << '-' << o.accumAsq << '-' << o.accumMaxA << ',';
             return os << o.value;
         }
+
+    private:
+        TimeConstraintInfo * reference;
     };
 
-private:
-    static unsigned int numClusters;
-    static unsigned int numIntervals;
-    static unsigned int numRefPoints;
-
-    ClusteringVector<MDFCluster> summary;   ///< List of clusters representing queues and their availability
-    uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
-    ATFunction minA, maxA;                  ///< Minimum and maximum values of availability
-    Time horizon;             ///< Last meaningful time
-
-    // Aggregation variables
-    unsigned int memRange, diskRange;
-    double availRange;
-    Time aggregationTime;     ///< Time at which aggregation is performed
-
-public:
     class AssignmentInfo {
         AssignmentInfo(unsigned int c, uint32_t v, uint32_t m, uint32_t d, uint32_t t) :
                 cluster(c), remngMem(m), remngDisk(d), remngAvail(t), numTasks(v) {}
@@ -304,6 +274,8 @@ public:
         uint32_t numTasks;
     };
 
+    MESSAGE_SUBCLASS(TimeConstraintInfo);
+    
     /// Default constructor, creates an empty information piece
     TimeConstraintInfo() {
         reset();
@@ -324,11 +296,6 @@ public:
 
     static void setNumRefPoints(unsigned int n) {
         numRefPoints = n;
-    }
-
-    // This is documented in BasicMsg
-    virtual TimeConstraintInfo * clone() const {
-        return new TimeConstraintInfo(*this);
     }
 
     /// Clears the instance properties
@@ -378,14 +345,25 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const;
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("TimeConstraintInfo");
-    }
-
     const ClusteringVector<MDFCluster> & getSummary() const {
         return summary;
     }
+    
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD, minA, maxA, horizon);
+private:
+    static unsigned int numClusters;
+    static unsigned int numIntervals;
+    static unsigned int numRefPoints;
+    
+    ClusteringVector<MDFCluster> summary;   ///< List of clusters representing queues and their availability
+    uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
+    ATFunction minA, maxA;                  ///< Minimum and maximum values of availability
+    Time horizon;             ///< Last meaningful time
+    
+    // Aggregation variables
+    unsigned int memRange, diskRange;
+    double availRange;
+    Time aggregationTime;     ///< Time at which aggregation is performed
 };
 
 #endif /*TIMECONSTRAINTINFO_H_*/

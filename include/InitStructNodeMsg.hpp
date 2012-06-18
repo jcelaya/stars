@@ -39,30 +39,15 @@
  * and the level of the tree it is going to be inserted in.
  */
 class InitStructNodeMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & children & level;
-        ar & fatherValid;
-        if (fatherValid) ar & father;
-    }
-
-    CommAddress father;             ///< The address of the father node
-    bool fatherValid;               ///< Whether the father's address should be taken into account
-    std::vector<CommAddress> children;   ///< The addresses of the children nodes
-    uint32_t level;                 ///< The level of the tree
-
 public:
+    MESSAGE_SUBCLASS(InitStructNodeMsg);
+    
     /**
      * Default constructor, just sets the level to 0.
      */
     InitStructNodeMsg() : fatherValid(false), level(0) {}
     InitStructNodeMsg(const InitStructNodeMsg & copy) : TransactionMsg(copy),
             father(copy.father), fatherValid(copy.fatherValid), children(copy.children), level(copy.level) {}
-
-    // This is described in BasicMsg
-    virtual InitStructNodeMsg * clone() const {
-        return new InitStructNodeMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -135,10 +120,12 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("InitStructNodeMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, children, level, fatherValid, father);
+private:
+    CommAddress father;             ///< The address of the father node
+    bool fatherValid;               ///< Whether the father's address should be taken into account
+    std::vector<CommAddress> children;   ///< The addresses of the children nodes
+    uint32_t level;                 ///< The level of the tree
 };
 
 #endif /*INITSTRUCTNODEMSG_H_*/

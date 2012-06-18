@@ -36,17 +36,6 @@
  * other method.
  */
 class ZoneDescription {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & minAddr;
-        ar & maxAddr;
-        ar & availableStrNodes;
-    }
-
-    CommAddress minAddr;          ///< The minimum address in the zone
-    CommAddress maxAddr;          ///< The maximum address in the zone
-    uint32_t availableStrNodes;   ///< The number of available structure nodes
-
 public:
     /// Default constructor
     ZoneDescription() : availableStrNodes(0) {}
@@ -157,6 +146,12 @@ public:
      * @param s ZoneDescription object to represent.
      */
     friend std::ostream & operator<<(std::ostream& os, const ZoneDescription & s);
+    
+    MSGPACK_DEFINE(minAddr, maxAddr, availableStrNodes);
+private:
+    CommAddress minAddr;          ///< The minimum address in the zone
+    CommAddress maxAddr;          ///< The maximum address in the zone
+    uint32_t availableStrNodes;   ///< The number of available structure nodes
 };
 
 #endif /*ZONEDESCRIPTION_H_*/

@@ -100,8 +100,10 @@ public:
     /**
      * Returns the PeerCompNode instance associated to the current process.
      */
-    static StarsNode & getCurrentNode() {
-        return *static_cast<StarsNode *>(MSG_host_get_data(MSG_host_self()));
+    StarsNode & getCurrentNode() {
+        if (inSimulation)
+            return *static_cast<StarsNode *>(MSG_host_get_data(MSG_host_self()));
+        else return routingTable[currentNode];
     }
     
     /**
@@ -115,18 +117,6 @@ public:
         return starsStats;
     }
 
-    // Network methods
-//     unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
-//                                Duration d = Duration(0.0), bool withOpDuration = false);
-
-    // Time methods
-    /**
-     * Returns the current simulated time.
-     */
-    static Time getCurrentTime() {
-        return Time((int64_t)(MSG_get_clock() * 1000000));
-    }
-    
     /**
      * Returns the elapsed time since the simulation started. It does not take into account
      * the time needed to prepare the simulation case.
@@ -195,6 +185,7 @@ private:
     boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
     bool end;                                      ///< Signals the end of the simulation
     bool inSimulation;                             ///< States if the currently running code is inside MSG_main
+    uint32_t currentNode;                          ///< Current node index when not inside MSG_main
     
     boost::filesystem::path resultDir;                  ///< The path to the directory that contains the results.
     boost::filesystem::ofstream debugFile;              ///< The log4cpp file.
@@ -211,6 +202,7 @@ private:
     Duration maxSimTime;
     unsigned int maxMemUsage;
     unsigned int showStep;
+    boost::mutex stepMutex;
 
     /// Default constructor, it's private to disallow instantiation outside getInstance() method.
     Simulator() {}

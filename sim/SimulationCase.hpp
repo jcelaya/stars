@@ -25,7 +25,11 @@
 
 #include <string>
 #include <map>
+#include <boost/shared_ptr.hpp>
 #include "Properties.hpp"
+#include "CommAddress.hpp"
+#include <BasicMsg.hpp>
+class BasicMsg;
 
 
 class SimulationCase {
@@ -39,12 +43,14 @@ protected:
 public:
     virtual void preStart() {}
     virtual void postEnd() {}
-    virtual bool doContinue() const {
-        return true;
-    }
     double getCompletedPercent() const {
         return percent;
     }
+    
+    virtual void beforeEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {}
+    virtual void afterEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {}
+    // Some common events
+    virtual void finishedApp(long int appId) {}
 };
 
 

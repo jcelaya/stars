@@ -28,6 +28,7 @@ message(STATUS "Building STaRS version " ${STaRS_VERSION_MAJOR} "." ${STaRS_VERS
 find_package(Boost 1.46 REQUIRED date_time filesystem program_options system serialization thread unit_test_framework iostreams)
 find_package(Sqlite3 REQUIRED)
 find_package(Log4CPP REQUIRED)
+find_package(MsgPack REQUIRED)
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL Release)
     set(BIN_SUFFIX -${CMAKE_BUILD_TYPE})

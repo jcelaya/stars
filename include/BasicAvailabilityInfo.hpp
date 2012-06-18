@@ -33,28 +33,10 @@
  * \brief Basic information about node capabilities
  */
 class BasicAvailabilityInfo: public AvailabilityInformation {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(AvailabilityInformation) & summary & minM & maxM & minD & maxD;
-        if (IS_LOADING())
-            for (unsigned int i = 0; i < summary.getSize(); i++)
-                summary[i].setReference(this);
-    }
-
 public:
 
     class MDCluster {
-        SRLZ_API SRLZ_METHOD() {
-            ar & value & minM & accumMsq & accumMln & minD & accumDsq & accumDln;
-        }
-
-        BasicAvailabilityInfo * reference;
-
     public:
-        uint32_t value;
-        uint32_t minM, minD;
-        uint64_t accumMsq, accumDsq, accumMln, accumDln;
-
         MDCluster() : reference(NULL), value(0) {}
         MDCluster(BasicAvailabilityInfo * r, uint32_t m, uint32_t d) : reference(r), value(1), minM(m), minD(d), accumMsq(0), accumDsq(0), accumMln(0), accumDln(0) {}
 
@@ -128,21 +110,23 @@ public:
             os << 'D' << o.minD << '+' << o.accumDsq << '+' << o.accumDln << ',';
             return os << o.value;
         }
+
+        MSGPACK_DEFINE(value, minM, minD, accumMsq, accumDsq, accumMln, accumDln);
+        
+        BasicAvailabilityInfo * reference;
+        
+        uint32_t value;
+        uint32_t minM, minD;
+        uint64_t accumMsq, accumDsq, accumMln, accumDln;
     };
 
-private:
-    static unsigned int numClusters;
-    static unsigned int numIntervals;
-    ClusteringVector<MDCluster> summary;
-    uint32_t minM, maxM;
-    uint32_t minD, maxD;
-
-public:
     static void setNumClusters(unsigned int c) {
         numClusters = c;
         numIntervals = (unsigned int)floor(sqrt(c));
     }
 
+    MESSAGE_SUBCLASS(BasicAvailabilityInfo);
+    
     BasicAvailabilityInfo() {
         reset();
     }
@@ -156,11 +140,6 @@ public:
     void reset() {
         summary.clear();
         minM = minD = maxM = maxD = 0;
-    }
-
-    // This is described in BasicMsg
-    virtual BasicAvailabilityInfo * clone() const {
-        return new BasicAvailabilityInfo(*this);
     }
 
     /**
@@ -189,6 +168,8 @@ public:
     }
 
     void reduce() {
+        for (unsigned int i = 0; i < summary.getSize(); i++)
+            summary[i].setReference(this);
         summary.clusterize(numClusters);
     }
 
@@ -223,10 +204,13 @@ public:
         os << summary;
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("BasicAvailabilityInfo");
-    }
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD);
+private:
+    static unsigned int numClusters;
+    static unsigned int numIntervals;
+    ClusteringVector<MDCluster> summary;
+    uint32_t minM, maxM;
+    uint32_t minD, maxD;
 };
 
 #endif /* BASICAVAILABILITYINFO_H_ */

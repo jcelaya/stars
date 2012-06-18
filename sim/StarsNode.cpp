@@ -44,7 +44,6 @@ using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-using namespace boost::archive;
 using boost::shared_ptr;
 using boost::scoped_ptr;
 
@@ -54,15 +53,15 @@ public:
     SimExecutionEnvironment() {}
 
     double getAveragePower() const {
-        return Simulator::getCurrentNode().getAveragePower();
+        return Simulator::getInstance().getCurrentNode().getAveragePower();
     }
 
     unsigned long int getAvailableMemory() const {
-        return Simulator::getCurrentNode().getAvailableMemory();
+        return Simulator::getInstance().getCurrentNode().getAvailableMemory();
     }
 
     unsigned long int getAvailableDisk() const {
-        return Simulator::getCurrentNode().getAvailableDisk();
+        return Simulator::getInstance().getCurrentNode().getAvailableDisk();
     }
 
     shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
@@ -83,7 +82,7 @@ CommLayer::CommLayer() : exitSignaled(false) {}
 
 // The following functions must allways be called from an agent's thread
 CommLayer & CommLayer::getInstance() {
-    return Simulator::getCurrentNode();
+    return Simulator::getInstance().getCurrentNode();
 }
 
 
@@ -101,9 +100,15 @@ unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
         return 0;
     } else {
         unsigned long int size = StarsNode::getMsgSize(msg) + 90;
-        MSG_task_dsend(MSG_task_create("foo", 0, size, msg), Simulator::getInstance().getNode(dst.getIPNum()).getMailbox().c_str(), deleteFailedMsg);
+        MSG_task_dsend(MSG_task_create("m", 0, size, msg), Simulator::getInstance().getNode(dst.getIPNum()).getMailbox().c_str(), deleteFailedMsg);
         return size;
     }
+}
+
+
+// Time
+Time Time::getCurrentTime() {
+    return Time((int64_t)(MSG_get_clock() * 1000000));
 }
 
 
@@ -113,12 +118,6 @@ int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
     timerList.push_front(t);
     timerList.sort();
     return t.id;
-}
-
-
-// Time
-Time Time::getCurrentTime() {
-    return Time((int64_t)(MSG_get_clock() * 1000000));
 }
 
 
@@ -139,11 +138,9 @@ struct StarsNodeConfiguration {
     std::string inFileName;
     fs::ifstream inFile;
     iost::filtering_streambuf<iost::input> in;
-    boost::scoped_ptr<portable_binary_iarchive> ia;
     std::string outFileName;
     fs::ofstream outFile;
     iost::filtering_streambuf<iost::output> out;
-    boost::scoped_ptr<portable_binary_oarchive> oa;
     
     static StarsNodeConfiguration & getInstance() {
         static StarsNodeConfiguration instance;
@@ -159,7 +156,7 @@ struct StarsNodeConfiguration {
         stepDisk = property("step_disk", 100);
         inFileName = property("in_file", string(""));
         outFileName = property("out_file", string(""));
-        string s = property("scheduler", string("DS"));
+        string s = property("scheduler", string(""));
         if (s == "DS") sched = StarsNode::EDFSchedulerClass;
         else if (s == "MS") sched = StarsNode::MinSlownessSchedulerClass;
         else if (s == "FCFS") sched = StarsNode::FCFSSchedulerClass;
@@ -170,7 +167,6 @@ struct StarsNodeConfiguration {
             if (inFileName.substr(inFileName.length() - 3) == ".gz")
                 in.push(iost::gzip_decompressor());
             in.push(inFile);
-            ia.reset(new portable_binary_iarchive(in, 0));
         }
         if (outFileName != "") {
             outFile.exceptions(ios_base::failbit | ios_base::badbit);
@@ -178,7 +174,6 @@ struct StarsNodeConfiguration {
             if (outFileName.substr(outFileName.length() - 3) == ".gz")
                 out.push(iost::gzip_compressor());
             out.push(outFile);
-            oa.reset(new portable_binary_oarchive(out, 0));
         }
     }
 };
@@ -189,7 +184,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setSlownessRatio(property("stretch_ratio", 2.0));
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
-    unsigned int clustersBase = property("avail_clusters_base", 0U);
+    unsigned int clustersBase = property("avail_clusters_base", 3U);
     if (clustersBase) {
         BasicAvailabilityInfo::setNumClusters(clustersBase * clustersBase);
         QueueBalancingInfo::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
@@ -223,22 +218,20 @@ void StarsNode::setup(unsigned int addr, m_host_t host) {
 
     createServices();
     // Load service state if needed
-    if (cfg.inFile.is_open())
-        serializeState(*cfg.ia);
+    if (cfg.inFile.is_open()) {
+        unpackState(cfg.in);
+    }
 }
 
 
 int StarsNode::processFunction(int argc, char * argv[]) {
-    return Simulator::getCurrentNode().mainLoop();
+    return Simulator::getInstance().getCurrentNode().mainLoop();
 }
 
 
 int StarsNode::mainLoop() {
     Simulator & sim = Simulator::getInstance();
     LogMsg("Sim.Process", INFO) << "Peer running at " << MSG_host_get_name(simHost) << " with address " << localAddress;
-    
-    // Initial tasks
-    scheduler->rescheduleAt(Time::getCurrentTime());
     
     // Message loop
     while(sim.doContinue()) {
@@ -261,10 +254,13 @@ int StarsNode::mainLoop() {
             }
         }
         while (!messageQueue.empty()) {
-            std::string eventName = messageQueue.front().second->getName();
-            sim.getPerformanceStatistics().startEvent(eventName);
+            boost::shared_ptr<BasicMsg> msg = messageQueue.front().second;
+            CommAddress dst = messageQueue.front().first;
+            sim.getCase().beforeEvent(localAddress, dst, msg);
+            sim.getPerformanceStatistics().startEvent(msg->getName());
             processNextMessage();
-            sim.getPerformanceStatistics().endEvent(eventName);
+            sim.getPerformanceStatistics().endEvent(msg->getName());
+            sim.getCase().afterEvent(localAddress, dst, msg);
         }
     }
     
@@ -277,13 +273,52 @@ int StarsNode::mainLoop() {
 
 void StarsNode::finish()  {
     StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
-    if (cfg.outFile.is_open())
-        serializeState(*cfg.oa);
+    if (cfg.outFile.is_open()) {
+        packState(cfg.out);
+    }
     destroyServices();
 }
 
 
-void StarsNode::serializeState(portable_binary_oarchive & ar) {
+class MsgpackOutArchive {
+    msgpack::packer<msgpack::sbuffer> & pk;
+    static const bool valid, invalid;
+public:
+    MsgpackOutArchive(msgpack::packer<msgpack::sbuffer> & o) : pk(o) {}
+    template<class T> MsgpackOutArchive & operator&(T & o) {
+        pk.pack(o);
+        return *this;
+    }
+    template<class T> MsgpackOutArchive & operator&(boost::shared_ptr<T> & o) {
+        if (o.get()) {
+            pk.pack(valid);
+            *this & *o;
+        } else {
+            pk.pack(invalid);
+        }
+        return *this;
+    }
+    template<class T> MsgpackOutArchive & operator&(std::list<T> & o) {
+        size_t size = o.size();
+        pk.pack(size);
+        for (typename std::list<T>::iterator i = o.begin(); i != o.end(); ++i)
+            *this & *i;
+        return *this;
+    }
+};
+
+template<> inline MsgpackOutArchive & MsgpackOutArchive::operator&(TransactionalZoneDescription & o) {
+    o.serializeState(*this);
+    return *this;
+}
+
+const bool MsgpackOutArchive::valid = true, MsgpackOutArchive::invalid = false;
+
+
+void StarsNode::packState(std::streambuf & out) {
+    msgpack::sbuffer buffer;
+    msgpack::packer<msgpack::sbuffer> pk(&buffer);
+    MsgpackOutArchive ar(pk);
     structureNode->serializeState(ar);
     resourceNode->serializeState(ar);
     switch (schedulerType) {
@@ -302,10 +337,55 @@ void StarsNode::serializeState(portable_binary_oarchive & ar) {
         default:
             break;
     }
+    uint32_t size = buffer.size();
+    out.sputn((const char *)&size, 4);
+    out.sputn(buffer.data(), size);
 }
 
 
-void StarsNode::serializeState(portable_binary_iarchive & ar) {
+class MsgpackInArchive {
+    msgpack::unpacker & upk;
+    msgpack::unpacked msg;
+public:
+    MsgpackInArchive(msgpack::unpacker & o) : upk(o) {}
+    template<class T> MsgpackInArchive & operator&(T & o) {
+        upk.next(&msg); msg.get().convert(&o);
+        return *this;
+    }
+    template<class T> MsgpackInArchive & operator&(boost::shared_ptr<T> & o) {
+        bool valid;
+        upk.next(&msg); msg.get().convert(&valid);
+        if (valid) {
+            o.reset(new T());
+            *this & *o;
+        } else o.reset();
+        return *this;
+    }
+    template<class T> MsgpackInArchive & operator&(std::list<T> & o) {
+        size_t size;
+        upk.next(&msg); msg.get().convert(&size);
+        for (size_t i = 0; i < size; ++i) {
+            o.push_back(T());
+            *this & o.back();
+        }
+        return *this;
+    }
+};
+
+template<> inline MsgpackInArchive & MsgpackInArchive::operator&(TransactionalZoneDescription & o) {
+    o.serializeState(*this);
+    return *this;
+}
+
+
+void StarsNode::unpackState(std::streambuf & in) {
+    uint32_t size;
+    in.sgetn((char *)&size, 4);
+    msgpack::unpacker upk;
+    upk.reserve_buffer(size);
+    in.sgetn(upk.buffer(), size);
+    upk.buffer_consumed(size);
+    MsgpackInArchive ar(upk);
     structureNode->serializeState(ar);
     resourceNode->serializeState(ar);
     switch (schedulerType) {
@@ -354,38 +434,22 @@ void StarsNode::createServices() {
 
 void StarsNode::destroyServices() {
     // Gracely terminate the services
-    structureNode.reset();
-    resourceNode.reset();
-    submissionNode.reset();
-    scheduler.reset();
     dispatcher.reset();
+    scheduler.reset();
+    submissionNode.reset();
+    resourceNode.reset();
+    structureNode.reset();
 }
 
 
 unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
-    unsigned long int size = 0;
-    std::stringstream ss;
-    portable_binary_oarchive oa(ss);
-    oa << msg;
-    size = ss.tellp();
-    return size;
+    ostringstream oss;
+    msgpack::packer<std::ostream> pk(&oss);
+    msg->pack(pk);
+    return oss.tellp();
 }
 
 
-// shared_ptr<AvailabilityInformation> StarsNode::getBranchInfo() const {
-//     if (schedulerType == MinStretchSchedulerClass)
-//         return minStretchDisp->getBranchInfo();
-//     else return dispatcher->getBranchInfo();
-// }
-// 
-// 
-// shared_ptr<AvailabilityInformation> StarsNode::getChildInfo(const CommAddress & child) const {
-//     if (schedulerType == MinStretchSchedulerClass)
-//         return minStretchDisp->getChildInfo(child);
-//     else return dispatcher->getChildInfo(child);
-// }
-// 
-// 
 // unsigned int StarsNode::getSNLevel() const {
 //     if (!structureNode->inNetwork())
 //         return Simulator::getInstance().getNode(resourceNode->getFather().getIPNum()).getSNLevel() + 1;
@@ -503,11 +567,3 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //         }
 //     }
 // }
-// 
-// 
-// 
-// 
-// 
-// 
-// 
-// 

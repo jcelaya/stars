@@ -21,6 +21,5 @@
  */
 
 #include "SerializableBatch.hpp"
-#include "BoostSerializationArchiveExport.hpp"
 
-BOOST_CLASS_EXPORT(SerializableBatch);
+REGISTER_MESSAGE(SerializableBatch);

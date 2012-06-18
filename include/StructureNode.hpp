@@ -25,7 +25,7 @@
 
 #include <list>
 #include <vector>
-#include <ostream>
+#include <iostream>
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include "CommAddress.hpp"
@@ -43,25 +43,6 @@
  * a 2PC protocol.
  */
 class TransactionalZoneDescription {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & changing;
-        ar & actualLink;
-        ar & seq;
-        ar & newLink;
-        ar & actualZone;
-        ar & newZone;
-    }
-
-    bool changing;                            ///< Whether the zone is changing
-    CommAddress actualLink;                   ///< The address of the responsible node
-    uint64_t seq;                             ///< Update sequence number.
-    CommAddress newLink;                      ///< The new address of the responsible node
-    boost::shared_ptr<ZoneDescription> actualZone;   ///< The description of the zone covered by this branch
-    boost::shared_ptr<ZoneDescription> newZone;      ///< The description of the zone covered by this branch
-
-    friend std::ostream & operator<<(std::ostream& os, const TransactionalZoneDescription & s);
-
 public:
 
     /// Default constructor.
@@ -176,6 +157,21 @@ public:
      * @param u UpdateMsg object with the zone information.
      */
     void setZoneFrom(const CommAddress & src, const boost::shared_ptr<ZoneDescription> & i);
+    
+    template<class Archive> void serializeState(Archive & ar) {
+        // Serialization only works if not in a transaction
+        ar & actualLink & actualZone & seq;
+    }
+
+private:
+    bool changing;                            ///< Whether the zone is changing
+    CommAddress actualLink;                   ///< The address of the responsible node
+    uint64_t seq;                             ///< Update sequence number.
+    CommAddress newLink;                      ///< The new address of the responsible node
+    boost::shared_ptr<ZoneDescription> actualZone;   ///< The description of the zone covered by this branch
+    boost::shared_ptr<ZoneDescription> newZone;      ///< The description of the zone covered by this branch
+    
+    friend std::ostream & operator<<(std::ostream& os, const TransactionalZoneDescription & s);
 };
 
 

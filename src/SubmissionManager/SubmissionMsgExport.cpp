@@ -20,13 +20,12 @@
  *
  */
 
-#include "BoostSerializationArchiveExport.hpp"
 #include "DispatchCommandMsg.hpp"
 #include "AcceptTaskMsg.hpp"
 #include "AbortTaskMsg.hpp"
 #include "TaskMonitorMsg.hpp"
 
-BOOST_CLASS_EXPORT(DispatchCommandMsg);
-BOOST_CLASS_EXPORT(AcceptTaskMsg);
-BOOST_CLASS_EXPORT(AbortTaskMsg);
-BOOST_CLASS_EXPORT(TaskMonitorMsg);
+REGISTER_MESSAGE(DispatchCommandMsg);
+REGISTER_MESSAGE(AcceptTaskMsg);
+REGISTER_MESSAGE(AbortTaskMsg);
+REGISTER_MESSAGE(TaskMonitorMsg);

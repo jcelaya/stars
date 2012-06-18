@@ -161,7 +161,7 @@ public:
     friend std::ostream & operator<<(std::ostream& os, const ResourceNode & e);
 
     template<class Archive> void serializeState(Archive & ar) {
-        // Only serializes correctly if not in the midle of a transaction
+        // Serialization only works if not in a transaction
         ar & father & seq & zoneDesc & notifiedZoneDesc;
     }
 };

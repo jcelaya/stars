@@ -159,7 +159,7 @@ void StructureNode::notifyFather(TransactionId tid) {
             notifiedZoneDesc.reset(new ZoneDescription(*zoneDesc));
             DEBUG_LOG("There were changes. Sending update to the father");
             UpdateZoneMsg * u = new UpdateZoneMsg;
-            u->setZone(notifiedZoneDesc);
+            u->setZone(*notifiedZoneDesc);
             u->setSequence(seq++);
             // DEBUG: Follow transactions
             u->setTransactionId(tid);
@@ -349,7 +349,7 @@ template<> void StructureNode::handle(const CommAddress & src, const UpdateZoneM
                 return;
             }
             // It comes from child i, update its data
-            (*it)->setZoneFrom(src, msg.getZone());
+            (*it)->setZoneFrom(src, shared_ptr<ZoneDescription>(new ZoneDescription(msg.getZone())));
             subZones.sort(compareZones);
             // Check if the resulting zone changes
             recomputeZone();

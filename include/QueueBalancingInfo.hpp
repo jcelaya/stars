@@ -37,23 +37,11 @@
  * may be aggregated and used in the search algorithm.
  */
 class QueueBalancingInfo : public AvailabilityInformation {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(AvailabilityInformation) & minQueue & summary & minM & maxM & minD & maxD & minP & maxP & minT & maxT;
-        if (IS_LOADING())
-            for (unsigned int i = 0; i < summary.getSize(); i++)
-                summary[i].setReference(this);
-    }
-
 public:
     class MDPTCluster {
-        SRLZ_API SRLZ_METHOD() {
-            ar & value & minM & accumM & minD & accumD & minP & accumP & maxT & accumT;
-        }
-
-        QueueBalancingInfo * reference;
-
     public:
+        MSGPACK_DEFINE(value, minM, minD, minP, accumM, accumD, accumP, maxT, accumT);
+        
         uint32_t value;
         uint32_t minM, minD, minP;
         uint64_t accumM, accumD, accumP;
@@ -112,17 +100,12 @@ public:
             os << 'T' << o.maxT << '-' << o.accumT << ',';
             return os << o.value;
         }
+    private:
+        QueueBalancingInfo * reference;
     };
 
-private:
-    static unsigned int numClusters;
-    static unsigned int numIntervals;
-    Time minQueue;
-    ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
-    uint32_t minM, maxM, minD, maxD, minP, maxP;
-    Time minT, maxT;
-
-public:
+    MESSAGE_SUBCLASS(QueueBalancingInfo);
+    
     QueueBalancingInfo() {
         reset();
     }
@@ -143,11 +126,6 @@ public:
         summary.clear();
         minM = maxM = minD = maxD = minP = maxP = 0;
         minT = maxT = minQueue;
-    }
-
-    // This is documented in BasicMsg
-    virtual QueueBalancingInfo * clone() const {
-        return new QueueBalancingInfo(*this);
     }
 
     /**
@@ -172,6 +150,8 @@ public:
     void join(const QueueBalancingInfo & o);
 
     void reduce() {
+        for (unsigned int i = 0; i < summary.getSize(); i++)
+            summary[i].setReference(this);
         summary.clusterize(numClusters);
     }
 
@@ -198,10 +178,14 @@ public:
         os << minQueue << ',' << summary;
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("QueueBalancingInfo");
-    }
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, minQueue, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
+private:
+    static unsigned int numClusters;
+    static unsigned int numIntervals;
+    Time minQueue;
+    ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
+    uint32_t minM, maxM, minD, maxD, minP, maxP;
+    Time minT, maxT;
 };
 
 #endif /*QUEUEBALANCINGINFO_H_*/

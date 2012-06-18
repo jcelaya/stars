@@ -31,20 +31,9 @@
  * A command for the SubmissionNode to release a new instance of application.
  */
 class DispatchCommandMsg : public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & appName;
-    }
-
-    std::string appName;           ///< Application name
-    Time deadline;   ///< Instance deadline
-
 public:
-    // This is described in BasicMsg
-    virtual DispatchCommandMsg * clone() const {
-        return new DispatchCommandMsg(*this);
-    }
-
+    MESSAGE_SUBCLASS(DispatchCommandMsg);
+    
     /**
      * Returns the minimum resource requirements for all the tasks requested.
      * @return A task description with the most restrictive requirements.
@@ -80,10 +69,10 @@ public:
         os << "app(" << appName << ") dl(" << deadline << ')';
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("DispatchCommandMsg");
-    }
+    MSGPACK_DEFINE(appName, deadline);
+private:
+    std::string appName;           ///< Application name
+    Time deadline;   ///< Instance deadline
 };
 
 #endif /*DISPATCHCOMMANDMSG_H_*/

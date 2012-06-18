@@ -42,22 +42,19 @@ class HeartbeatTimeout : public BasicMsg {
     CommAddress executionNode;
 
 public:
+    MESSAGE_SUBCLASS(HeartbeatTimeout);
+    
     HeartbeatTimeout(const CommAddress & src) : executionNode(src) {}
-
-    // This is documented in BasicMsg
-    HeartbeatTimeout * clone() const {
-        return new HeartbeatTimeout(*this);
-    }
 
     const CommAddress & getExecutionNode() const {
         return executionNode;
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("HeartbeatTimeout");
-    }
+    MSGPACK_DEFINE();
 };
+
+
+void SubmissionNode::finishedApp(long int appId) {}
 
 
 void SubmissionNode::sendRequest(long int appInstance, int prevRetries) {
@@ -186,9 +183,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
         } else {
             map<long int, unsigned int>::iterator it = remainingTasks.find(appId);
             if (it->second == 0) {
-                AppFinishedMsg * afm = new AppFinishedMsg;
-                afm->setAppId(it->first);
-                CommLayer::getInstance().sendLocalMessage(afm);
+                finishedApp(it->first);
+//                 AppFinishedMsg * afm = new AppFinishedMsg;
+//                 afm->setAppId(it->first);
+//                 CommLayer::getInstance().sendLocalMessage(afm);
                 remainingTasks.erase(it);
             }
         }
@@ -217,9 +215,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                     }
                     it = remainingTasks.find(appId);
                     if (--(it->second) == 0) {
-                        AppFinishedMsg * afm = new AppFinishedMsg;
-                        afm->setAppId(it->first);
-                        CommLayer::getInstance().sendLocalMessage(afm);
+                        finishedApp(it->first);
+//                         AppFinishedMsg * afm = new AppFinishedMsg;
+//                         afm->setAppId(it->first);
+//                         CommLayer::getInstance().sendLocalMessage(afm);
                         remainingTasks.erase(it);
                     }
                 }

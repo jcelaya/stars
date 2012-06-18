@@ -25,19 +25,37 @@
 
 #include <ostream>
 #include <iomanip>
-#include "Serializable.hpp"
+#include <msgpack.hpp>
 
 /**
- * \brief Basic message class, with a service identifier.
+ * \brief Basic message class.
  *
  * This is the base class for any message sent through the network. It is received by the CommLayer object and sent
  * to the handler that registered with the message class.
  */
 class BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {}
-
 public:
+    template<class Message> class MessageRegistrar {
+        static BasicMsg * unpackMessage(const msgpack::object & obj) {
+            Message * result = new Message();
+            obj.convert(result);
+            return result;
+        }
+    public:
+        MessageRegistrar() {
+            BasicMsg::unpackerRegistry()[Message::className()] = &unpackMessage;
+        }
+    };
+    
+    static BasicMsg * unpackMessage(msgpack::unpacker & pac) {
+        std::string name;
+        msgpack::unpacked msg;
+        pac.next(&msg);
+        msg.get().convert(&name);
+        pac.next(&msg);
+        return unpackerRegistry()[name](msg.get());
+    }
+    
     virtual ~BasicMsg() {}
 
     /**
@@ -57,10 +75,29 @@ public:
      */
     virtual std::string getName() const = 0;
 
+    static std::string className() { return std::string("BasicMsg"); }
+    
+    virtual void pack(msgpack::packer<std::ostream> & buffer) = 0;
+
 private:
+    template<class Message> friend class MessageRegistrar;
+    static std::map<std::string, BasicMsg * (*)(const msgpack::object &)> & unpackerRegistry() {
+        static std::map<std::string, BasicMsg * (*)(const msgpack::object &)> instance;
+        return instance;
+    }
+    
     // Forbid assignment
     BasicMsg & operator=(const BasicMsg &);
 };
+
+
+#define REGISTER_MESSAGE(name) BasicMsg::MessageRegistrar<name> name ## _reg_var
+#define MESSAGE_SUBCLASS(name) \
+virtual name * clone() const { return new name(*this); } \
+virtual std::string getName() const { return className(); } \
+virtual void pack(msgpack::packer<std::ostream> & pk) { pk.pack(className()); pk.pack(*this); } \
+static std::string className() { return std::string(#name); }
+
 
 inline std::ostream & operator<<(std::ostream& os, const BasicMsg & s) {
     std::ios_base::fmtflags f = os.flags();
@@ -68,6 +105,5 @@ inline std::ostream & operator<<(std::ostream& os, const BasicMsg & s) {
     s.output(os);
     return os << std::setiosflags(f);
 }
-
 
 #endif /*BASICMSG_H_*/

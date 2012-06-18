@@ -33,18 +33,8 @@
  * wants to notify anything; f. e. whenever a task finishes.
  */
 class TaskEventMsg : public BasicMsg {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & taskId;
-    }
-
-    uint32_t taskId;   ///< ID of the notifier task.
-
 public:
-    // This is documented in BasicMsg
-    virtual TaskEventMsg * clone() const {
-        return new TaskEventMsg(*this);
-    }
+    MESSAGE_SUBCLASS(TaskEventMsg);
 
     // Getters and Setters
 
@@ -69,10 +59,9 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("TaskEventMsg");
-    }
+    MSGPACK_DEFINE(taskId);
+private:
+    uint32_t taskId;   ///< ID of the notifier task.
 };
 
 #endif /*TASKEVENTMSG_H_*/

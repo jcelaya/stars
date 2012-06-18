@@ -27,7 +27,6 @@
 #include "BasicMsg.hpp"
 #include "Time.hpp"
 #include "TestHost.hpp"
-#include "BoostSerializationArchiveExport.hpp"
 #include "Logger.hpp"
 using namespace std;
 using namespace boost;
@@ -36,50 +35,32 @@ using namespace boost;
 /// Test objects
 
 class Ping : public BasicMsg {
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg);
-    }
-
 public:
+    MESSAGE_SUBCLASS(Ping);
+    
     Ping() {}
-
-    Ping * clone() const {
-        return new Ping(*this);
-    }
 
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
-
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("Ping");
-    }
+    
+    MSGPACK_DEFINE();
 };
 
 
 class Pong : public BasicMsg {
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg);
-    }
-
 public:
+    MESSAGE_SUBCLASS(Pong);
+    
     Pong() {}
-
-    Pong * clone() const {
-        return new Pong(*this);
-    }
 
     // This is documented in BasicMsg
     void output(std::ostream & os) const {}
-
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("Pong");
-    }
+    
+    MSGPACK_DEFINE();
 };
 
-BOOST_CLASS_EXPORT(Ping);
-BOOST_CLASS_EXPORT(Pong);
+REGISTER_MESSAGE(Ping);
+REGISTER_MESSAGE(Pong);
 
 
 // A service that does pings

@@ -45,15 +45,9 @@ void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepte
 
 class MonitorTimer : public BasicMsg {
 public:
-    // This is documented in BasicMsg
-    virtual MonitorTimer * clone() const {
-        return new MonitorTimer(*this);
-    }
+    MESSAGE_SUBCLASS(MonitorTimer);
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("MonitorTimer");
-    }
+    MSGPACK_DEFINE();
 };
 
 

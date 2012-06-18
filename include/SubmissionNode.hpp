@@ -65,6 +65,8 @@ class SubmissionNode : public Service, public ResourceNodeObserver {
 
     void sendRequest(long int appInstance, int prevRetries);
 
+    void finishedApp(long int appId);
+    
 public:
     /**
      * Constructor, with the ResourceNode to observe.

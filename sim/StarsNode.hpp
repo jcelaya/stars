@@ -34,8 +34,6 @@ namespace iost = boost::iostreams;
 #include "Logger.hpp"
 #include "Properties.hpp"
 #include "SimAppDatabase.hpp"
-#include "portable_binary_iarchive.hpp"
-#include "portable_binary_oarchive.hpp"
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
 #include "ResourceNode.hpp"
@@ -67,9 +65,9 @@ public:
     
     void finish();
     
-    void serializeState(portable_binary_oarchive & ar);
+    void packState(std::streambuf & out);
     
-    void serializeState(portable_binary_iarchive & ar);
+    void unpackState(std::streambuf & out);
     
     m_host_t getHost() const {
         return simHost;

@@ -787,12 +787,14 @@ void SlownessInformation::updateRkReference(Time newRef) {
 
 
 void SlownessInformation::reduce() {
+    unsigned int size = summary.getSize();
+    for (unsigned int i = 0; i < size; i++)
+        summary[i].reference = this;
     // Set up clustering variables
     memRange = maxM - minM;
     diskRange = maxD - minD;
     slownessRange = maxL.sqdiff(minL, lengthHorizon);
     summary.clusterize(numClusters);
-    unsigned int size = summary.getSize();
     for (unsigned int i = 0; i < size; i++)
         summary[i].reduce();
 }

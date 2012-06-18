@@ -20,9 +20,8 @@
  *
  */
 
-#include "BoostSerializationArchiveExport.hpp"
 #include "TaskEventMsg.hpp"
 #include "TaskStateChgMsg.hpp"
 
-BOOST_CLASS_EXPORT(TaskEventMsg);
-BOOST_CLASS_EXPORT(TaskStateChgMsg);
+REGISTER_MESSAGE(TaskEventMsg);
+REGISTER_MESSAGE(TaskStateChgMsg);

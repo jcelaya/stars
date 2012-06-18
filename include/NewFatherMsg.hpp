@@ -34,24 +34,13 @@
  * in a split of join process.
  */
 class NewFatherMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & father & forRN;
-    }
-
-    CommAddress father; ///< The new child address
-    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
-
 public:
+    MESSAGE_SUBCLASS(NewFatherMsg);
+    
     /**
      * Default constructor.
      */
     NewFatherMsg() : forRN(false) {}
-
-    // This is documented in BasicMsg
-    virtual NewFatherMsg * clone() const {
-        return new NewFatherMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -82,10 +71,10 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("NewFatherMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, father, forRN);
+private:
+    CommAddress father; ///< The new child address
+    bool forRN;   ///< To say whether this message is for the ResourceNode or the StructureNode
 };
 
 #endif /*NEWFATHERMSG_H_*/

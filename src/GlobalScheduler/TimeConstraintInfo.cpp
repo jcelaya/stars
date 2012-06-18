@@ -667,13 +667,15 @@ void TimeConstraintInfo::join(const TimeConstraintInfo & r) {
 
 
 void TimeConstraintInfo::reduce() {
+    unsigned int size = summary.getSize();
+    for (unsigned int i = 0; i < size; i++)
+        summary[i].setReference(this);
     // Set up clustering variables
     aggregationTime = Time::getCurrentTime();
     memRange = maxM - minM;
     diskRange = maxD - minD;
     availRange = maxA.sqdiff(minA, aggregationTime, horizon);
     summary.clusterize(numClusters);
-    unsigned int size = summary.getSize();
     for (unsigned int i = 0; i < size; i++)
         summary[i].reduce();
 }

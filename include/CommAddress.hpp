@@ -27,8 +27,7 @@
 #include <iomanip>
 #include <ostream>
 #include <boost/asio.hpp>
-
-#include "Serializable.hpp"
+#include <msgpack.hpp>
 
 
 /**
@@ -37,21 +36,6 @@
  * This class represents a Peer address. It is a pair IP address - TCP/UDP port.
  **/
 class CommAddress {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        std::string ipstr;
-        if (IS_SAVING()) {
-            ipstr = IP.to_string();
-            ar & ipstr & port;
-        } else {
-            ar & ipstr & port;
-            IP = boost::asio::ip::address::from_string(ipstr);
-        }
-    }
-
-    boost::asio::ip::address IP;   ///< IP address
-    uint16_t port;                 ///< TCP/UDP port
-
 public:
     CommAddress() : IP(boost::asio::ip::address_v4(0)), port(0) {}
 
@@ -157,6 +141,23 @@ public:
         std::ios_base::fmtflags f = os.flags();
         return os << std::setw(0) << s.getIPString() << ":" << s.port << std::setiosflags(f);
     }
+    
+    template <typename Packer> void msgpack_pack(Packer & pk) const {
+        pk.pack_array(2);
+        std::string ipstr = IP.to_string();
+        pk.pack(ipstr);
+        pk.pack(port);
+    }
+    void msgpack_unpack(msgpack::object o) {
+        if(o.type != msgpack::type::ARRAY) { throw msgpack::type_error(); }
+        std::string ipstr;
+        o.via.array.ptr[0].convert(&ipstr);
+        o.via.array.ptr[1].convert(&port);
+        IP = boost::asio::ip::address::from_string(ipstr);
+    }
+private:
+    boost::asio::ip::address IP;   ///< IP address
+    uint16_t port;                 ///< TCP/UDP port
 };
 
 #endif /*COMMADDRESS_H_*/

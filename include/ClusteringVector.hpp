@@ -28,8 +28,8 @@
 #include <fstream>
 #include <limits>
 #include <boost/scoped_array.hpp>
+#include <msgpack.hpp>
 #include "Logger.hpp"
-#include "Serializable.hpp"
 
 
 /**
@@ -46,70 +46,6 @@
  * </ul>
  */
 template<class T> class ClusteringVector {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & size;
-        if (IS_LOADING()) {
-            if (size) buffer.reset(new T[size]);
-            else buffer.reset();
-        }
-        for (size_t i = 0; i < size; i++)
-            ar & buffer[i];
-    }
-
-    /// Maximum size of the vector of samples
-    static unsigned int K;
-
-    /// Data structures for the aggregation algorithm
-    struct DistanceList {
-        struct DistanceTo {
-            double d;
-            unsigned long int v;
-            T * to;
-            T * sum;
-            DistanceTo() {}
-            DistanceTo(double _d, T * _t, T * _s) : d(_d), v(_t->value), to(_t), sum(_s) {}
-        };
-
-        T * src;
-        boost::scoped_array<DistanceTo> dsts;
-        unsigned int dsts_size;
-        DistanceTo * dst;
-        bool dirty;
-        DistanceList() : dsts_size(0), dirty(false) {
-            dsts.reset(new DistanceTo[K]);
-            dst = dsts.get();
-        }
-        bool add(double d, T * _dst, T * & sum, T * & top) {
-            if (dsts_size < K || d < dsts[dsts_size - 1].d) {
-                // insert it
-                if (top == sum) top++;
-                unsigned int i;
-                T * free;
-                if (dsts_size < K) {
-                    i = dsts_size++;
-                    free = top;
-                } else {
-                    i = K - 1;
-                    free = dsts[i].sum;
-                }
-                for (; i > 0 && dsts[i - 1].d > d; i--)
-                    dsts[i] = dsts[i - 1];
-                dsts[i] = DistanceTo(d, _dst, sum);
-                sum = free;
-                return true;
-            }
-            return false;
-        }
-    };
-
-    static bool compDL(const DistanceList * l, const DistanceList * r) {
-        return l->dsts_size == 0 || (r->dsts_size > 0 && l->dst->d > r->dst->d);
-    }
-
-    boost::scoped_array<T> buffer;
-    size_t size;
-
 public:
     static void setDistVectorSize(unsigned int k) {
         K = k;
@@ -322,6 +258,74 @@ public:
             os << '(' << o.buffer[i] << ')';
         return os;
     }
+
+    template <typename Packer> void msgpack_pack(Packer& pk) const {
+        pk.pack_array(size + 1);
+        pk.pack(size);
+        for (size_t i = 0; i < size; ++i)
+            pk.pack(buffer[i]);
+    }
+    void msgpack_unpack(msgpack::object o) {
+        if(o.type != msgpack::type::ARRAY) { throw msgpack::type_error(); }
+        o.via.array.ptr[0].convert(&size);
+        if (size) buffer.reset(new T[size]);
+        else buffer.reset();
+        for (size_t i = 0; i < size; i++)
+            o.via.array.ptr[i + 1].convert(&buffer[i]);
+    }
+private:
+    /// Maximum size of the vector of samples
+    static unsigned int K;
+    
+    /// Data structures for the aggregation algorithm
+    struct DistanceList {
+        struct DistanceTo {
+            double d;
+            unsigned long int v;
+            T * to;
+            T * sum;
+            DistanceTo() {}
+            DistanceTo(double _d, T * _t, T * _s) : d(_d), v(_t->value), to(_t), sum(_s) {}
+        };
+        
+        T * src;
+        boost::scoped_array<DistanceTo> dsts;
+        unsigned int dsts_size;
+        DistanceTo * dst;
+        bool dirty;
+        DistanceList() : dsts_size(0), dirty(false) {
+            dsts.reset(new DistanceTo[K]);
+            dst = dsts.get();
+        }
+        bool add(double d, T * _dst, T * & sum, T * & top) {
+            if (dsts_size < K || d < dsts[dsts_size - 1].d) {
+                // insert it
+                if (top == sum) top++;
+                unsigned int i;
+                T * free;
+                if (dsts_size < K) {
+                    i = dsts_size++;
+                    free = top;
+                } else {
+                    i = K - 1;
+                    free = dsts[i].sum;
+                }
+                for (; i > 0 && dsts[i - 1].d > d; i--)
+                    dsts[i] = dsts[i - 1];
+                dsts[i] = DistanceTo(d, _dst, sum);
+                sum = free;
+                return true;
+            }
+            return false;
+        }
+    };
+    
+    static bool compDL(const DistanceList * l, const DistanceList * r) {
+        return l->dsts_size == 0 || (r->dsts_size > 0 && l->dst->d > r->dst->d);
+    }
+    
+    boost::scoped_array<T> buffer;
+    size_t size;
 };
 
 template<class T> unsigned int ClusteringVector<T>::K = 10;

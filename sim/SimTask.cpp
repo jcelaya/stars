@@ -30,7 +30,7 @@
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
     Simulator::getInstance().getStarsStatistics().taskStarted();
-    taskDuration = Duration(description.getLength() / Simulator::getCurrentNode().getAveragePower());
+    taskDuration = Duration(description.getLength() / Simulator::getInstance().getCurrentNode().getAveragePower());
     LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
 }
 
@@ -42,7 +42,7 @@ SimTask::~SimTask() {
 
 int SimTask::getStatus() const {
     if (timer == -1) return Prepared;
-    else if (finishTime > Simulator::getCurrentTime()) return Running;
+    else if (finishTime > Time::getCurrentTime()) return Running;
     else return Finished;
 }
 
@@ -53,8 +53,8 @@ void SimTask::run() {
         tfm->setTaskId(taskId);
         tfm->setOldState(Running);
         tfm->setNewState(Finished);
-        timer = Simulator::getCurrentNode().setTimer(taskDuration, tfm);
-        finishTime = Simulator::getCurrentTime() + taskDuration;
+        timer = Simulator::getInstance().getCurrentNode().setTimer(taskDuration, tfm);
+        finishTime = Time::getCurrentTime() + taskDuration;
         LogMsg("Sim.Task", DEBUG) << "Running task " << taskId << " until " << finishTime;
     }
 }
@@ -62,8 +62,8 @@ void SimTask::run() {
 
 void SimTask::abort() {
     // Cancel timer only if the task is running
-    if (timer != -1 && finishTime > Simulator::getCurrentTime()) {
-        Simulator::getCurrentNode().cancelTimer(timer);
+    if (timer != -1 && finishTime > Time::getCurrentTime()) {
+        Simulator::getInstance().getCurrentNode().cancelTimer(timer);
         timer = -1;
     }
 }
@@ -71,7 +71,7 @@ void SimTask::abort() {
 
 Duration SimTask::getEstimatedDuration() const {
     if (timer == -1) return taskDuration;
-    else if (finishTime > Simulator::getCurrentTime())
-        return finishTime - Simulator::getCurrentTime();
+    else if (finishTime > Time::getCurrentTime())
+        return finishTime - Time::getCurrentTime();
     else return Duration();
 }

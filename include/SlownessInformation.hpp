@@ -32,6 +32,7 @@
 #include "AvailabilityInformation.hpp"
 #include "ClusteringVector.hpp"
 #include "Time.hpp"
+#include "TaskDescription.hpp"
 class Task;
 
 
@@ -77,9 +78,7 @@ public:
                 return os << "L = " << o.x << "/a + " << o.y << "a + " << o.z1 << " + " << o.z2;
             }
 
-            SRLZ_API SRLZ_METHOD() {
-                ar & x & y & z1 & z2;
-            }
+            MSGPACK_DEFINE(x, y, z1, z2);
 
             // z1 is the sum of the independent term in L = x/a + z1, while z2 is the independent part in the other functions
             double x, y, z1, z2;   // L = x/a + y*a + z1 + z2
@@ -190,6 +189,7 @@ public:
             return os << ']';
         }
 
+        MSGPACK_DEFINE(pieces);
     private:
         // Steps through all the intervals of a pair of functions
         template<int numF, class S> static void stepper(const LAFunction * (&f)[numF], S & step);
@@ -200,10 +200,6 @@ public:
         struct sqdiffStep;
         struct maxDiffStep;
         struct maxAndLossStep;
-
-        SRLZ_API SRLZ_METHOD() {
-            ar & pieces;
-        }
 
         /// Piece set
         std::vector<std::pair<double, SubFunction> > pieces;
@@ -257,10 +253,8 @@ public:
             os << 'L' << o.maxL << '-' << o.accumLsq << '-' << o.accumMaxL << ',';
             return os << o.value;
         }
-
-        SRLZ_API SRLZ_METHOD() {
-            ar & value & minM & accumMsq & accumMln & minD & accumDsq & accumDln & maxL & accumLsq & accumMaxL;
-        }
+        
+        MSGPACK_DEFINE(value, minM, accumMsq, accumMln, minD, accumDsq, accumDln, maxL, accumLsq, accumMaxL);
 
         SlownessInformation * reference;
 
@@ -272,6 +266,8 @@ public:
         LAFunction accumMaxL;
     };
 
+    MESSAGE_SUBCLASS(SlownessInformation);
+    
     /// Default constructor.
     SlownessInformation() : AvailabilityInformation(), minM(0), maxM(0), minD(0), maxD(0),
             lengthHorizon(0.0), minimumSlowness(0.0), maximumSlowness(0.0) {}
@@ -371,33 +367,15 @@ public:
     // This is documented in AvailabilityInformation.
     virtual void reduce();
 
-    // This is documented in BasicMsg.
-    virtual SlownessInformation * clone() const {
-        return new SlownessInformation(*this);
-    }
-
     // This is documented in BasicMsg
     virtual void output(std::ostream& os) const;
 
-    // This is documented in BasicMsg
-    virtual std::string getName() const {
-        return std::string("SlownessInformation");
-    }
-
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD, minL, maxL, lengthHorizon, minimumSlowness, maximumSlowness, rkref);
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     static unsigned int numPieces;
     static const double infinity;
-
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(AvailabilityInformation) & summary & minM & maxM & minD & maxD & minL & maxL
-        & lengthHorizon & minimumSlowness & maximumSlowness & rkref;
-        if (IS_LOADING())
-            for (unsigned int i = 0; i < summary.getSize(); i++)
-                summary[i].reference = this;
-    }
 
     ClusteringVector<MDLCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability

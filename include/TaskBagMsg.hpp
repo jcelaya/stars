@@ -36,30 +36,14 @@
  * resource requirements for them.
  */
 class TaskBagMsg : public BasicMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(BasicMsg) & requester & requestId & firstTask & lastTask & minRequirements & forEN & fromEN;
-    }
-
-    CommAddress requester;             ///< Requester's address
-    int64_t requestId;                 ///< Request ID relative to the requester
-    uint32_t firstTask;                ///< Id of the first task in the interval to assign.
-    uint32_t lastTask;                 ///< Id of the last task in the interval to assign.
-    TaskDescription minRequirements;   ///< Minimum requirements for those tasks.
-    bool forEN;                        ///< Whether the message is for the EN or the SN
-    bool fromEN;                       ///< Whether the message comes from the EN or the SN
-
 public:
+    MESSAGE_SUBCLASS(TaskBagMsg);
+    
     /// Default constructor
     TaskBagMsg() {}
     /// Copy constructor
     TaskBagMsg(const TaskBagMsg & copy) : BasicMsg(copy), requester(copy.requester), requestId(copy.requestId),
             firstTask(copy.firstTask), lastTask(copy.lastTask), minRequirements(copy.minRequirements), forEN(copy.forEN), fromEN(copy.fromEN) {}
-
-    // This is documented in BasicMsg
-    virtual TaskBagMsg * clone() const {
-        return new TaskBagMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -173,10 +157,15 @@ public:
         // os << *minRequirements;
     }
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("TaskBagMsg");
-    }
+    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+private:
+    CommAddress requester;             ///< Requester's address
+    int64_t requestId;                 ///< Request ID relative to the requester
+    uint32_t firstTask;                ///< Id of the first task in the interval to assign.
+    uint32_t lastTask;                 ///< Id of the last task in the interval to assign.
+    TaskDescription minRequirements;   ///< Minimum requirements for those tasks.
+    bool forEN;                        ///< Whether the message is for the EN or the SN
+    bool fromEN;                       ///< Whether the message comes from the EN or the SN
 };
 
 #endif /*TASKBAGMSG_H_*/

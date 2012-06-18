@@ -34,27 +34,6 @@
  * This class just implements objects that describe the resource requirements of a task.
  */
 class TaskDescription {
-    /// Set the basic elements for a Serializable descendant
-    SRLZ_API SRLZ_METHOD() {
-        ar & length;
-        ar & numTasks;
-        ar & deadline;
-        ar & maxMemory;
-        ar & maxDisk;
-        ar & inputSize;
-        ar & outputSize;
-    }
-
-    uint64_t length;       ///< Length in millions of instructions
-    uint32_t numTasks;     ///< Number of tasks in the application
-    Time deadline;        ///< Absolute deadline
-    uint32_t maxMemory;    ///< Maximum memory used, in kilobytes
-    uint32_t maxDisk;      ///< Maximum disk space used, in kilobytes
-    uint32_t inputSize;    ///< Input data size, in kilobytes
-    uint32_t outputSize;   ///< Output data size, in kilobytes
-    //string inputURL;
-    //string outputURL;
-
 public:
     /// Default constructor
     TaskDescription() : length(0), numTasks(0), maxMemory(0), maxDisk(0), inputSize(0), outputSize(0) {}
@@ -167,6 +146,18 @@ public:
     void setOutputSize(uint32_t o) {
         outputSize = o;
     }
+    
+    MSGPACK_DEFINE(length, numTasks, deadline, maxMemory, maxDisk, inputSize, outputSize);
+private:
+    uint64_t length;       ///< Length in millions of instructions
+    uint32_t numTasks;     ///< Number of tasks in the application
+    Time deadline;        ///< Absolute deadline
+    uint32_t maxMemory;    ///< Maximum memory used, in kilobytes
+    uint32_t maxDisk;      ///< Maximum disk space used, in kilobytes
+    uint32_t inputSize;    ///< Input data size, in kilobytes
+    uint32_t outputSize;   ///< Output data size, in kilobytes
+    //string inputURL;
+    //string outputURL;
 };
 
 #endif /*TASKDESCRIPTION_H_*/

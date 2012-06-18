@@ -34,23 +34,13 @@
  * needs it.
  */
 class StrNodeNeededMsg : public TransactionMsg {
-    /// Set the basic elements for a Serializable class
-    SRLZ_API SRLZ_METHOD() {
-        ar & SERIALIZE_BASE(TransactionMsg) & whoNeeds;
-    }
-
-    CommAddress whoNeeds; ///< The calling node address
-
 public:
+    MESSAGE_SUBCLASS(StrNodeNeededMsg);
+    
     /// Default constructor.
     StrNodeNeededMsg() {}
     /// Copy constructor.
     StrNodeNeededMsg(const StrNodeNeededMsg & copy) : TransactionMsg(copy), whoNeeds(copy.whoNeeds) {}
-
-    // This is documented in BasicMsg
-    virtual StrNodeNeededMsg * clone() const {
-        return new StrNodeNeededMsg(*this);
-    }
 
     // Getters and Setters
 
@@ -73,10 +63,9 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    // This is documented in BasicMsg
-    std::string getName() const {
-        return std::string("StrNodeNeededMsg");
-    }
+    MSGPACK_DEFINE((TransactionMsg &)*this, whoNeeds);
+private:
+    CommAddress whoNeeds; ///< The calling node address
 };
 
 #endif /*STRNODENEEDEDMSG_H_*/

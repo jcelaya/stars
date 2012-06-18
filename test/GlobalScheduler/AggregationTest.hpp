@@ -28,7 +28,6 @@
 #include <sstream>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include "portable_binary_oarchive.hpp"
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 using namespace std;
@@ -84,9 +83,9 @@ template<class T> class AggregationTest {
 
     void measureSize(shared_ptr<AvailabilityInformation> e) {
         ostringstream oss;
-        portable_binary_oarchive oa(oss);
-        oa << e;
-        recordSize(oss.str().size());
+        msgpack::packer<std::ostream> pk(&oss);
+        e->pack(pk);
+        recordSize(oss.tellp());
     }
 
     void recordSize(unsigned int size) {

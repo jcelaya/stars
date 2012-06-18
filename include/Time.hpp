@@ -25,7 +25,7 @@
 
 #include <ostream>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include "Serializable.hpp"
+#include <msgpack.hpp>
 
 // Time classes. boost::posix_time is good, but slow for simulation purposes
 
@@ -33,10 +33,6 @@
  * A time lapse
  */
 class Duration {
-    SRLZ_API SRLZ_METHOD() {
-        ar & d;
-    }
-    int64_t d;
 public:
     explicit Duration(int64_t micro = 0) : d(micro) {}
     explicit Duration(double seconds) : d(seconds * 1000000.0) {}
@@ -89,6 +85,10 @@ public:
         return d < 0;
     }
     friend std::ostream & operator<<(std::ostream & os, const Duration & r);
+    
+    MSGPACK_DEFINE(d);
+private:
+    int64_t d;
 };
 
 
@@ -96,10 +96,6 @@ public:
  * A time value
  */
 class Time {
-    SRLZ_API SRLZ_METHOD() {
-        ar & t;
-    }
-    int64_t t;
 public:
     explicit Time(int64_t rawDate = 0) : t(rawDate) {}
     explicit Time(boost::posix_time::ptime time) {
@@ -151,6 +147,10 @@ public:
      * @return The current time.
      */
     static Time getCurrentTime();
+    
+    MSGPACK_DEFINE(t);
+private:
+    int64_t t;
 };
 
 #endif /* TIME_H_ */

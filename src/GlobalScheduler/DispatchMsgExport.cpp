@@ -20,7 +20,6 @@
  *
  */
 
-#include "BoostSerializationArchiveExport.hpp"
 #include "TaskBagMsg.hpp"
 
-BOOST_CLASS_EXPORT(TaskBagMsg);
+REGISTER_MESSAGE(TaskBagMsg);
