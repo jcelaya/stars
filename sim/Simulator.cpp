@@ -107,9 +107,7 @@ int main(int argc, char * argv[]) {
     // Init simulation framework
     MSG_global_init(&argc, argv);
 
-    Properties property;
-    property.loadFromFile(std::string(argv[1]));
-    bool result = Simulator::getInstance().run(property);
+    bool result = Simulator::getInstance().run(std::string(argv[1]));
     
     // Cleanup
     MSG_clean();
@@ -134,7 +132,10 @@ static bool checkLogFile(const fs::path & logFile) {
 }
 
 
-bool Simulator::run(Properties & property) {
+bool Simulator::run(const std::string & confFile) {
+    Properties property;
+    property.loadFromFile(confFile);
+
     // Simulator starts running
     pt::ptime start = pt::microsec_clock::local_time();
     inSimulation = false;
@@ -186,7 +187,8 @@ bool Simulator::run(Properties & property) {
     StarsNode::libStarsConfigure(property);
 
     // Platform setup
-    MSG_create_environment(property("platform_file", std::string()).c_str());
+    // Platform file relative to configuration file directory
+    MSG_create_environment((fs::absolute(confFile).parent_path() / property("platform_file", std::string())).native().c_str());
     m_host_t * hosts = MSG_get_host_table();
     unsigned int numNodes = MSG_get_host_number();
     pstats.resizeNumNodes(numNodes);
@@ -200,7 +202,7 @@ bool Simulator::run(Properties & property) {
     
     simCase->preStart();
     
-    XBT_CRITICAL("%d nodes, %d bytes to prepare simulation network", numNodes, (int)MemoryManager::getInstance().getMaxUsedMemory());
+    PROGRESS(numNodes << " nodes, " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation network");
     pstats.endEvent("Prepare simulation case");
     
     // Run simulation

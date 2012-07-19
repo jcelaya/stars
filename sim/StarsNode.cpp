@@ -169,6 +169,10 @@ struct StarsNodeConfiguration {
             in.push(inFile);
         }
         if (outFileName != "") {
+        	// Create directories if needed
+        	fs::path parentDir = fs::absolute(outFileName).parent_path();
+        	if (!fs::exists(parentDir))
+        		 fs::create_directories(parentDir);
             outFile.exceptions(ios_base::failbit | ios_base::badbit);
             outFile.open(outFileName, ios_base::binary);
             if (outFileName.substr(outFileName.length() - 3) == ".gz")

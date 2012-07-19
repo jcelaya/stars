@@ -1,0 +1,16 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.581154025/CONFIG/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.581154025/CONFIG/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.581154025/CONFIG/value=${ConfigName}
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.581154025/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.581154025/appendContributed=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.866666381/CONFIG/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.866666381/CONFIG/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.866666381/CONFIG/value=${ConfigName}
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.866666381/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454.866666381/appendContributed=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454/CONFIG/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454/CONFIG/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454/CONFIG/value=${ConfigName}
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.base.1093105454/appendContributed=true

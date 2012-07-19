@@ -1,4 +1,3 @@
-- Solve BUG: serialization
 - Memory and disk properties are not persistent. They should be present in the platform xml, or otherwise they could be optionally saved in the network state file.
 - Add the rest of the statistics to the simulator: traffic and availability. Traffic is included in the simulation engine, I expect...
 - Add the perfect scheduler

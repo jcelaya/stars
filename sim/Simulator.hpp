@@ -34,7 +34,6 @@
 #include <msg/msg.h>
 #include "StarsNode.hpp"
 #include "SimulationCase.hpp"
-#include "Properties.hpp"
 #include "Time.hpp"
 #include "LibStarsStatistics.hpp"
 #include "PerformanceStatistics.hpp"
@@ -60,10 +59,9 @@ public:
     /**
      * Run a simulation case.
      * 
-     * @param property The set of properties of this case. Refer to class Properties for
-     * the set of standard properties.
+     * @param confFile The path to the configuration file for the case.
      */
-    bool run(Properties & property);
+    bool run(const std::string & confFile);
     
     void stop() { end = true; }
     
