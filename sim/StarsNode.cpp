@@ -141,12 +141,12 @@ struct StarsNodeConfiguration {
     std::string outFileName;
     fs::ofstream outFile;
     iost::filtering_streambuf<iost::output> out;
-    
+
     static StarsNodeConfiguration & getInstance() {
         static StarsNodeConfiguration instance;
         return instance;
     }
-    
+
     void setup(const Properties & property) {
         minMem = property("min_mem", 256);
         maxMem = property("max_mem", 4096);
@@ -206,7 +206,7 @@ void StarsNode::setup(unsigned int addr, m_host_t host) {
     oss << localAddress;
     mailbox = oss.str();
     StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
-    power = MSG_get_host_speed(simHost);
+    power = MSG_get_host_speed(simHost) / 1000000.0;
     // NOTE: using the same seed generates the same set of memory and disk values between simulations
 //     const char * memoryStr = MSG_host_get_property_value(simHost, "mem");
 //     if (memoryStr)
@@ -236,7 +236,7 @@ int StarsNode::processFunction(int argc, char * argv[]) {
 int StarsNode::mainLoop() {
     Simulator & sim = Simulator::getInstance();
     LogMsg("Sim.Process", INFO) << "Peer running at " << MSG_host_get_name(simHost) << " with address " << localAddress;
-    
+
     // Message loop
     while(sim.doContinue()) {
         // Event loop: receive messages from the simulator and treat them
@@ -267,7 +267,7 @@ int StarsNode::mainLoop() {
             sim.getCase().afterEvent(localAddress, dst, msg);
         }
     }
-    
+
     // Cleanup
     services.clear();
 
@@ -461,8 +461,8 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //         return Simulator::getInstance().getNode(structureNode->getFather().getIPNum()).getSNLevel() + 1;
 //     else return 0;
 // }
-// 
-// 
+//
+//
 // void StarsNode::showRecursive(log4cpp::Priority::Value prio, unsigned int level, const string & prefix) {
 //     shared_ptr<AvailabilityInformation> info = getBranchInfo();
 //     if (info.get())
@@ -475,7 +475,7 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //             stringstream father, child;
 //             father << prefix << "  " << ((last) ? '\\' : '|') << "- ";
 //             child << prefix << "  " << ((last) ? ' ' : '|') << "  ";
-// 
+//
 //             uint32_t childAddr;
 //             if (structureNode->getSubZone(i)->getLink() != CommAddress())
 //                 childAddr = structureNode->getSubZone(i)->getLink().getIPNum();
@@ -495,8 +495,8 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //         }
 //     }
 // }
-// 
-// 
+//
+//
 // void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
 //     if (treeCat.isPriorityEnabled(prio)) {
 //         StructureNode * father = NULL;
@@ -516,7 +516,7 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //                 return;
 //             }
 //         }
-// 
+//
 //         if (father != NULL) {
 //             treeCat << prio << "S@" << Simulator::getInstance().getNode(fatherIP).getLocalAddress() << ": " << *father;
 //             for (unsigned int i = 0; i < father->getNumChildren(); i++) {
@@ -536,15 +536,15 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //         } else showRecursive(prio, 1);
 //     }
 // }
-// 
-// 
+//
+//
 // unsigned int StarsNode::getRoot() const {
 //     const CommAddress & father = structureNode->inNetwork() ? structureNode->getFather() : resourceNode->getFather();
 //     if (father != CommAddress()) return Simulator::getInstance().getNode(father.getIPNum()).getRoot();
 //     else return localAddress.getIPNum();
 // }
-// 
-// 
+//
+//
 // void StarsNode::showTree(log4cpp::Priority::Value prio) {
 //     if (treeCat.isPriorityEnabled(prio)) {
 //         treeCat << prio << "Final tree:";
@@ -560,8 +560,8 @@ unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
 //         }
 //     }
 // }
-// 
-// 
+//
+//
 // void StarsNode::checkTree() {
 //     unsigned int root0 = Simulator::getInstance().getNode(0).getRoot();
 //     for (unsigned int i = 1; i < Simulator::getInstance().getNumNodes(); i++) {

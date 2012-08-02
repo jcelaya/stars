@@ -30,53 +30,56 @@
 
 
 class PoissonProcess : public SimulationCase {
-    unsigned int numInstances, remainingApps;
+    unsigned int numInstances, nextInstance, remainingApps;
     double meanTime;
     RequestGenerator rg;
     boost::mutex m;
-    
+
 public:
     PoissonProcess(const Properties & p) : SimulationCase(p), rg(p) {
         // Prepare the properties
     }
-    
+
     static const std::string getName() {
         return std::string("poisson_process");
     }
-    
+
     virtual void preStart() {
         // Before running simulation
         Simulator & sim = Simulator::getInstance();
         Time now = Time::getCurrentTime();
-        
+
         // Simulation limit
         numInstances = property("num_searches", 1);
         LogMsg("Sim.Progress", 0) << "Performing " << numInstances << " searches.";
-        
+
         // Global variables
         meanTime = property("mean_time", 60.0) * sim.getNumNodes();
-        
-        // Send first request to every node
-        for (uint32_t client = 0; client < sim.getNumNodes(); ++client) {
+
+        // Send first request to every node without exceeding the number of instances
+		nextInstance = 0;
+        for (uint32_t client = 0; client < sim.getNumNodes() && nextInstance < numInstances; ++client) {
             Time nextMsg = now + Duration(Simulator::exponential(meanTime));
             DispatchCommandMsg * dcm = rg.generate(sim.getNode(client), nextMsg);
             // Send this message to the client
             sim.getNode(client).setTimer(nextMsg, dcm);
+			nextInstance++;
         }
         remainingApps = 0;
     }
-    
+
     virtual void afterEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {
-        if (typeid(*msg) == typeid(DispatchCommandMsg)) {
+        if (typeid(*msg) == typeid(DispatchCommandMsg) && nextInstance < numInstances) {
             // Calculate next send
             Time nextMsg = Time::getCurrentTime() + Duration(Simulator::exponential(meanTime));
             StarsNode & node = Simulator::getInstance().getCurrentNode();
             DispatchCommandMsg * dcm = rg.generate(node, nextMsg);
             // Send this message to the client
             node.setTimer(nextMsg, dcm);
+			nextInstance++;
         }
     }
-    
+
     virtual void finishedApp(long int appId) {
         boost::mutex::scoped_lock lock(m);
         percent = (remainingApps++) * 100.0 / numInstances;
