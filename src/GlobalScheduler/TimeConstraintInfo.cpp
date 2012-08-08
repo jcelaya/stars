@@ -307,7 +307,7 @@ namespace TCISteps {
                 mm = newm;
             }
             lasty = c[0] * (fa[0] + m[0] * (b - a).seconds()) + c[1] * (fa[1] + m[1] * (b - a).seconds());
-            
+
         }
         lcStep(unsigned int maxPoints, double lc, double rc) : mm(0.0), lasty(0.0) {
             points.reserve(maxPoints);
@@ -676,6 +676,7 @@ void TimeConstraintInfo::reduce() {
     diskRange = maxD - minD;
     availRange = maxA.sqdiff(minA, aggregationTime, horizon);
     summary.clusterize(numClusters);
+    size = summary.getSize();
     for (unsigned int i = 0; i < size; i++)
         summary[i].reduce();
 }

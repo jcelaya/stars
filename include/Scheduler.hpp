@@ -49,7 +49,7 @@ public:
     class ExecutionEnvironment {
     public:
         virtual ~ExecutionEnvironment() {}
-        
+
         /**
          * Returns the average computing power of this node, with the offline time taken into account.
          * TODO: Count number of processors.
@@ -96,7 +96,18 @@ public:
      * Tries to accept a number of tasks. If so, they are added to the list.
      * @return The number of tasks really accepted.
      */
-    virtual unsigned int accept(const TaskBagMsg & msg) = 0;
+    virtual unsigned int acceptable(const TaskBagMsg & msg) = 0;
+
+    unsigned int accept(const TaskBagMsg & msg) {
+        unsigned int numAccepted = acceptable(msg);
+        // Now create the tasks and add them to the list
+        for (unsigned int i = 0; i < numAccepted; i++) {
+            tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
+            acceptTask(tasks.back());
+        }
+        if (numAccepted) reschedule();
+        return numAccepted;
+    }
 
     /**
      * Returns the task queue.
@@ -121,7 +132,7 @@ public:
      * @param r The new reschedule time.
      */
     void rescheduleAt(Time r);
-    
+
 protected:
     class ExecutionEnvironmentImpl {
     public:
@@ -155,6 +166,10 @@ protected:
      * Notifies the ExecutionNode about the current schedule.
      */
     void notifySchedule();
+
+    virtual void removeTask(const boost::shared_ptr<Task> & task) {}
+
+    virtual void acceptTask(const boost::shared_ptr<Task> & task) {}
 
 private:
     bool inChange;         ///< States whether the father of the ResourceNode is changing.

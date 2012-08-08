@@ -43,7 +43,7 @@ class HeartbeatTimeout : public BasicMsg {
 
 public:
     MESSAGE_SUBCLASS(HeartbeatTimeout);
-    
+
     HeartbeatTimeout(const CommAddress & src) : executionNode(src) {}
 
     const CommAddress & getExecutionNode() const {
@@ -142,6 +142,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
     unsigned int numTasks = atm->getNumTasks();
     if (numTasks > 0)
         CommLayer::getInstance().sendMessage(src, atm);
+    else delete atm;
 
     // Accept the rest
     if (numTasks < msg.getLastTask() - msg.getFirstTask() + 1) {
@@ -210,26 +211,32 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                 long int appId = db.getInstanceId(msg.getRequestId(i));
                 if (db.finishedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
                     map<long int, unsigned int>::iterator it = tasksPerApp.find(appId);
-                    if (--(it->second) == 0) {
-                        tasksPerApp.erase(it);
-                    }
-                    it = remainingTasks.find(appId);
-                    if (--(it->second) == 0) {
-                        finishedApp(it->first);
-//                         AppFinishedMsg * afm = new AppFinishedMsg;
-//                         afm->setAppId(it->first);
-//                         CommLayer::getInstance().sendLocalMessage(afm);
-                        remainingTasks.erase(it);
-                    }
+                    if (it != tasksPerApp.end()) {
+                        if (--(it->second) == 0) {
+                            tasksPerApp.erase(it);
+                        }
+                        it = remainingTasks.find(appId);
+                        if (it != remainingTasks.end() && --(it->second) == 0) {
+                            finishedApp(it->first);
+    //                         AppFinishedMsg * afm = new AppFinishedMsg;
+    //                         afm->setAppId(it->first);
+    //                         CommLayer::getInstance().sendLocalMessage(afm);
+                            remainingTasks.erase(it);
+                        }
+                    } else
+                        LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
                 }
             } else if (msg.getTaskState(i) == Task::Aborted) {
                 long int appId = db.getInstanceId(msg.getRequestId(i));
                 if (db.abortedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
                     remainingTasks[appId]--;
                     map<long int, unsigned int>::iterator it = tasksPerApp.find(appId);
-                    if (--(it->second) == 0) tasksPerApp.erase(it);
-                    // Try to relaunch application
-                    sendRequest(appId, 0);
+                    if (it != tasksPerApp.end()) {
+                        if (--(it->second) == 0) tasksPerApp.erase(it);
+                        // Try to relaunch application
+                        sendRequest(appId, 0);
+                    } else
+                        LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
                 }
             }
         }

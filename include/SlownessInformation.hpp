@@ -33,7 +33,33 @@
 #include "ClusteringVector.hpp"
 #include "Time.hpp"
 #include "TaskDescription.hpp"
-class Task;
+#include "Task.hpp"
+
+
+struct TaskProxy {
+    boost::shared_ptr<Task> origin;
+    unsigned int id;
+    Time rabs, d;
+    double a;
+    double r, t, tsum;
+    TaskProxy() {}
+    TaskProxy(double _a, double power) : id(-1), rabs(Time::getCurrentTime()), a(_a), t(a / power){}
+    TaskProxy(const boost::shared_ptr<Task> & task) : origin(task), id(task->getTaskId()), rabs(task->getCreationTime()),
+            a(task->getDescription().getLength()), t(task->getEstimatedDuration().seconds()) {}
+    Time getDeadline(double L) const { return rabs + Duration(L * a); }
+    void setSlowness(double L) { d = getDeadline(L); }
+    bool operator<(const TaskProxy & rapp) const { return d < rapp.d || (d == rapp.d && a < rapp.a); }
+
+    friend std::ostream & operator<<(std::ostream & os, const TaskProxy & o) {
+        return os << "a=" << o.a << " r=" << o.r;
+    }
+
+    static void sort(std::list<TaskProxy> & curTasks, double slowness);
+
+    static bool meetDeadlines(const std::list<TaskProxy> & curTasks, double slowness, Time e);
+
+    static void sortMinSlowness(std::list<TaskProxy> & curTasks, const std::vector<double> & switchValues);
+};
 
 
 /**
@@ -94,7 +120,8 @@ public:
         /**
          * Creates an LAFunction from a task queue.
          */
-        LAFunction(const std::list<boost::shared_ptr<Task> > & tasks, double power);
+        LAFunction(std::list<TaskProxy> curTasks,
+                const std::vector<double> & switchValues, double power);
 
         /**
          * Change the r_k reference time for this function.
@@ -215,8 +242,9 @@ public:
         /// Default constructor, for serialization purposes mainly
         MDLCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDLCluster(SlownessInformation * r, uint32_t m, uint32_t d, const std::list<boost::shared_ptr<Task> > & tasks, double power)
-                : reference(r), value(1), minM(m), minD(d), maxL(tasks, power), accumMsq(0), accumDsq(0),
+        MDLCluster(SlownessInformation * r, uint32_t m, uint32_t d, const std::list<TaskProxy> & curTasks,
+                const std::vector<double> & switchValues, double power)
+                : reference(r), value(1), minM(m), minD(d), maxL(curTasks, switchValues, power), accumMsq(0), accumDsq(0),
                 accumMln(0), accumDln(0), accumLsq(0.0), accumMaxL(maxL) {}
 
         /// Comparison operator
@@ -253,7 +281,7 @@ public:
             os << 'L' << o.maxL << '-' << o.accumLsq << '-' << o.accumMaxL << ',';
             return os << o.value;
         }
-        
+
         MSGPACK_DEFINE(value, minM, accumMsq, accumMln, minD, accumDsq, accumDln, maxL, accumLsq, accumMaxL);
 
         SlownessInformation * reference;
@@ -267,7 +295,7 @@ public:
     };
 
     MESSAGE_SUBCLASS(SlownessInformation);
-    
+
     /// Default constructor.
     SlownessInformation() : AvailabilityInformation(), minM(0), maxM(0), minD(0), maxD(0),
             lengthHorizon(0.0), minimumSlowness(0.0), maximumSlowness(0.0) {}
@@ -316,7 +344,8 @@ public:
      * @param tasks Task queue.
      * @param power Computing power of the execution node.
      */
-    void setAvailability(uint32_t m, uint32_t d, const std::list<boost::shared_ptr<Task> > & tasks, double power, double minSlowness);
+    void setAvailability(uint32_t m, uint32_t d, const std::list<TaskProxy> & curTasks,
+            const std::vector<double> & switchValues, double power, double minSlowness);
 
     /**
      * Returns the current minimum stretch for this set of nodes
@@ -375,7 +404,6 @@ private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     static unsigned int numPieces;
-    static const double infinity;
 
     ClusteringVector<MDLCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability

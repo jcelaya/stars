@@ -42,17 +42,13 @@ void SimpleScheduler::reschedule() {
 }
 
 
-unsigned int SimpleScheduler::accept(const TaskBagMsg & msg) {
+unsigned int SimpleScheduler::acceptable(const TaskBagMsg & msg) {
     // Only accept one task
     if (tasks.empty() && msg.getLastTask() >= msg.getFirstTask()) {
         LogMsg("Ex.Sch.Simple", INFO) << "Accepting 1 task from " << msg.getRequester();
-        tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask(), msg.getMinRequirements()));
-        reschedule();
-        notifySchedule();
         return 1;
     } else {
         LogMsg("Ex.Sch.Simple", INFO) << "Rejecting 1 task from " << msg.getRequester();
-        notifySchedule();
         return 0;
     }
 }

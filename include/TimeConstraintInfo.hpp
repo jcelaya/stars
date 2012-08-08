@@ -174,13 +174,13 @@ public:
                 os << '(' << i->first << ',' << i->second << "),";
             return os << o.slope;
         }
-        
+
         MSGPACK_DEFINE(points, slope);
     private:
         /// Function points defining segments
         std::vector<std::pair<Time, uint64_t> > points;
         double slope;   ///< Slope at the end of the function
-        
+
         // Steps through a vector of functions, with all their slope-change points, and the points where the two first functions cross
         template<int numF, class S> static void stepper(const ATFunction * (&f)[numF],
                                                         const Time & ref, const Time & h, S & step);
@@ -275,7 +275,7 @@ public:
     };
 
     MESSAGE_SUBCLASS(TimeConstraintInfo);
-    
+
     /// Default constructor, creates an empty information piece
     TimeConstraintInfo() {
         reset();
@@ -348,18 +348,18 @@ public:
     const ClusteringVector<MDFCluster> & getSummary() const {
         return summary;
     }
-    
+
     MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD, minA, maxA, horizon);
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     static unsigned int numRefPoints;
-    
+
     ClusteringVector<MDFCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
     ATFunction minA, maxA;                  ///< Minimum and maximum values of availability
     Time horizon;             ///< Last meaningful time
-    
+
     // Aggregation variables
     unsigned int memRange, diskRange;
     double availRange;

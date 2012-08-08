@@ -51,11 +51,11 @@ public:
      * @param resourceNode Resource node associated with this scheduler.
      */
     EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
-        reschedule();
+        calculateAvailability();
     }
 
     // This is documented in Scheduler
-    unsigned int accept(const TaskBagMsg & msg);
+    unsigned int acceptable(const TaskBagMsg & msg);
 
     /// Returns the availability before certain deadline.
     unsigned long int getAvailabilityBefore(Time d);

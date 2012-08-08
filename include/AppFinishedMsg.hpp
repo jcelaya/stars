@@ -30,7 +30,7 @@ class AppFinishedMsg: public BasicMsg {
 
 public:
     MESSAGE_SUBCLASS(AppFinishedMsg);
-    
+
     /**
      * Obtains the app ID
      */
@@ -47,7 +47,7 @@ public:
 
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
-    
+
     MSGPACK_DEFINE();
 };
 

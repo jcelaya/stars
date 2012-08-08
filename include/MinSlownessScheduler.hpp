@@ -23,6 +23,7 @@
 #ifndef MINSLOWNESSSCHEDULER_H_
 #define MINSLOWNESSSCHEDULER_H_
 
+#include <vector>
 #include "Scheduler.hpp"
 #include "SlownessInformation.hpp"
 
@@ -35,36 +36,6 @@
  */
 class MinSlownessScheduler: public Scheduler {
 public:
-    struct TaskProxy {
-        boost::shared_ptr<Task> origin;
-        int id;
-        double r, a, t, d, tsum;
-        TaskProxy() {}
-        TaskProxy(double _a, double power) : id(-1), r(0.0), a(_a), t(a / power) {}
-        TaskProxy(const boost::shared_ptr<Task> & task, Time ref) :     origin(task), id(task->getTaskId()), r((task->getCreationTime() - ref).seconds()),
-                a(task->getDescription().getLength()), t(task->getEstimatedDuration().seconds()) {}
-        double getDeadline(double L) const {
-            return L * a + r;
-        }
-        void setSlowness(double L) {
-            d = getDeadline(L);
-        }
-        bool operator<(const TaskProxy & rapp) const {
-            return d < rapp.d || (d == rapp.d && a < rapp.a);
-        }
-
-        friend std::ostream & operator<<(std::ostream & os, const TaskProxy & o) {
-            return os << "a=" << o.a << " r=" << o.r;
-        }
-
-        static void sort(std::vector<TaskProxy> & curTasks, double slowness);
-
-        static bool meetDeadlines(const std::vector<TaskProxy> & curTasks, double slowness);
-
-        static void sortMinSlowness(std::vector<TaskProxy> & curTasks, const std::vector<double> & lBounds);
-    };
-
-
     /**
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
@@ -79,10 +50,10 @@ public:
      * @param result The resulting list of applications.
      * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
      */
-    static double sortMinSlowness(std::list<boost::shared_ptr<Task> > & tasks);
+    static double sortMinSlowness(std::list<TaskProxy> & proxys, const std::vector<double> & lBounds, std::list<boost::shared_ptr<Task> > & tasks);
 
     // This is documented in Scheduler
-    virtual unsigned int accept(const TaskBagMsg & msg);
+    virtual unsigned int acceptable(const TaskBagMsg & msg);
 
     // This is documented in Scheduler
     virtual const SlownessInformation & getAvailability() const {
@@ -91,9 +62,17 @@ public:
 
 private:
     SlownessInformation info;
+    std::list<TaskProxy> proxys;
+    std::vector<std::pair<double, int> > switchValues;
 
     // This is documented in Scheduler
     virtual void reschedule();
+
+    // This is documented in Scheduler
+    virtual void removeTask(const boost::shared_ptr<Task> & task);
+
+    // This is documented in Scheduler
+    virtual void acceptTask(const boost::shared_ptr<Task> & task);
 };
 
 #endif /* MINSLOWNESSSCHEDULER_H_ */

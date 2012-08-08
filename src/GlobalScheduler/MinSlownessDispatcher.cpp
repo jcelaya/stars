@@ -42,7 +42,7 @@ void MinSlownessDispatcher::recomputeInfo() {
         if (child->availInfo.get())
             father.waitingInfo->join(*child->availInfo);
         LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
-    
+
     if(!structureNode.isRNChildren()) {
         for (unsigned int i = 0; i < children.size(); i++) {
             LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for child " << i;
@@ -88,7 +88,7 @@ struct SlownessTasks {
 void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // TODO: Check that we are not in a change
     if (msg.isForEN()) return;
-                           LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src;
+    LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src;
     if (!structureNode.inNetwork()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
@@ -97,86 +97,76 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but no information!";
         return;
     }
-    
+
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
     LogMsg("Dsp.MS", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasks << " tasks with requirements:";
     LogMsg("Dsp.MS", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
-    
+
     // If it is comming from the father, update its notified information
-    //      if (!msg.isFromEN() && structureNode.getFather() == src && father.availInfo.get()) {
-            //              father.availInfo->update(numTasks, req.getLength());
-    //      }
-    
+//	if (!msg.isFromEN() && structureNode.getFather() == src && father.availInfo.get()) {
+//		father.availInfo->update(numTasks, req.getLength());
+//	}
+
     unsigned int fLimit[children.size()], branchTasks[children.size()];
     double minSlowness = INFINITY;
     Time now = Time::getCurrentTime();
     // Get the slowness functions of each branch that fulfills memory and disk requirements
     std::vector<std::pair<SlownessInformation::LAFunction *, unsigned int> > functions;
-    unsigned int lastNumFunctions = 0;
     for (size_t i = 0; i < children.size(); ++i) {
         branchTasks[i] = 0;
         if (children[i].availInfo.get()) {
             LogMsg("Dsp.MS", DEBUG) << "Getting functions of children " << i << " (" << children[i].addr << "): " << *children[i].availInfo;
             children[i].availInfo->updateRkReference(now);
             children[i].availInfo->getFunctions(req, functions);
-            for (unsigned int j = lastNumFunctions; j < functions.size(); ++j)
-                LogMsg("Dsp.MS", DEBUG) << *functions[j].first;
-            lastNumFunctions = functions.size();
         }
         fLimit[i] = functions.size();
     }
-    
+
+    unsigned int totalTasks = 0;
+    // Number of tasks sent to each node
+    vector<int> tpn(functions.size(), 0);
+    // Heap of slowness values
+    vector<std::pair<double, size_t> > slownessHeap;
+
     if (!functions.empty()) {
-        vector<SlownessTasks> stSorted(functions.size());
-        
-        // Get the slowness for one task per node
-        for (size_t i = 0; i < stSorted.size(); ++i) {
-            stSorted[i].set(functions[i].first->getSlowness(a), 1, i);
+        bool tryOneMoreTask = true;
+        for (int currentTpn = 1; tryOneMoreTask; ++currentTpn) {
+            // Try with one more task per node
+            tryOneMoreTask = false;
+            for (size_t f = 0; f < functions.size(); ++f) {
+                // With those functions that got an additional task per node in the last iteration,
+                if (tpn[f] == currentTpn - 1) {
+                    // calculate the slowness with one task more
+                    double slowness = currentTpn == 1 ?
+                            functions[f].first->getSlowness(a)
+                            : functions[f].first->estimateSlowness(a, currentTpn);
+                    // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
+                    if (totalTasks < numTasks || slowness < slownessHeap.front().first) {
+                        slownessHeap.push_back(std::make_pair(slowness, f));
+                        std::push_heap(slownessHeap.begin(), slownessHeap.end());
+                        // Add one task per node to that function
+                        ++tpn[f];
+                        totalTasks += functions[f].second;
+                        // Remove the highest slowness values as long as there are enough tasks
+                        while (totalTasks - functions[slownessHeap.front().second].second >= numTasks) {
+                            totalTasks -= functions[slownessHeap.front().second].second;
+                            --tpn[slownessHeap.front().second];
+                            std::pop_heap(slownessHeap.begin(), slownessHeap.end());
+                            slownessHeap.pop_back();
+                        }
+                        // As long as one function gets another task, we continue trying
+                        tryOneMoreTask = true;
+                    }
+                }
+            }
         }
-        sort(stSorted.begin(), stSorted.end());
-        unsigned int tasksPerNode = 1;
-        
-        while (true) {
-            // Calculate the last function index
-            unsigned int totalTasks = 0, last;
-            for (last = 0; last < stSorted.size() && totalTasks < numTasks; ++last)
-                totalTasks += stSorted[last].numTasks * functions[stSorted[last].i].second;
-            // Calculate the slowness with one more task per node
-                ++tasksPerNode;
-                vector<std::pair<double, int> > st1Sorted(last);
-                for (size_t i = 0; i < last; ++i)
-                    st1Sorted[i] = std::make_pair(functions[stSorted[i].i].first->estimateSlowness(a, tasksPerNode), i);
-                sort(st1Sorted.begin(), st1Sorted.end());
-                // Substitute those functions that provide lower slowness with more tasks per node than the maximum
-                // If there are none, end
-                if (totalTasks >= numTasks && st1Sorted[0].first >= stSorted[last - 1].slowness) break;
-                           for (size_t i = 0; i < last && (totalTasks < numTasks || st1Sorted[i].first < stSorted[last - 1].slowness); ++i) {
-                               stSorted[st1Sorted[i].second].slowness = st1Sorted[i].first;
-                               stSorted[st1Sorted[i].second].numTasks = tasksPerNode;
-                           }
-        }
-        
-        // Count tasks per branch, estimate minimum slowness and update functions
-        unsigned int totalTasks = 0;
-        for (size_t i = 0; i < stSorted.size() && totalTasks < numTasks; ++i) {
-            unsigned int tasksToCluster = stSorted[i].numTasks * functions[stSorted[i].i].second;
-            totalTasks += tasksToCluster;
-            functions[stSorted[i].i].first->update(a, stSorted[i].numTasks);
-            minSlowness = stSorted[i].slowness;
-            unsigned int branchNumber = 0;
-            while (branchNumber < children.size() && fLimit[branchNumber] <= stSorted[i].i) ++branchNumber;
-                           if (totalTasks <= numTasks) {
-                               branchTasks[branchNumber] += tasksToCluster;
-                           } else {
-                               branchTasks[branchNumber] += tasksToCluster + numTasks - totalTasks;
-                           }
-        }
+        minSlowness = slownessHeap.front().first;
     }
-    
+
     LogMsg("Dsp.MS", DEBUG) << "Result minimum slowness is " << minSlowness;
-    
+
     // if we are not the root and the message does not come from the father
     if (structureNode.getFather() != CommAddress() && (msg.isFromEN() || structureNode.getFather() != src)) {
         // Compare the slowness reached by the new application with the one in the rest of the tree,
@@ -201,7 +191,20 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
             return;
         }
     }
-    
+
+    // Count tasks per branch and update functions
+    unsigned int branchNumber = 0;
+    for (size_t i = 0; i < tpn.size(); ++i) {
+        if (fLimit[branchNumber] == i) ++branchNumber;
+        if (tpn[i]) {
+            unsigned int tasksToCluster = tpn[i] * functions[i].second;
+            if (i == slownessHeap.front().second)
+                tasksToCluster -= totalTasks - numTasks;
+            branchTasks[branchNumber] += tasksToCluster;
+            functions[i].first->update(a, tpn[i]);
+        }
+    }
+
     // We are going down!
     // Each branch is sent its accounted number of tasks
     uint32_t nextTask = msg.getFirstTask();
@@ -217,7 +220,7 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
             CommLayer::getInstance().sendMessage(children[child].addr, tbm);
         }
     }
-    
+
     recomputeInfo();
     // Only notify the father if the message does not come from it
     if (structureNode.getFather() != CommAddress() && structureNode.getFather() != src) {

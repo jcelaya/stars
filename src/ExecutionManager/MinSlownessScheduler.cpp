@@ -24,89 +24,47 @@
 #include "MinSlownessScheduler.hpp"
 #include <algorithm>
 #include <cmath>
+using std::vector;
+using std::list;
 
 
-void MinSlownessScheduler::TaskProxy::sort(std::vector<TaskProxy> & curTasks, double slowness) {
-    // Sort the vector, leaving the first task as is
-    for (std::vector<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
-        i->setSlowness(slowness);
-    std::sort(++curTasks.begin(), curTasks.end());
-}
+double MinSlownessScheduler::sortMinSlowness(list<TaskProxy> & proxys, const vector<double> & lBounds, list<boost::shared_ptr<Task> > & tasks) {
+    if (!proxys.empty()) {
+        TaskProxy::sortMinSlowness(proxys, lBounds);
 
+        // Reconstruct task list and calculate minimum slowness
+        tasks.clear();
+        double minSlowness = 0.0;
+        Time e = Time::getCurrentTime();
+        // For each task, calculate finishing time
+        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+            tasks.push_back(i->origin);
+            e += Duration(i->t);
+            double slowness = (e - i->rabs).seconds() / i->a;
+            if (slowness > minSlowness)
+                minSlowness = slowness;
+        }
 
-bool MinSlownessScheduler::TaskProxy::meetDeadlines(const std::vector<TaskProxy> & curTasks, double slowness) {
-    double e = 0.0;
-    for (std::vector<TaskProxy>::const_iterator i = curTasks.begin(); i != curTasks.end(); ++i)
-        if ((e += i->t) > i->getDeadline(slowness))
-            return false;
-        return true;
-}
-
-
-void MinSlownessScheduler::TaskProxy::sortMinSlowness(std::vector<TaskProxy> & curTasks, const std::vector<double> & lBounds) {
-    // Calculate interval by binary search
-    unsigned int minLi = 0, maxLi = lBounds.size() - 1;
-    while (maxLi > minLi + 1) {
-        unsigned int medLi = (minLi + maxLi) >> 1;
-        TaskProxy::sort(curTasks, (lBounds[medLi] + lBounds[medLi + 1]) / 2.0);
-        // For each app, check whether it is going to finish in time or not.
-        if (TaskProxy::meetDeadlines(curTasks, lBounds[medLi]))
-            maxLi = medLi;
-        else
-            minLi = medLi;
-    }
-    // Sort them one last time
-    TaskProxy::sort(curTasks, (lBounds[minLi] + lBounds[minLi + 1]) / 2.0);
-}
-
-
-double MinSlownessScheduler::sortMinSlowness(std::list<boost::shared_ptr<Task> > & tasks) {
-    if (!tasks.empty()) {
-        // List of tasks
-        Time now = Time::getCurrentTime();
-        std::vector<TaskProxy> tps;
-        tps.reserve(tasks.size());
-        for (std::list<boost::shared_ptr<Task> >::const_iterator i = tasks.begin(); i != tasks.end(); ++i)
-            tps.push_back(TaskProxy(*i, now));
-        
-        // List of slowness values where existing tasks change order, except the first one
-            std::vector<double> lBounds(1, 0.0);
-            for (std::vector<TaskProxy>::iterator it = ++tps.begin(); it != tps.end(); ++it)
-                for (std::vector<TaskProxy>::iterator jt = it; jt != tps.end(); ++jt)
-                    if (it->a != jt->a) {
-                        double l = (jt->r - it->r) / (it->a - jt->a);
-                        if (l > 0.0) {
-                            lBounds.push_back(l);
-                        }
-                    }
-                    std::sort(lBounds.begin(), lBounds.end());
-                lBounds.push_back(lBounds.back() + 1.0);
-            TaskProxy::sortMinSlowness(tps, lBounds);
-            
-            // Reconstruct task list and calculate minimum slowness
-            tasks.clear();
-            double minSlowness = 0.0, e = 0.0;
-            // For each task, calculate finishing time
-            for (std::vector<TaskProxy>::iterator i = tps.begin(); i != tps.end(); ++i) {
-                tasks.push_back(i->origin);
-                e += i->t;
-                double slowness = (e - i->r) / i->a;
-                if (slowness > minSlowness)
-                    minSlowness = slowness;
-            }
-            
-            return minSlowness;
+        return minSlowness;
     } else return 0.0;
 }
 
 
 void MinSlownessScheduler::reschedule() {
-    double minSlowness = sortMinSlowness(tasks);
-    
+    double minSlowness = 0.0;
+    vector<double> svCur(switchValues.size());
+    for (size_t i = 0; i < svCur.size(); ++i) svCur[i] = switchValues[i].first;
+
+    if (!proxys.empty()) {
+        // Adjust the time of the first task
+        proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
+        minSlowness = sortMinSlowness(proxys, svCur, tasks);
+    }
+
     LogMsg("Ex.Sch.MS", DEBUG) << "Current minimum slowness: " << minSlowness;
-    
-    info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(), tasks, backend.impl->getAveragePower(), minSlowness);
-    
+
+    info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(), proxys, svCur, backend.impl->getAveragePower(), minSlowness);
+
     // Start first task if it is not executing yet.
     if (!tasks.empty()) {
         if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
@@ -116,15 +74,86 @@ void MinSlownessScheduler::reschedule() {
 }
 
 
-unsigned int MinSlownessScheduler::accept(const TaskBagMsg & msg) {
+unsigned int MinSlownessScheduler::acceptable(const TaskBagMsg & msg) {
     // Always accept new tasks
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
     LogMsg("Ex.Sch.MS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
-    
-    // Now create the tasks and add them to the task list
-    for (unsigned int i = 0; i < numAccepted; i++)
-        tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
-    reschedule();
-    notifySchedule();
     return numAccepted;
+}
+
+
+void MinSlownessScheduler::removeTask(const boost::shared_ptr<Task> & task) {
+    // Look for the proxy
+    list<TaskProxy>::iterator p = proxys.begin();
+    while (p != proxys.end() && p->id != task->getTaskId()) ++p;
+    if (p != proxys.end()) {
+        vector<double> svOld;
+        // Calculate bounds with the rest of the tasks, except the first
+        for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+            if (it->a != p->a) {
+                double l = (p->rabs - it->rabs).seconds() / (it->a - p->a);
+                if (l > 0.0) {
+                    svOld.push_back(l);
+                }
+            }
+        std::sort(svOld.begin(), svOld.end());
+        // Create a new list of switch values without the removed ones, counting occurrences
+        vector<std::pair<double, int> > svCur(switchValues.size());
+        vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
+        vector<double>::iterator in2 = svOld.begin();
+        while (in1 != switchValues.end() && in2 != svOld.end()) {
+            if (in1->first != *in2) *out++ = *in1++;
+            else {
+                if (in1->second > 1) {
+                    out->first = in1->first;
+                    (out++)->second = in1->second - 1;
+                }
+                ++in1;
+                ++in2;
+            }
+        }
+        if (in2 == svOld.end())
+            out = std::copy(in1, switchValues.end(), out);
+        if (out != svCur.end())
+            svCur.erase(out, svCur.end());
+        switchValues.swap(svCur);
+        // Remove the proxy
+        proxys.erase(p);
+    }
+}
+
+
+void MinSlownessScheduler::acceptTask(const boost::shared_ptr<Task> & task) {
+    // Add a new proxy for this task
+    proxys.push_back(TaskProxy(task));
+    vector<double> svNew;
+    // Calculate bounds with the rest of the tasks, except the first
+    for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+        if (it->a != proxys.back().a) {
+            double l = (proxys.back().rabs - it->rabs).seconds() / (it->a - proxys.back().a);
+            if (l > 0.0) {
+                svNew.push_back(l);
+            }
+        }
+    std::sort(svNew.begin(), svNew.end());
+    // Create new vector of values, counting occurrences
+    vector<std::pair<double, int> > svCur(switchValues.size() + svNew.size());
+    vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
+    vector<double>::iterator in2 = svNew.begin();
+    while (in1 != switchValues.end() && in2 != svNew.end()) {
+        if (in1->first < *in2) *out++ = *in1++;
+        else if (in1->first > *in2) *out++ = std::make_pair(*in2++, 1);
+        else {
+            out->first = in1->first;
+            (out++)->second = (in1++)->second + 1;
+            ++in2;
+        }
+    }
+    if (in1 == switchValues.end())
+        while (in2 != svNew.end()) *out++ = std::make_pair(*in2++, 1);
+    if (in2 == svNew.end())
+        out = std::copy(in1, switchValues.end(), out);
+    if (out != svCur.end())
+        svCur.erase(out, svCur.end());
+    switchValues.swap(svCur);
 }

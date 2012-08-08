@@ -17,7 +17,7 @@ configure_file (
     "${PROJECT_SOURCE_DIR}/config.h.in"
     "${PROJECT_BINARY_DIR}/config.h"
 )
- 
+
 # add the binary tree to the search path for include files
 # so that we will find config.h
 include_directories("${PROJECT_BINARY_DIR}")
@@ -37,3 +37,5 @@ endif (NOT CMAKE_BUILD_TYPE STREQUAL Release)
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(sim)
+add_subdirectory(sweeper)
+add_subdirectory(oldsim)

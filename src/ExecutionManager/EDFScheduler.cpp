@@ -135,7 +135,7 @@ unsigned long int EDFScheduler::getAvailabilityBefore(Time d) {
 }
 
 
-unsigned int EDFScheduler::accept(const TaskBagMsg & msg) {
+unsigned int EDFScheduler::acceptable(const TaskBagMsg & msg) {
     // Adjust the availability function to the current time
     //reschedule();
     // Check dynamic constraints
@@ -147,12 +147,5 @@ unsigned int EDFScheduler::accept(const TaskBagMsg & msg) {
         numAccepted = numSlots;
     }
     LogMsg("Ex.Sch.EDF", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
-    if (numAccepted == 0) return 0;
-
-    // Now create the tasks and add them to the list
-    for (unsigned int i = 0; i < numAccepted; i++)
-        tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
-    reschedule();
-    notifySchedule();
     return numAccepted;
 }

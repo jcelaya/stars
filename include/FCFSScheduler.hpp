@@ -40,7 +40,7 @@ class FCFSScheduler : public Scheduler {
     void reschedule();
 
     // This is documented in Scheduler
-    unsigned int accept(const TaskBagMsg & msg);
+    unsigned int acceptable(const TaskBagMsg & msg);
 
 public:
     /**

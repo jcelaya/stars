@@ -96,7 +96,7 @@ public:
     }
     
     /**
-     * Returns the PeerCompNode instance associated to the current process.
+     * Returns the StarsNode instance associated to the current process.
      */
     StarsNode & getCurrentNode() {
         if (inSimulation)
@@ -179,7 +179,7 @@ private:
     void log(const char *  category, int priority, LogMsg::AbstractTypeContainer * values);
     
     // Simulation framework
-    boost::scoped_array<StarsNode> routingTable;   ///< The set of PeerCompNodes in this simulation.
+    boost::scoped_array<StarsNode> routingTable;   ///< The set of StarsNodes in this simulation.
     boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
     bool end;                                      ///< Signals the end of the simulation
     bool inSimulation;                             ///< States if the currently running code is inside MSG_main

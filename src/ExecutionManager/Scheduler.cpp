@@ -65,19 +65,20 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         << msg.getNewState();
         switch (msg.getNewState()) {
         case Task::Finished:
+            ++tasksExecuted;
         case Task::Aborted: {
-            if (msg.getNewState() == Task::Finished) ++tasksExecuted;
-            // Send a TaskMonitorMsg to signal finalization
-            shared_ptr<Task> task = getTask(msg.getTaskId());
-            TaskMonitorMsg * tmm = new TaskMonitorMsg;
-            tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
-            tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
-            CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
             // Remove the task from the queue
             bool notFound = true;
             for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
                 if ((*i)->getTaskId() == msg.getTaskId()) {
                     notFound = false;
+                    // Send a TaskMonitorMsg to signal finalization
+                    shared_ptr<Task> task = *i;
+                    TaskMonitorMsg * tmm = new TaskMonitorMsg;
+                    tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
+                    tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+                    CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
+                    removeTask(task);
                     tasks.erase(i);
                     break;
                 }
@@ -119,14 +120,9 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
             // Take the TaskDescription object and try to accept it
             LogMsg("Ex.Sch", DEBUG) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
             numAccepted = accept(msg);
-            LogMsg("Ex.Sch", DEBUG) << numAccepted << " tasks accepted";
-            // For statistics purpose
-            Time queueEnd = Time::getCurrentTime();
-            for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
-                queueEnd += (*it)->getEstimatedDuration();
-            }
-            queueChangedStatistics(msg.getRequestId(), numAccepted, queueEnd);
             if (numAccepted > 0) {
+                notifySchedule();
+                // Acknowledge the requester
                 AcceptTaskMsg * atm = new AcceptTaskMsg;
                 atm->setRequestId(msg.getRequestId());
                 atm->setFirstTask(msg.getFirstTask());
@@ -135,6 +131,14 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
                 CommLayer::getInstance().sendMessage(msg.getRequester(), atm);
                 if (monitorTimer == 0) setMonitorTimer();
             }
+
+            // For statistics purpose
+            Time queueEnd = Time::getCurrentTime();
+            for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
+                queueEnd += (*it)->getEstimatedDuration();
+            }
+            queueChangedStatistics(msg.getRequestId(), numAccepted, queueEnd);
+
             if (numAccepted == numTasks) return;
         }
         // If control reaches this point, there are tasks which were not accepted.
