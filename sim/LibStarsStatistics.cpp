@@ -20,18 +20,16 @@
  *
  */
 
-#include <list>
 #include <vector>
 #include "ConfigurationManager.hpp"
 #include "LibStarsStatistics.hpp"
 #include "Simulator.hpp"
 #include "Scheduler.hpp"
-#include "Distributions.hpp"
 #include "StarsNode.hpp"
 
 
 LibStarsStatistics::LibStarsStatistics() :
-    existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0), 
+    existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
     numNodesHist(1.0), finishedHist(0.1), searchHist(100U),
     jttHist(100U), seqHist(100U), spupHist(0.1), slownessHist(100U), unfinishedApps(0), totalApps(0) {
 }
@@ -47,7 +45,7 @@ void LibStarsStatistics::openStatsFiles() {
     throughputos.open(statDir / fs::path("throughput.stat"));
     throughputos << "# Time, tasks finished per second, total tasks finished" << std::endl;
     throughputos << "0,0,0" << std::endl;
-    
+
     // App statistics
     appos.open(statDir / fs::path("apps.stat"));
     appos << "# App. ID, src node, num tasks, task size, task mem, task disk, release date, deadline, num finished, JTT, sequential time at src, slowness" << std::endl;
@@ -69,11 +67,11 @@ void LibStarsStatistics::queueChangedStatistics(unsigned int rid, unsigned int n
     Time now = Time::getCurrentTime();
     if (maxQueue < queueEnd) {
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
-        << ",queue length updated" << std::endl;
+                << ",queue length updated" << std::endl;
         maxQueue = queueEnd;
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
-        << ',' << numAccepted << " new tasks accepted at " << Simulator::getInstance().getCurrentNode().getLocalAddress()
-        << " for request " << rid << std::endl;
+                << ',' << numAccepted << " new tasks accepted at " << Simulator::getInstance().getCurrentNode().getLocalAddress()
+                << " for request " << rid << std::endl;
     }
 }
 
@@ -152,9 +150,9 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
     SimAppDatabase & sdb = node.getDatabase();
     if (!sdb.appInstanceExists(appId))
         return; // The application was never sent?
-        
+
     totalApps++;
-    
+
     // Show app instance information
     const SimAppDatabase::AppInstance & app = sdb.getAppInstance(appId);
     double jtt = (end - app.ctime).seconds();
@@ -179,7 +177,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
         << (app.req.getDeadline().getRawDate() / 1000000.0) << ','
         << finishedTasks << ',' << jtt << ',' << sequential << ','
         << std::setprecision(8) << std::fixed << slowness << std::endl;
-    
+
     // Show requests information
     bool valid = false;
     std::map<long int, SimAppDatabase::Request>::const_iterator it;
@@ -192,7 +190,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
             << std::setprecision(3) << std::fixed << (it->second.rtime.getRawDate() / 1000000.0) << ','
             << std::setprecision(8) << std::fixed << search << std::endl;
     }
-    
+
     // Save maximum slowness among concurrently running applications
     Time start = app.ctime;
     // Record the maximum of all the apps that ended before "start"
@@ -225,7 +223,7 @@ struct UnfinishedApp {
 void LibStarsStatistics::finishAppStatistics() {
     Simulator & sim = Simulator::getInstance();
     Time now = Time::getCurrentTime();
-    
+
     // Unfinished jobs
     // Calculate expected end time and remaining tasks of each application in course
     std::vector<std::map<long int, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
@@ -278,7 +276,7 @@ void LibStarsStatistics::finishAppStatistics() {
         }
 //     }
     // Take into account perfect scheduler queues
-    
+
     // Reorder unfinished apps
     std::list<UnfinishedApp> sortedApps;
     for (unsigned int n = 0; n < sim.getNumNodes(); ++n) {
@@ -287,7 +285,7 @@ void LibStarsStatistics::finishAppStatistics() {
         }
     }
     sortedApps.sort();
-    
+
     // Write its data and requests
     for (std::list<UnfinishedApp>::iterator it = sortedApps.begin(); it != sortedApps.end(); ++it) {
         finishedApp(sim.getNode(it->node), it->appid, it->end, it->finishedTasks);
@@ -301,7 +299,7 @@ void LibStarsStatistics::finishAppStatistics() {
             << std::setprecision(8) << std::fixed << maxSlowness << std::endl;
         lastSlowness.pop_front();
     }
-    
+
     // Finish this index
     appos << std::endl << std::endl;
     // Finished percentages
@@ -313,7 +311,7 @@ void LibStarsStatistics::finishAppStatistics() {
     appos << "# Sequential time in src CDF" << std::endl << CDF(seqHist) << std::endl << std::endl;
     appos << "# Speedup CDF" << std::endl << CDF(spupHist) << std::endl << std::endl;
     appos << "# Slowness CDF" << std::endl << CDF(slownessHist) << std::endl << std::endl;
-    
+
     // Finish this index
     reqos << std::endl << std::endl;
     reqos.precision(8);

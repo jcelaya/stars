@@ -36,7 +36,6 @@
 #include "SubmissionNode.hpp"
 #include "RequestTimeout.hpp"
 #include "TimeConstraintInfo.hpp"
-#include "AppFinishedMsg.hpp"
 #include "../Distributions.hpp"
 using namespace std;
 using namespace boost;
@@ -162,10 +161,6 @@ int saveDb(sqlite3 *pInMemory, const char *zFilename){
 //		}
 //	}
 //
-//	bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {
-//		return nextSearch > numSearches && typeid(*msg) == typeid(RescheduleTimer);
-//	}
-//
 //	void postEnd() {
 //	}
 //};
@@ -189,6 +184,7 @@ public:
     static const string getName() { return string("poissonProcess"); }
 
     void preStart() {
+        Simulator & sim = Simulator::getInstance();
         // Before running simulation
 
         // Simulation limit
@@ -211,6 +207,7 @@ public:
     void beforeEvent(const Simulator::Event & ev) {
         if (typeid(*ev.msg) == typeid(DispatchCommandMsg) && nextInstance < numInstances) {
             // Calculate next send
+            Simulator & sim = Simulator::getInstance();
             Duration timeToNext(Simulator::exponential(meanTime));
 
             uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
@@ -219,15 +216,10 @@ public:
             sim.injectMessage(client, client, dcm, timeToNext);
             nextInstance++;
         }
-        else if (typeid(*ev.msg) == typeid(AppFinishedMsg)) {
-            percent = (remainingApps++) * 100.0 / numInstances;
-        }
     }
 
-    bool blockEvent(const Simulator::Event & ev) {
-        if (generateTraceOnly && typeid(*ev.msg) == typeid(TaskBagMsg))
-            return true;
-        return false;
+    virtual void finishedApp(long int appId) {
+        percent = (remainingApps++) * 100.0 / numInstances;
     }
 
     bool doContinue() const {
@@ -263,6 +255,7 @@ public:
     static const string getName() { return string("repeat"); }
 
     void preStart() {
+        Simulator & sim = Simulator::getInstance();
         // Before running simulation
 
         // Get apps.stat of the previous run
@@ -357,7 +350,8 @@ public:
 
     void afterEvent(const Simulator::Event & ev) {
         if (typeid(*ev.msg) == typeid(DispatchCommandMsg)) {
-            // Remove the old app description
+            Simulator & sim = Simulator::getInstance();
+           // Remove the old app description
             sim.getCurrentNode().getDatabase().dropAppDescription(static_pointer_cast<DispatchCommandMsg>(ev.msg)->getAppName());
             if (!apps.empty()) {
                 AppInstance r = apps.front();
@@ -368,17 +362,8 @@ public:
         }
     }
 
-    void beforeEvent(const Simulator::Event & ev) {
-        if (typeid(*ev.msg) == typeid(AppFinishedMsg)) {
-            percent = (finishedApps++) * 100.0 / numSearches;
-        }
-    }
-
-    bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {
-        // Ignore fail tolerance
-        if (msg->getName() == "HeartbeatTimeout") return true;
-        else if (msg->getName() == "MonitorTimer") return true;
-        return false;
+    virtual void finishedApp(long int appId) {
+        percent = (finishedApps++) * 100.0 / numSearches;
     }
 
     bool doContinue() const {
@@ -474,6 +459,7 @@ class siteLevel : public SimulationCase {
     };
 
     void generateWorkload(uint32_t u) {
+        Simulator & sim = Simulator::getInstance();
         User & user = users[u];
         unsigned int batchSize = batchCDF.inverse(Simulator::uniform01());
         Duration when(0.0);
@@ -512,12 +498,13 @@ class siteLevel : public SimulationCase {
             tt = Duration(breakTimeCDF.inverse(Simulator::uniform01()));
             LogMsg("Sim.Site", INFO) << "User " << u << " breaks for " << tt << " seconds";
         }
-        sim.setTimer(u, sim.getCurrentTime() + tt, timer);
+        Simulator::getInstance().setTimer(u, Simulator::getInstance().getCurrentTime() + tt, timer);
         users[u].state = User::WAIT_TT;
     }
 
     void sleep(uint32_t u) {
         users[u].state = User::SLEEPING;
+        Simulator & sim = Simulator::getInstance();
         Time wakeTime = users[u].getWakeTime(sim.getCurrentTime());
         sim.setTimer(u, wakeTime, timer);
         LogMsg("Sim.Site", INFO) << "User " << u << " sleeps until " << wakeTime;
@@ -538,6 +525,7 @@ public:
     static const string getName() { return string("siteLevel"); }
 
     void preStart() {
+        Simulator & sim = Simulator::getInstance();
         // Before running simulation
         maxTime = property("max_sim_time", 0.0);
 
@@ -550,7 +538,7 @@ public:
         deadlineMultiplier = property("deadline_mult", 1.0);
 
         // Create users
-        users.resize(sim.getNumNodes());
+        users.resize(Simulator::getInstance().getNumNodes());
         for (uint32_t u = 0; u < users.size(); u++) {
             users[u].setup();
             if (users[u].isWtime(sim.getCurrentTime())) {
@@ -569,7 +557,7 @@ public:
             // Remove the app description
             //sim.getCurrentNode().getDatabase().dropAppDescription(static_pointer_cast<DispatchCommandMsg>(ev.msg)->getAppName());
         }
-        percent = maxTime > 0.0 ? (sim.getCurrentTime() - Time()).seconds() * 100.0 / maxTime : 0.0;
+        percent = maxTime > 0.0 ? (Time::getCurrentTime() - Time()).seconds() * 100.0 / maxTime : 0.0;
     }
 
     void beforeEvent(const Simulator::Event & ev) {
@@ -579,21 +567,8 @@ public:
                 generateWorkload(ev.to);
             } else {
                 // Only WAIT_TT possible
-                if (u.isWtime(sim.getCurrentTime())) {
+                if (u.isWtime(Time::getCurrentTime())) {
                     generateWorkload(ev.to);
-                } else {
-                    sleep(ev.to);
-                }
-            }
-        } else if (typeid(*ev.msg) == typeid(AppFinishedMsg)) {
-            User & u = users[ev.to];
-            long int appId = static_pointer_cast<AppFinishedMsg>(ev.msg)->getAppId();
-            SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
-            if (appId == u.lastInstance) {
-                // Batch is finished
-                if (u.isWtime(sim.getCurrentTime())) {
-                    Duration rt = ev.t - sdb.getAppInstance(appId).rtime;
-                    generateThinkTime(ev.to, rt);
                 } else {
                     sleep(ev.to);
                 }
@@ -601,7 +576,7 @@ public:
         } else if (typeid(*ev.msg) == typeid(RequestTimeout)) {
             // Increase deadline 20%
             long int reqId = static_pointer_cast<RequestTimeout>(ev.msg)->getRequestId();
-            SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
+            SimAppDatabase & sdb = Simulator::getInstance().getCurrentNode().getDatabase();
             long int appId = sdb.getAppId(reqId);
             if (appId != -1) {
                 const SimAppDatabase::AppInstance & app = sdb.getAppInstance(appId);
@@ -611,13 +586,29 @@ public:
         }
     }
 
-    bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {
-        // Ignore fail tolerance
-        if (msg->getName() == "HeartbeatTimeout") return true;
-        else if (msg->getName() == "MonitorTimer") return true;
-        return false;
+    virtual void finishedApp(long int appId) {
+       Simulator & sim = Simulator::getInstance();
+       uint32_t dst = sim.getCurrentNode().getLocalAddress().getIPNum();
+        User & u = users[dst];
+        SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
+        if (appId == u.lastInstance) {
+            // Batch is finished
+            if (u.isWtime(sim.getCurrentTime())) {
+                Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).rtime;
+                generateThinkTime(dst, rt);
+            } else {
+                sleep(dst);
+            }
+        }
     }
 
+//    bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {
+//        // Ignore fail tolerance
+//        if (msg->getName() == "HeartbeatTimeout") return true;
+//        else if (msg->getName() == "MonitorTimer") return true;
+//        return false;
+//    }
+//
     void postEnd() {
 //		// Dump memory database to disk
 //		fs::path statDir(property("results_dir", std::string("./results")));

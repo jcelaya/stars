@@ -27,35 +27,38 @@
 #include <string>
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
-#include "Simulator.hpp"
 #include "AvailabilityInformation.hpp"
 #include "Distributions.hpp"
+#include "Time.hpp"
 
-class AvailabilityStatistics : public Simulator::InterEventHandler {
-	/**
-	 * Description of a change that has arrived to a node. It describes its creation time
-	 * and the time it arrived at the current node.
-	 */
-	struct Change {
-		bool valid;
-		Time creation;
-		Time end;
-		Change() : valid(false) {}
-		double duration() const { return (end - creation).seconds(); }
-	};
+class AvailabilityStatistics {
+    /**
+     * Description of a change that has arrived to a node. It describes its creation time
+     * and the time it arrived at the current node.
+     */
+    struct Change {
+        bool valid;
+        Time creation;
+        Time end;
+        Change() : valid(false) {}
+        double duration() const { return (end - creation).seconds(); }
+    };
 
-	/// Last changes arrived at every node.
-	std::vector<Change> activeChanges;
-	Histogram updateTimes;
-	Histogram reachedLevel;
+    /// Last changes arrived at every node.
+    std::vector<Change> activeChanges;
+    Histogram updateTimes;
+    Histogram reachedLevel;
 
-	fs::ofstream os;
+    fs::ofstream os;
 
 public:
-	AvailabilityStatistics();
-	~AvailabilityStatistics();
+    AvailabilityStatistics() : updateTimes(0.01), reachedLevel(1.0) {}
+    ~AvailabilityStatistics();
 
-	void afterEvent(const Simulator::Event & ev);
+    void setNumNodes(unsigned int n) { activeChanges.resize(n); }
+    void openStatsFiles(const boost::filesystem::path & statDir);
+    void changeUpwards(uint32_t src, uint32_t dst, Time c);
+    void finishAvailabilityStatistics();
 };
 
 #endif /*AVAILABILITYSTATISTICS_H_*/

@@ -33,10 +33,8 @@
 #include "SimulationCase.hpp"
 #include "SimTask.hpp"
 #include "MemoryManager.hpp"
-#include "JobStatistics.hpp"
 #include "TrafficStatistics.hpp"
 #include "AvailabilityStatistics.hpp"
-#include "SlownessStatistics.hpp"
 #include "PerfectScheduler.hpp"
 #include "FailureGenerator.hpp"
 using namespace log4cpp;
@@ -92,6 +90,13 @@ void Simulator::progressLog(const string & msg) {
 }
 
 
+void SubmissionNode::finishedApp(long int appId) {
+    Simulator & sim = Simulator::getInstance();
+    sim.getStarsStats().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
+    sim.getSimulationCase()->finishedApp(appId);
+}
+
+
 void finish(int param) {
     cout << "Stopping due to user signal" << endl;
     Simulator::getInstance().stop();
@@ -123,28 +128,22 @@ int main(int argc, char * argv[]) {
 
     Properties property;
     property.loadFromFile(string(argv[1]));
-    shared_ptr<SimulationCase> simCase = CaseFactory::getInstance().createCase(property("case_name", string("")), property);
-    if (simCase.get()) {
+    sim.setProperties(property);
+    if (sim.isPrepared()) {
         std::signal(SIGUSR1, finish);
-        sim.registerHandler(simCase);
-        sim.setProperties(property);
-        if (sim.isPrepared()) {
-            sim.getPStats().startEvent("Prepare simulation case");
-            simCase->preStart();
-            sim.getPStats().endEvent("Prepare simulation case");
-            LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
-            sim.run();
-            sim.showStatistics();
-            StarsNode::showTree(log4cpp::Priority::INFO);
-            StarsNode::checkTree();
-            simCase->postEnd();
-            sim.finish();
-            ptime end = microsec_clock::local_time();
-            size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
-            LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
-        }
-    } else {
-        LogMsg("Sim.Progress", 0) << "ERROR: No test exists with name \"" << property("case_name", string("")) << '"';
+        sim.getPerfStats().startEvent("Prepare simulation case");
+        sim.getSimulationCase()->preStart();
+        sim.getPerfStats().endEvent("Prepare simulation case");
+        LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
+        sim.run();
+        sim.showStatistics();
+        StarsNode::showTree(log4cpp::Priority::INFO);
+        StarsNode::checkTree();
+        sim.getSimulationCase()->postEnd();
+        sim.finish();
+        ptime end = microsec_clock::local_time();
+        size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
+        LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
     }
 
     return 0;
@@ -175,7 +174,6 @@ void Simulator::finish() {
         events.pop();
         delete p;
     }
-    interEventHandlers.clear();
     // Clean node state
     for (vector<StarsNode>::iterator it = routingTable.begin(); it != routingTable.end(); it++)
         it->finish();
@@ -201,6 +199,14 @@ static bool checkLogFile(const fs::path & logFile) {
 
 void Simulator::setProperties(Properties & property) {
     static unsigned int defaultSeed = 12345;
+
+    simCase = CaseFactory::getInstance().createCase(property("case_name", string("")), property);
+    if (!simCase.get()) {
+        // If no simulation case exists with that name, return
+        LogMsg("Sim.Progress", 0) << "ERROR: No test exists with name \"" << property("case_name", string("")) << '"';
+        doStop = true;
+        return;
+    }
 
     // Set logging
     resultDir = property("results_dir", std::string("./results"));
@@ -251,7 +257,9 @@ void Simulator::setProperties(Properties & property) {
     // Library config
     StarsNode::libStarsConfigure(property);
 
-    pcstats.reset(new LibStarsStatistics);
+    // Statistics
+    sstats.openStatsFiles(resultDir);
+    tstats.setNumNodes(numNodes);
 
     // Node creation
     routingTable.resize(numNodes);
@@ -262,21 +270,14 @@ void Simulator::setProperties(Properties & property) {
 
     // Perfect scheduler
     ps = PerfectScheduler::createScheduler(property("perfect_scheduler", string("")));
-    if (ps.get())
-        interEventHandlers.push_back(ps);
 
     // Failure generator
     if (property.count("mtbf")) {
-        interEventHandlers.push_back(shared_ptr<InterEventHandler>(new FailureGenerator(property("mtbf", 1000.0), property("min_failed_nodes", 1),
-                property("max_failed_nodes", 1), property("max_failures", -1))));
+        fg.startFailures(property("mtbf", 1000.0), property("min_failed_nodes", 1),
+                property("max_failed_nodes", 1), property("max_failures", -1));
     }
 
-    // Statistics
-    interEventHandlers.push_back(shared_ptr<InterEventHandler>(new TrafficStatistics()));
-    interEventHandlers.push_back(shared_ptr<InterEventHandler>(new JobStatistics()));
 //	interEventHandlers.push_back(shared_ptr<InterEventHandler>(new AvailabilityStatistics()));
-//	if (routingTable[0].getSchedulerType() == StarsNode::MSSchedulerClass)
-//		interEventHandlers.push_back(shared_ptr<InterEventHandler>(new SlownessStatistics()));
 
     pstats.endEvent("Prepare simulation network");
     LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation network.";
@@ -300,10 +301,7 @@ void Simulator::stepForward() {
             generatedEvents.clear();
 
             // See if the message is captured
-            bool blocked = false;
-            for (list<shared_ptr<InterEventHandler> >::iterator it = interEventHandlers.begin(); !blocked && it != interEventHandlers.end(); it++)
-                blocked |= (*it)->blockEvent(*p);
-            if (blocked) {
+            if ((ps.get() && ps->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
                 // Erase from timers list, if it is there
                 if (p->from == p->to && p->size == 0) timers.erase(p->id);
                 delete p;
@@ -336,15 +334,14 @@ void Simulator::stepForward() {
                 << " at " << time
                 << " from " << AddrIO(p->from)
                 << " to " << AddrIO(p->to);
-            for (list<shared_ptr<InterEventHandler> >::iterator it = interEventHandlers.begin(); it != interEventHandlers.end(); it++)
-                (*it)->beforeEvent(*p);
+            tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
+            simCase->beforeEvent(p->from, p->to, *p->msg);
             pstats.startEvent(p->msg->getName());
             // Measure operation duration from this point
             opStart = microsec_clock::local_time();
             routingTable[p->to].receiveMessage(p->from, p->msg);
             pstats.endEvent(p->msg->getName());
-            for (list<shared_ptr<InterEventHandler> >::iterator it = interEventHandlers.begin(); it != interEventHandlers.end(); it++)
-                (*it)->afterEvent(*p);
+            simCase->afterEvent(p->from, p->to, *p->msg);
             // Erase from timers list, if it is there
             if (p->from == p->to && p->size == 0) timers.erase(p->id);
             delete p;
@@ -357,10 +354,9 @@ void Simulator::stepForward() {
 
 
 void Simulator::run() {
-    SimulationCase & simCase = *static_pointer_cast<SimulationCase>(interEventHandlers.front());
     start = microsec_clock::local_time();
     ptime realStart = start;
-    while (!events.empty() && !doStop && simCase.doContinue()) {
+    while (!events.empty() && !doStop && simCase->doContinue()) {
         if (maxEvents && numEvents >= maxEvents) {
             LogMsg("Sim.Progress", 0) << "Maximum number of events limit reached: " << maxEvents;
             break;
@@ -384,8 +380,8 @@ void Simulator::run() {
             LogMsg("Sim.Progress", 0) << real_time << " (" << time << ")   "
                 << numEvents << " ev (" << (showStep / real_duration) << " ev/s)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
-                << simCase.getCompletedPercent() << "%   "
-                << pcstats->getExistingTasks() << " tasks";
+                << simCase->getCompletedPercent() << "%   "
+                << sstats.getExistingTasks() << " tasks";
             pstats.savePartialStatistics();
         }
     }
@@ -404,10 +400,7 @@ unsigned long int Simulator::getMsgSize(shared_ptr<BasicMsg> msg) {
 
 unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<BasicMsg> msg) {
     // NOTE: msg must not be clonned, to track messages.
-    bool blocked = false;
-    for (list<shared_ptr<InterEventHandler> >::iterator it = interEventHandlers.begin(); !blocked && it != interEventHandlers.end(); it++)
-        blocked |= (*it)->blockMessage(src, dst, msg);
-    if (blocked) return 0;
+    if (ps.get() && ps->blockMessage(msg)) return 0;
 
     numMsgSent++;
     // Delay follows pareto distribution of k=2
@@ -431,6 +424,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<Basic
         Duration txTime(size / (srcIface.outBW < dstIface.inBW ? srcIface.outBW : dstIface.inBW));
         event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, Duration(pareto(minDelay, kDelay, maxDelay)), msg, size);
         srcIface.outQueueFreeTime += txTime;
+        tstats.msgSent(src, dst, size, srcIface.outBW, srcIface.outQueueFreeTime + txTime, *msg);
     } else {
         event = new Event(time + opDuration, Duration(), msg, 0);
     }
@@ -463,10 +457,7 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, shared_ptr<Bas
 
 
 int Simulator::setTimer(uint32_t dst, Time when, shared_ptr<BasicMsg> msg) {
-    bool blocked = false;
-    for (list<shared_ptr<InterEventHandler> >::iterator it = interEventHandlers.begin(); !blocked && it != interEventHandlers.end(); it++)
-        blocked |= (*it)->blockMessage(dst, dst, msg);
-    if (blocked) return 0;
+    if (ps.get() && ps->blockMessage(msg)) return 0;
 
     Event * event = new Event(when, msg, 0);
     event->to = dst;
@@ -497,6 +488,7 @@ void Simulator::showStatistics() {
         << totalBytesSent << " trf (" << numMsgSent << " msg, " << ((double)totalBytesSent / numMsgSent) << " B/msg, "
         << ((totalBytesSent / (time.getRawDate() / 1000000.0)) / routingTable.size()) << " Bps/node)   "
         << MemoryManager::getInstance().getUsedMemory() << " mem   100%";
-    pcstats->saveTotalStatistics();
+    sstats.saveTotalStatistics();
     pstats.saveTotalStatistics();
+    tstats.saveTotalStatistics();
 }

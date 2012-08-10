@@ -329,6 +329,7 @@ public:
     static const string getName() { return string("createTree"); }
 
     void preStart() {
+        Simulator & sim = Simulator::getInstance();
         uint32_t numNodes = sim.getNumNodes();
         uint32_t p2NumNodes = 1;
         for (uint32_t i = numNodes; i > 1; i >>= 1) p2NumNodes <<= 1;

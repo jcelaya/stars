@@ -110,7 +110,7 @@ public:
         for (size_t i = 0; i < s; ++i)
             children[i].serializeState(ar);
     }
-    
+
     struct Link {
         CommAddress addr;
         boost::shared_ptr<T> availInfo;
@@ -129,12 +129,12 @@ public:
         infoChanged = false;
         return tmp;
     }
-    
+
     /**
      * Calculates the availability information of this branch.
      */
     virtual void recomputeInfo() = 0;
-    
+
 protected:
     /// Info about the rest of the tree
     Link father;
@@ -153,7 +153,7 @@ protected:
     /**
      * An update of the availability of a subzone of the tree.
      * @param src Source node address.
-     * @param msg TimeConstraintInfo with the updated availability information.
+     * @param msg Instance of an AvailabilityInformation subclass with the updated availability information.
      * @param delayed True if the message has been delayed.
      */
     void handle(const CommAddress & src, const T & msg, bool delayed = false) {

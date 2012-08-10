@@ -29,6 +29,7 @@
 #include "ResourceNode.hpp"
 #include "TaskBagMsg.hpp"
 #include "AvailabilityInformation.hpp"
+#include "Simulator.hpp"
 using namespace std;
 using namespace boost;
 
@@ -41,12 +42,25 @@ public:
 };
 
 
+void FailureGenerator::startFailures(double mtbf, unsigned int minf, unsigned int maxf, unsigned int mf) {
+    meanTime = mtbf;
+    minFail = minf;
+    maxFail = maxf;
+    maxFailures = mf;
+    failingNodes.resize(Simulator::getInstance().getNumNodes());
+    for (unsigned int i = 0; i < failingNodes.size(); i++)
+        failingNodes[i] = i;
+    randomFailure();
+}
+
+
 void FailureGenerator::randomFailure() {
     if (maxFailures == 0) return;
     else if (maxFailures != (unsigned int)(-1)) maxFailures--;
     LogMsg("Sim.Fail", DEBUG) << "Generating new failure";
     // Get number of failing nodes
     numFailing = Simulator::uniform(minFail, maxFail, 1);
+    Simulator & sim = Simulator::getInstance();
     if (numFailing > sim.getNumNodes()) numFailing = sim.getNumNodes();
     Duration failAt(Simulator::exponential((meanTime * numFailing) / sim.getNumNodes()));
     random_shuffle(failingNodes.begin(), failingNodes.end());
@@ -54,8 +68,9 @@ void FailureGenerator::randomFailure() {
 }
 
 
-bool FailureGenerator::blockEvent(const Simulator::Event & ev) {
-    if (dynamic_pointer_cast<FailureMsg>(ev.msg).get()) {
+bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
+    if (typeid(msg) == typeid(FailureMsg)) {
+        Simulator & sim = Simulator::getInstance();
         // nodes fail!!
         LogMsg("Sim.Fail", DEBUG) << numFailing << " nodes FAIL at " << sim.getCurrentTime();
 

@@ -27,53 +27,53 @@
 #include <map>
 #include <boost/shared_ptr.hpp>
 #include "Properties.hpp"
-#include "Simulator.hpp"
+class BasicMsg;
 
-
-class SimulationCase : public Simulator::InterEventHandler {
+class SimulationCase {
 protected:
-	Properties property;
-	double percent;
+    Properties property;
+    double percent;
 
-	// During SimulationCase constructor, the simulator is not initialized
-	SimulationCase(const Properties & p) : property(p), percent(0.0) {}
+    // During SimulationCase constructor, the simulator is not initialized
+    SimulationCase(const Properties & p) : property(p), percent(0.0) {}
 
 public:
-	virtual void preStart() {}
-	virtual void postEnd() {}
-	virtual bool doContinue() const { return true; }
-	double getCompletedPercent() const { return percent; }
+    virtual ~SimulationCase() {}
 
-	virtual bool blockEvent(const Simulator::Event & ev) { return false; }
-	virtual bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) { return false; }
-	virtual void beforeEvent(const Simulator::Event & ev) {}
-	virtual void afterEvent(const Simulator::Event & ev) {}
+    virtual void preStart() {}
+    virtual void postEnd() {}
+    virtual bool doContinue() const { return true; }
+    virtual void beforeEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {}
+    virtual void afterEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {}
+    double getCompletedPercent() const { return percent; }
+    // Some common events
+    virtual void finishedApp(long int appId) {}
 };
 
 
 class CaseFactory {
-	std::map<std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p)> caseConstructors;
+    std::map<std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p)> caseConstructors;
 
-	CaseFactory() {}
+    CaseFactory() {}
 
 public:
-	static CaseFactory & getInstance() {
-		static CaseFactory s;
-		return s;
-	}
+    static CaseFactory & getInstance() {
+        static CaseFactory s;
+        return s;
+    }
 
-	template<class S> class CaseRegistrar {
-		static boost::shared_ptr<SimulationCase> create(const Properties & p) {
-			return boost::shared_ptr<SimulationCase>(new S(p));
-		}
-	public:
-		CaseRegistrar() {
-			CaseFactory::getInstance().caseConstructors[S::getName()] = &create;
-		}
-	};
-	template<class S> friend class CaseRegistrar;
+    template<class S> class CaseRegistrar {
+        static boost::shared_ptr<SimulationCase> create(const Properties & p) {
+            return boost::shared_ptr<SimulationCase>(new S(p));
+        }
+    public:
+        CaseRegistrar() {
+            CaseFactory::getInstance().caseConstructors[S::getName()] = &create;
+        }
+    };
+    template<class S> friend class CaseRegistrar;
 
-	boost::shared_ptr<SimulationCase> createCase(const std::string & name, const Properties & p);
+    boost::shared_ptr<SimulationCase> createCase(const std::string & name, const Properties & p);
 };
 
 

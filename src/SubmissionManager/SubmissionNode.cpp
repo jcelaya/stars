@@ -32,7 +32,6 @@
 #include "RequestTimeout.hpp"
 #include "TaskMonitorMsg.hpp"
 #include "Task.hpp"
-#include "AppFinishedMsg.hpp"
 using namespace std;
 
 
@@ -185,9 +184,6 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
             map<long int, unsigned int>::iterator it = remainingTasks.find(appId);
             if (it->second == 0) {
                 finishedApp(it->first);
-//                 AppFinishedMsg * afm = new AppFinishedMsg;
-//                 afm->setAppId(it->first);
-//                 CommLayer::getInstance().sendLocalMessage(afm);
                 remainingTasks.erase(it);
             }
         }
@@ -218,9 +214,6 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                         it = remainingTasks.find(appId);
                         if (it != remainingTasks.end() && --(it->second) == 0) {
                             finishedApp(it->first);
-    //                         AppFinishedMsg * afm = new AppFinishedMsg;
-    //                         afm->setAppId(it->first);
-    //                         CommLayer::getInstance().sendLocalMessage(afm);
                             remainingTasks.erase(it);
                         }
                     } else

@@ -23,35 +23,41 @@
 #ifndef LIBSTARSSTATISTICS_H_
 #define LIBSTARSSTATISTICS_H_
 
+#include <list>
+#include <utility>
 #include <boost/filesystem/fstream.hpp>
-namespace fs = boost::filesystem;
+#include "Distributions.hpp"
 #include "Time.hpp"
-class Simulator;
+class StarsNode;
 
 
 class LibStarsStatistics {
 public:
     LibStarsStatistics();
 
+    /// Open the statistics file at the given directory.
+    void openStatsFiles(const boost::filesystem::path & statDir);
+
     void saveTotalStatistics() {
         saveCPUStatistics();
         finishQueueLengthStatistics();
         finishThroughputStatistics();
+        finishAppStatistics();
     }
 
     // Public statistics handlers
     void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+
+    void finishedApp(StarsNode & node, long int appId, Time end, int finishedTasks);
 
     void taskStarted() { ++existingTasks; }
     void taskFinished(bool successful);
     unsigned long int getExistingTasks() const { return existingTasks; }
 
 private:
-    Simulator & sim;
-
     // Queue Statistics
     void finishQueueLengthStatistics();
-    fs::ofstream queueos;
+    boost::filesystem::ofstream queueos;
     Time maxQueue;
 
     // CPU Statistics
@@ -59,12 +65,27 @@ private:
 
     // Throughput statistics
     void finishThroughputStatistics();
-    fs::ofstream throughputos;
+    boost::filesystem::ofstream throughputos;
     unsigned long int existingTasks;
     Time lastTSample;
     unsigned int partialFinishedTasks, totalFinishedTasks;
     static const double delayTSample = 60;
 
+    // App statistics
+    void finishAppStatistics();
+    boost::filesystem::ofstream appos;
+    boost::filesystem::ofstream reqos;
+    boost::filesystem::ofstream slowos;
+    Histogram numNodesHist;
+    Histogram finishedHist;
+    Histogram searchHist;
+    Histogram jttHist;
+    Histogram seqHist;
+    Histogram spupHist;
+    Histogram slownessHist;
+    unsigned int unfinishedApps;
+    unsigned int totalApps;
+    std::list<std::pair<Time, double> > lastSlowness;
 };
 
 #endif /* LIBSTARSSTATISTICS_H_ */

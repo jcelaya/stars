@@ -35,11 +35,14 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <log4cpp/Layout.hh>
 #include "BasicMsg.hpp"
+#include "SimulationCase.hpp"
 #include "StarsNode.hpp"
 #include "Properties.hpp"
 #include "Time.hpp"
 #include "LibStarsStatistics.hpp"
 #include "PerformanceStatistics.hpp"
+#include "TrafficStatistics.hpp"
+#include "FailureGenerator.hpp"
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 class PerfectScheduler;
@@ -88,18 +91,6 @@ public:
             msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
     };
 
-    class InterEventHandler {
-    protected:
-        Simulator & sim;
-    public:
-        InterEventHandler() : sim(Simulator::getInstance()) {}
-        virtual ~InterEventHandler() {}
-        virtual bool blockEvent(const Event & ev) { return false; }
-        virtual bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) { return false; }
-        virtual void beforeEvent(const Event & ev) {}
-        virtual void afterEvent(const Event & ev) {}
-    };
-
     struct NodeNetInterface {
         // In and Out network interface model
         Time inQueueFreeTime, outQueueFreeTime;
@@ -109,10 +100,6 @@ public:
     static Simulator & getInstance() {
         static Simulator instance;
         return instance;
-    }
-
-    void registerHandler(const boost::shared_ptr<InterEventHandler> & handler) {
-        interEventHandlers.push_back(handler);
     }
 
     void setProperties(Properties & property);
@@ -130,12 +117,14 @@ public:
     const NodeNetInterface & getNetInterface(unsigned int i) const { return iface[i]; }
     StarsNode & getCurrentNode() { return *currentNode; }
     int getCurrentEventId() const { return p != NULL ? p->id : 0; }
+    Event & getCurrentEvent() { return *p; }
     bool emptyEventQueue() const { return events.size() == inactiveEvents; }
     const std::list<Event *> & getGeneratedEvents() const { return generatedEvents; }
     const fs::path & getResultDir() const { return resultDir; }
-    PerformanceStatistics & getPStats() { return pstats; }
-    LibStarsStatistics & getPCStats() { return *pcstats; }
+    PerformanceStatistics & getPerfStats() { return pstats; }
+    LibStarsStatistics & getStarsStats() { return sstats; }
     const boost::shared_ptr<PerfectScheduler> & getPerfectScheduler() { return ps; }
+    const boost::shared_ptr<SimulationCase> & getSimulationCase() { return simCase; }
 
     // Network methods
     unsigned int sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg);
@@ -206,12 +195,12 @@ private:
     };
 
     // Simulation framework
+    boost::shared_ptr<SimulationCase> simCase;
     std::vector<StarsNode> routingTable;
     std::vector<NodeNetInterface> iface;
     Time time;
     std::priority_queue<Event *, std::vector<Event *>, ptrCompare > events;
     std::map<int, Event *> timers;
-    std::list<boost::shared_ptr<InterEventHandler> > interEventHandlers;
 
     Event * p;
     StarsNode * currentNode;
@@ -222,11 +211,13 @@ private:
     fs::path resultDir;
     fs::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
-    PerformanceStatistics pstats;
     boost::shared_ptr<PerfectScheduler> ps;
+    FailureGenerator fg;
 
     // Simulation global statistics
-    boost::shared_ptr<LibStarsStatistics> pcstats;
+    PerformanceStatistics pstats;
+    LibStarsStatistics sstats;
+    TrafficStatistics tstats;
     pt::ptime start, end, opStart;
     pt::time_duration real_time;
     unsigned long int numEvents;

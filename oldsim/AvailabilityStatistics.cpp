@@ -26,61 +26,61 @@
 #include "StarsNode.hpp"
 #include "StructureNode.hpp"
 #include "ResourceNode.hpp"
+#include "Simulator.hpp"
 
 
-AvailabilityStatistics::AvailabilityStatistics() : Simulator::InterEventHandler(), updateTimes(0.01), reachedLevel(1.0) {
-    activeChanges.resize(sim.getNumNodes());
-    os.open(sim.getResultDir() / fs::path("availability.stat"));
+void AvailabilityStatistics::openStatsFiles(const boost::filesystem::path & statDir) {
+    os.open(statDir / fs::path("availability.stat"));
     os << "# Update time, reached level" << std::endl;
 }
 
 
-void AvailabilityStatistics::afterEvent(const Simulator::Event & ev) {
-    if (boost::dynamic_pointer_cast<AvailabilityInformation>(ev.msg).get()) {
-        {
-            // Check that ev.to is the father of ev.from. Only count changes upwards.
-            StarsNode & child = sim.getNode(ev.from);
-            if (boost::dynamic_pointer_cast<AvailabilityInformation>(ev.msg)->isFromSch()) {
-                if (child.getE().getFather() == CommAddress() || ev.to != child.getE().getFather().getIPNum()) return;
-            } else {
-                if (child.getS().getFather() == CommAddress() || ev.to != child.getS().getFather().getIPNum()) return;
-            }
-        }
+void AvailabilityStatistics::changeUpwards(uint32_t src, uint32_t dst, Time c) {
+//    {
+//        // Check that ev.to is the father of ev.from. Only count changes upwards.
+//        StarsNode & child = sim.getNode(ev.from);
+//        if (boost::dynamic_pointer_cast<AvailabilityInformation>(ev.msg)->isFromSch()) {
+//            if (child.getE().getFather() == CommAddress() || ev.to != child.getE().getFather().getIPNum()) return;
+//        } else {
+//            if (child.getS().getFather() == CommAddress() || ev.to != child.getS().getFather().getIPNum()) return;
+//        }
+//    }
 
-        StarsNode & node = sim.getNode(ev.to);
-        // If the change at the origin is not valid, discard it.
-        if (!node.getS().isRNChildren() && !activeChanges[ev.from].valid) {
-            LogMsg("Sim.Stat.Avail", DEBUG) << ev.from << " -> " << ev.to << ": " << "Old information, skipping";
-            return;
-        }
+    Simulator & sim = Simulator::getInstance();
+    StarsNode & node = sim.getNode(dst);
+    // If the change at the origin is not valid, discard it.
+    if (!node.getS().isRNChildren() && !activeChanges[src].valid) {
+        LogMsg("Sim.Stat.Avail", DEBUG) << src << " -> " << dst << ": " << "Old information, skipping";
+        return;
+    }
 
-        // If there was a valid change in the current node, it ends here.
-        Change & thisChange = activeChanges[ev.to];
-        if (thisChange.valid) {
-            double t = thisChange.duration();
-            int l = node.getS().getLevel();
-            updateTimes.addValue(t);
-            reachedLevel.addValue(l);
-            os << t << ',' << l << std::endl;
-            LogMsg("Sim.Stat.Avail", DEBUG) << ev.from << " -> " << ev.to << ": " << "A change from " << t << " seconds ago at level " << l;
-        }
+    // If there was a valid change in the current node, it ends here.
+    Change & thisChange = activeChanges[dst];
+    if (thisChange.valid) {
+        double t = thisChange.duration();
+        int l = node.getS().getLevel();
+        updateTimes.addValue(t);
+        reachedLevel.addValue(l);
+        os << t << ',' << l << std::endl;
+        LogMsg("Sim.Stat.Avail", DEBUG) << src << " -> " << dst << ": " << "A change from " << t << " seconds ago at level " << l;
+    }
 
-        // Create new change
-        thisChange.valid = true;
-        thisChange.end = ev.t;
-        if (node.getS().isRNChildren()) {
-            thisChange.creation = ev.creationTime;
-        } else {
-            thisChange.creation = activeChanges[ev.from].creation;
-            // Invalidate last change
-            activeChanges[ev.from].valid = false;
-        }
+    // Create new change
+    thisChange.valid = true;
+    thisChange.end = sim.getCurrentTime();
+    if (node.getS().isRNChildren()) {
+        thisChange.creation = c;
+    } else {
+        thisChange.creation = activeChanges[dst].creation;
+        // Invalidate last change
+        activeChanges[dst].valid = false;
     }
 }
 
 
-AvailabilityStatistics::~AvailabilityStatistics() {
+void AvailabilityStatistics::finishAvailabilityStatistics() {
     // Write all valid changes
+    Simulator & sim = Simulator::getInstance();
     for (unsigned int i = 0; i < activeChanges.size(); ++i) {
         if (activeChanges[i].valid) {
             double t = activeChanges[i].duration();

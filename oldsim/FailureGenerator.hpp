@@ -24,27 +24,21 @@
 #define FAILUREGENERATOR_H_
 
 #include <vector>
-#include "Simulator.hpp"
+class BasicMsg;
 
-class FailureGenerator : public Simulator::InterEventHandler {
-	double meanTime;
-	unsigned int minFail, maxFail;
-	unsigned int numFailing;
-	unsigned int maxFailures;
-	std::vector<unsigned int> failingNodes;
+class FailureGenerator {
+    double meanTime;
+    unsigned int minFail, maxFail;
+    unsigned int numFailing;
+    unsigned int maxFailures;
+    std::vector<unsigned int> failingNodes;
 
-	void randomFailure();
+    void randomFailure();
 
 public:
-	FailureGenerator(double mtbf, unsigned int minf, unsigned int maxf, unsigned int mf = -1) :
-			Simulator::InterEventHandler(), meanTime(mtbf), minFail(minf), maxFail(maxf), maxFailures(mf) {
-		failingNodes.resize(sim.getNumNodes());
-		for (unsigned int i = 0; i < failingNodes.size(); i++)
-			failingNodes[i] = i;
-		randomFailure();
-	}
+    void startFailures(double mtbf, unsigned int minf, unsigned int maxf, unsigned int mf = -1);
 
-	bool blockEvent(const Simulator::Event & ev);
+    bool isNextFailure(const BasicMsg & msg);
 };
 
 #endif /*FAILUREGENERATOR_H_*/

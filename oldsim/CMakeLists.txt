@@ -8,10 +8,9 @@ add_subdirectory(cases)
 
 # Sources
 set(oldsim_sources
-	AvailabilityStatistics.cpp
+    AvailabilityStatistics.cpp
     Distributions.cpp
     FailureGenerator.cpp
-    JobStatistics.cpp
     MemoryManager.cpp
     StarsNode.cpp
     LibStarsStatistics.cpp
@@ -22,7 +21,6 @@ set(oldsim_sources
     SimTask.cpp
     SimulationCase.cpp
     Simulator.cpp
-    SlownessStatistics.cpp
     TrafficStatistics.cpp
     ${cases_sources})
 
