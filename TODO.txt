@@ -1,4 +1,20 @@
+Lib:
+- Remove the use of exceptions
+
+Sweeper:
+- Rewrite with better file syntax
+- Use wildcards for filename substitution
+- Create dependencies between cases
+- Relate a parameter to another one
+
+Old simulator:
+- Beware with common file paths, like siteLevel traces
+
+SimGrid based simulator:
 - Memory and disk properties are not persistent. They should be present in the platform xml, or otherwise they could be optionally saved in the network state file.
 - Add the rest of the statistics to the simulator: traffic and availability. Traffic is included in the simulation engine, I expect...
 - Add the perfect scheduler
 - Add the failure generator: it should be procedural and not part of the platform description
+
+All:
+- Documentation, comments and Doxygen

@@ -14,7 +14,7 @@ set (STaRS_VERSION_MINOR 1-alpha)
 # configure a header file to pass some of the CMake settings
 # to the source code
 configure_file (
-    "${PROJECT_SOURCE_DIR}/config.h.in"
+    "${PROJECT_SOURCE_DIR}/include/config.h.in"
     "${PROJECT_BINARY_DIR}/config.h"
 )
 
@@ -35,7 +35,3 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL Release)
 endif (NOT CMAKE_BUILD_TYPE STREQUAL Release)
 
 add_subdirectory(src)
-add_subdirectory(test)
-add_subdirectory(sim)
-add_subdirectory(sweeper)
-add_subdirectory(oldsim)

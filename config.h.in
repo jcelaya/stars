@@ -1,4 +1,0 @@
-// The configured options and settings for STaRS
-#define STARS_VERSION_MAJOR "@STaRS_VERSION_MAJOR@"
-#define STARS_VERSION_MINOR "@STaRS_VERSION_MINOR@"
-#define STARS_BUILD_TYPE "@CMAKE_BUILD_TYPE@"

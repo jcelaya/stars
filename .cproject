@@ -139,7 +139,9 @@
 		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/stars"/>
 		</configuration>
-		<configuration configurationName="RelWithDebInfo"/>
+		<configuration configurationName="RelWithDebInfo">
+			<resource resourceType="PROJECT" workspacePath="/stars"/>
+		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 	<storageModule moduleId="scannerConfiguration">
