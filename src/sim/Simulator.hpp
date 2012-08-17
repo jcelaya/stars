@@ -4,20 +4,18 @@
  *
  *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef SIMULATOR_H_
@@ -42,7 +40,7 @@ class BasicMsg;
 
 /**
  * Main simulator class.
- * 
+ *
  * This class interfaces the rest of the simulation components and the STaRS library
  * with SimGrid.
  */
@@ -58,20 +56,20 @@ public:
 
     /**
      * Run a simulation case.
-     * 
+     *
      * @param confFile The path to the configuration file for the case.
      */
     bool run(const std::string & confFile);
-    
+
     void stop() { end = true; }
-    
+
     bool doContinue();
-    
+
     /**
      * Returns the SimulationCase instance that is being run.
      */
     SimulationCase & getCase() { return *simCase; }
-    
+
     /**
      * Returns the number of nodes in the table. This is actually the number of processes,
      * which in practice is the same as the number of hosts.
@@ -79,22 +77,22 @@ public:
     unsigned long int getNumNodes() const {
         return MSG_get_host_number();
     }
-    
+
     StarsNode & getNode(unsigned int i) {
         return routingTable[i];
     }
-    
+
     /**
      * Returns the path of the directory containing the result files, such as logs.
      */
     const boost::filesystem::path & getResultDir() const {
         return resultDir;
     }
-    
+
     bool isInSimulation() const {
         return inSimulation;
     }
-    
+
     /**
      * Returns the StarsNode instance associated to the current process.
      */
@@ -103,7 +101,7 @@ public:
             return *static_cast<StarsNode *>(MSG_host_get_data(MSG_host_self()));
         else return routingTable[currentNode];
     }
-    
+
     /**
      * Returns the PerformanceStatistics object, to record a new event.
      */
@@ -169,7 +167,7 @@ public:
 private:
     // Log methods
     friend class LogMsg;
-    
+
     /**
      * Logs a message to the log file.
      * @param category The category of the message, with subcategories separated with dots.
@@ -177,14 +175,14 @@ private:
      * @param values The list of values to be logged.
      */
     void log(const char *  category, int priority, LogMsg::AbstractTypeContainer * values);
-    
+
     // Simulation framework
     boost::scoped_array<StarsNode> routingTable;   ///< The set of StarsNodes in this simulation.
     boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
     bool end;                                      ///< Signals the end of the simulation
     bool inSimulation;                             ///< States if the currently running code is inside MSG_main
     uint32_t currentNode;                          ///< Current node index when not inside MSG_main
-    
+
     boost::filesystem::path resultDir;                  ///< The path to the directory that contains the results.
     boost::filesystem::ofstream debugFile;              ///< The log4cpp file.
     boost::iostreams::filtering_ostream debugArchive;   ///< GZip filter for the log file.

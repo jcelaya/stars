@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef LOGGER_H_
@@ -38,10 +36,10 @@ public:
             r.output(os);
             return os;
         }
-        
+
         AbstractTypeContainer * next;
     };
-    
+
     /**
      * Initializes the logging facility with a configuration string. The string contains the same
      * pairs, separated by a semicolon.
@@ -56,9 +54,9 @@ public:
         }
         setPriority(config.substr(start));
     }
-    
+
     LogMsg(const char * c, int p) : first(NULL), last(NULL), category(c), priority(p) {}
-    
+
     ~LogMsg() {
         if (first != NULL) {
             log(category, priority, first);
@@ -69,7 +67,7 @@ public:
             }
         }
     }
-    
+
     template <typename T> LogMsg & operator<<(const T & value) {
         AbstractTypeContainer * n = new TypeReference<T>(value);
         if (first == NULL)
@@ -89,7 +87,7 @@ private:
             os << *value;
         }
     };
-    
+
     AbstractTypeContainer * first, * last;
     const char * category;
     int priority;

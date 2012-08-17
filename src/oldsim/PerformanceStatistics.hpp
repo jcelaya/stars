@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef PERFORMANCESTATISTICS_H_
@@ -31,31 +29,31 @@ namespace fs = boost::filesystem;
 
 class PerformanceStatistics {
 public:
-	struct EventStats {
-		clock_t start;
-		unsigned long int totalNumEvents, partialNumEvents;
-		double totalHandleTime, partialHandleTime;
-		EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
-	};
+    struct EventStats {
+        clock_t start;
+        unsigned long int totalNumEvents, partialNumEvents;
+        double totalHandleTime, partialHandleTime;
+        EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
+    };
 
-	static const double clocksPerUSecond = CLOCKS_PER_SEC / 1000000.0;
+    static const double clocksPerUSecond = CLOCKS_PER_SEC / 1000000.0;
 private:
-	std::map<std::string, EventStats> handleTimeStatistics;
+    std::map<std::string, EventStats> handleTimeStatistics;
 
-	fs::ofstream os;
+    fs::ofstream os;
 
 public:
-	void openFile(const fs::path & statDir);
+    void openFile(const fs::path & statDir);
 
-	void startEvent(const std::string & ev);
+    void startEvent(const std::string & ev);
 
-	void endEvent(const std::string & ev);
+    void endEvent(const std::string & ev);
 
-	EventStats getEvent(const std::string & ev) const;
+    EventStats getEvent(const std::string & ev) const;
 
-	void savePartialStatistics();
+    void savePartialStatistics();
 
-	void saveTotalStatistics();
+    void saveTotalStatistics();
 };
 
 #endif /* PERFORMANCESTATISTICS_H_ */

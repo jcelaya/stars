@@ -1,25 +1,22 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2011 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #include <sstream>
 #include <Wt/WApplication>
@@ -57,7 +54,7 @@ public:
 
 
 InterfaceApp::InterfaceApp(const WEnvironment & env) : WApplication(env) {
-    setTitle("PeerComp Web Interface");                               // application title
+    setTitle("STaRS Web Interface");                               // application title
 
     root()->addWidget(new WText("Your name, please ? "));  // show some text
     nameEdit = new WLineEdit(root());                     // allow text input
@@ -89,7 +86,7 @@ void WtUI::setup() {
     string HttpPortStr = static_cast<ostringstream &>(ostringstream() << ConfigurationManager::getInstance().getUIPort()).str();
     string docRoot = (ConfigurationManager::getInstance().getWorkingPath() / "ui_files").string();
     const char * argv[] = {
-        "PeerComp",
+        "STaRS",
         "--docroot", docRoot.c_str(),
         "--http-address", "0.0.0.0",
         "--http-port", HttpPortStr.c_str(),
@@ -100,7 +97,7 @@ void WtUI::setup() {
 //   "--ssl-tmp-dh", "",
     };
     int argc = sizeof(argv) / sizeof(const char *);
-    serverInstance.reset(new WServer(string("PeerComp"), (ConfigurationManager::getInstance().getWorkingPath() / "ui.xml").string()));
+    serverInstance.reset(new WServer(string("STaRS"), (ConfigurationManager::getInstance().getWorkingPath() / "ui.xml").string()));
     serverInstance->setServerConfiguration(argc, const_cast<char **>(argv));
     serverInstance->addEntryPoint(Wt::Application, InterfaceApp::createApplication);
 }

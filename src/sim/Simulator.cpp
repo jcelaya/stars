@@ -4,20 +4,18 @@
  *
  *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA••••••••  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <sys/resource.h>
@@ -103,12 +101,12 @@ int main(int argc, char * argv[]) {
 #endif
 
     std::signal(SIGUSR1, finish);
-    
+
     // Init simulation framework
     MSG_global_init(&argc, argv);
 
     bool result = Simulator::getInstance().run(std::string(argv[1]));
-    
+
     // Cleanup
     MSG_clean();
     return result ? 0 : 1;
@@ -140,7 +138,7 @@ bool Simulator::run(const std::string & confFile) {
     pt::ptime start = pt::microsec_clock::local_time();
     inSimulation = false;
     currentNode = 0;
-    
+
     // Create simulation case
     simCase.reset(CaseFactory::getInstance().createCase(property("case_name", std::string("")), property));
     if (!simCase.get()) {
@@ -148,11 +146,11 @@ bool Simulator::run(const std::string & confFile) {
         return false;
     }
     end = false;
-    
+
     // Prepare simulation case
     pstats.resizeNumNodes(1);
     pstats.startEvent("Prepare simulation case");
-    
+
     // Get working directory, and check if the execution log exists and/or must be overwritten
     resultDir = property("results_dir", std::string("./results"));
     if (!fs::exists(resultDir)) fs::create_directories(resultDir);
@@ -163,7 +161,7 @@ bool Simulator::run(const std::string & confFile) {
     }
     pstats.openStatsFile();
     starsStats.openStatsFiles();
-    
+
     // Set logging
     xbt_log_appender_set(&_simgrid_log_category__Progress, xbt_log_appender_file_new(const_cast<char *>(logFile.c_str())));
     xbt_log_layout_set(&_simgrid_log_category__Progress, xbt_log_layout_format_new(const_cast<char *>("%m%n")));
@@ -175,7 +173,7 @@ bool Simulator::run(const std::string & confFile) {
     }
     LogMsg::initLog(property("log_conf_string", std::string("root=WARN")));
     PROGRESS("Running simulation test at " << pt::microsec_clock::local_time() << ": " << property);
-    
+
     // Simulation variables
     maxRealTime = pt::seconds(property("max_time", 0));
     maxSimTime = Duration(property("max_sim_time", 0.0));
@@ -199,19 +197,19 @@ bool Simulator::run(const std::string & confFile) {
         routingTable[currentNode].setup(currentNode, hosts[currentNode]);
         MSG_process_create(NULL, StarsNode::processFunction, NULL, hosts[currentNode]);
     }
-    
+
     simCase->preStart();
-    
+
     PROGRESS(numNodes << " nodes, " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation network");
     pstats.endEvent("Prepare simulation case");
-    
+
     // Run simulation
     simStart = pt::microsec_clock::local_time();
     nextProgress = simStart + pt::seconds(showStep);
     inSimulation = true;
     MSG_error_t res = MSG_main();
     inSimulation = false;
-    
+
     simCase->postEnd();
     // Show statistics
     pt::ptime now = pt::microsec_clock::local_time();
@@ -221,22 +219,22 @@ bool Simulator::run(const std::string & confFile) {
         << MemoryManager::getInstance().getUsedMemory() << " mem   100%");
     starsStats.saveTotalStatistics();
     pstats.saveTotalStatistics();
-    
+
     // Finish
     for (currentNode = 0; currentNode < numNodes; ++currentNode) {
         routingTable[currentNode].finish();
     }
-    
+
     PROGRESS("Ending test at " << now << ". Lasted " << (now - start)
         << " and used " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes.");
-    
+
     return res == MSG_OK;
 }
 
 
 bool Simulator::doContinue() {
     if (end) return false;
-    
+
     {
         boost::mutex::scoped_lock lock(stepMutex);
         pt::ptime now = pt::microsec_clock::local_time();
@@ -262,6 +260,6 @@ bool Simulator::doContinue() {
             nextProgress = now + pt::seconds(showStep);
         }
     }
-    
+
     return !end;
 }

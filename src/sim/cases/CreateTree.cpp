@@ -6,7 +6,7 @@
  *
  *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  STaRS is distributed in the hope that it will be useful,
@@ -15,9 +15,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with STaRS; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <algorithm>
@@ -38,23 +36,23 @@ public:
     CreateTree(const Properties & p) : SimulationCase(p) {
         // Prepare the properties
     }
-    
+
     static const std::string getName() { return std::string("create_tree"); }
-    
+
     virtual void preStart() {
         // NOTE: outside MSG_main, do not call Simulator::getCurrentNode() !!
         Simulator & sim = Simulator::getInstance();
         uint32_t numNodes = sim.getNumNodes();
         uint32_t p2NumNodes = 1;
         for (uint32_t i = numNodes; i > 1; i >>= 1) p2NumNodes <<= 1;
-                                                  
+
         std::vector<uint32_t> treeNodes(numNodes);
         for (uint32_t i = 0; i < numNodes; i++) treeNodes[i] = i;
         // Shuffle
         std::random_shuffle(treeNodes.begin(), treeNodes.end());
-        
+
         std::list<snode> toCreate;
-        
+
         if (3 * p2NumNodes / 2 >= numNodes) {
             // Ok enough nodes for 3 children in level 0
             uint32_t threeChildren = numNodes - p2NumNodes;
@@ -133,7 +131,7 @@ public:
             snode root = toCreate.front();
             generateSNode(sim.getNode(root.addr), root.addr, root.children[0], root.children[1], root.level);
         }
-        
+
         // Prevent the simulator from running
         sim.stop();
     }
@@ -152,7 +150,7 @@ private:
         MemoryInArchive ia(v.begin());
         node.getResourceNode().serializeState(ia);
     }
-        
+
     void generateSNode(StarsNode & node, uint32_t sfather, uint32_t schild1, uint32_t schild2, int level) {
         Simulator & sim = Simulator::getInstance();
         std::vector<void *> v(10);
@@ -311,7 +309,7 @@ private:
             break;
         }
     }
-        
+
     template <class T>
     void generateDispatcher(StarsNode & node, const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level) {
         Simulator & sim = Simulator::getInstance();
@@ -345,7 +343,7 @@ private:
         static_cast<T &>(node.getDispatcher()).serializeState(iaa);
         static_cast<T &>(node.getDispatcher()).recomputeInfo();
     }
-    
+
     struct snode {
         std::vector<uint32_t> children;
         uint32_t addr;
@@ -380,4 +378,3 @@ private:
     };
 };
 REGISTER_SIMULATION_CASE(CreateTree);
-    

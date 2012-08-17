@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #define BOOST_TEST_DYN_LINK
@@ -97,8 +95,7 @@ bool init_unit_test_suite() {
         (*it)->setPriority((*it)->getName() == std::string("") ? Priority::WARN : Priority::NOTSET);
 
     // Load log config file
-    boost::filesystem::ifstream logconf(boost::filesystem::path("test")
-            / boost::filesystem::path("share/test/PeerCompLibTest.logconf"));
+    boost::filesystem::ifstream logconf(boost::filesystem::path("share/test/LibStarsTest.logconf"));
     std::string line;
     if (getline(logconf, line).good()) {
         LogMsg::initLog(line);

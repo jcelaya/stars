@@ -6,7 +6,7 @@
  *
  *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  STaRS is distributed in the hope that it will be useful,
@@ -15,9 +15,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with STaRS; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef LIBSTARSSTATISTICS_H_
@@ -35,10 +33,10 @@ class StarsNode;
 class LibStarsStatistics {
 public:
     LibStarsStatistics();
-    
+
     /// Open the statistics file at the given directory.
     void openStatsFiles();
-    
+
     void saveTotalStatistics() {
         saveCPUStatistics();
         finishQueueLengthStatistics();
@@ -48,16 +46,16 @@ public:
 
     // Public statistics handlers
     void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
-    
+
     void finishedApp(StarsNode & node, long int appId, Time end, int finishedTasks);
-    
+
     void taskStarted();
     void taskFinished(bool successful);
     unsigned long int getExistingTasks() const { return existingTasks; }
 
 private:
     boost::mutex m;
-    
+
     // Queue Statistics
     void finishQueueLengthStatistics();
     boost::filesystem::ofstream queueos;
@@ -65,7 +63,7 @@ private:
 
     // CPU Statistics
     void saveCPUStatistics();
-    
+
     // Throughput statistics
     void finishThroughputStatistics();
     boost::filesystem::ofstream throughputos;

@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <boost/thread/mutex.hpp>
@@ -57,13 +55,13 @@ public:
         meanTime = property("mean_time", 60.0) * sim.getNumNodes();
 
         // Send first request to every node without exceeding the number of instances
-		nextInstance = 0;
+        nextInstance = 0;
         for (uint32_t client = 0; client < sim.getNumNodes() && nextInstance < numInstances; ++client) {
             Time nextMsg = now + Duration(Simulator::exponential(meanTime));
             DispatchCommandMsg * dcm = rg.generate(sim.getNode(client), nextMsg);
             // Send this message to the client
             sim.getNode(client).setTimer(nextMsg, dcm);
-			nextInstance++;
+            nextInstance++;
         }
         remainingApps = 0;
     }
@@ -76,7 +74,7 @@ public:
             DispatchCommandMsg * dcm = rg.generate(node, nextMsg);
             // Send this message to the client
             node.setTimer(nextMsg, dcm);
-			nextInstance++;
+            nextInstance++;
         }
     }
 

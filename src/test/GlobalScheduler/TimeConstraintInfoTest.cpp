@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <list>
@@ -39,13 +37,13 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 /// TaskEventMsg
 BOOST_AUTO_TEST_CASE(tciMsg) {
     TestHost::getInstance().reset();
-    
+
     // Ctor
     TimeConstraintInfo e;
     shared_ptr<TimeConstraintInfo> p;
-    
+
     // TODO: Check other things
-    
+
     CheckMsgMethod::check(e, p);
 }
 
@@ -65,7 +63,7 @@ namespace {
     list<Time> createRandomLAF(double power, Time ct) {
         Time next = ct, h = ct + Duration(100000.0);
         list<Time> result;
-        
+
         // Add a random number of tasks, with random length
         while(AggregationTest<TimeConstraintInfo>::uniform(1, 3) != 1) {
             // Tasks of 5-60 minutes on a 1000 MIPS computer
@@ -81,11 +79,11 @@ namespace {
             // set a good horizon
             if (next < h) result.back() = h;
         }
-        
+
         return result;
     }
-    
-    
+
+
     string plot(TimeConstraintInfo::ATFunction & f) {
         ostringstream os;
         if (f.getPoints().empty()) {
@@ -122,7 +120,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(ATFunction) {
     TestHost::getInstance().reset();
-    
+
     Time ct = Time::getCurrentTime();
     Time h = ct + Duration(100000.0);
     TimeConstraintInfo::setNumRefPoints(8);
@@ -137,13 +135,13 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
     f.addNode(100, 200, 35, points);
     //TimeConstraintInfo::ATFunction f(35, points);
     LogMsg("Test.RI", INFO) << "Random Function: " << f;
-    
+
     // Min/max and sum of several functions
     LogMsg("Test.RI", INFO) << "";
     ofstream of("af_test.stat");
     for (int i = 0; i < 500; i++) {
         LogMsg("Test.RI", INFO) << "Functions " << i;
-        
+
         double f11power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
                f12power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
                f13power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
@@ -164,7 +162,7 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
                max.max(max, f13);
                max.max(max, f21);
                max.max(max, f22);
-               
+
                // Join f11 with f12
                TimeConstraintInfo::ATFunction f112;
                double accumAsq112 = f112.minAndLoss(f11, f12, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
@@ -172,28 +170,28 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
                TimeConstraintInfo::ATFunction accumAln112;
                accumAln112.max(f11, f12);
                BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ct, h), 0.0001);
-               
+
                // join f112 with f13, and that is f1
                TimeConstraintInfo::ATFunction f1;
                double accumAsq1 = f1.minAndLoss(f112, f13, 2, 1, accumAln112, TimeConstraintInfo::ATFunction(), ct, h) + accumAsq112;
                BOOST_CHECK_GE(accumAsq1 * 1.0001, f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h));
                TimeConstraintInfo::ATFunction accumAln1;
                accumAln1.max(accumAln112, f13);
-               
+
                // join f21 with f22, and that is f2
                TimeConstraintInfo::ATFunction f2;
                double accumAsq2 = f2.minAndLoss(f21, f22, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
                BOOST_CHECK_GE(accumAsq2 * 1.0001, f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h));
                TimeConstraintInfo::ATFunction accumAln2;
                accumAln2.max(f21, f22);
-               
+
                // join f1 with f2, and that is f
                TimeConstraintInfo::ATFunction f;
                double accumAsq = f.minAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ct, h) + accumAsq1 + accumAsq2;
                BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
                TimeConstraintInfo::ATFunction accumAln;
                accumAln.max(accumAln1, accumAln2);
-               
+
                // Print functions
                of << "# Functions " << i << endl;
                //              of << "# minloss(a, b) = " << loss << "; a.loss(b) = " << a.loss(b, ct, ref) << "; b.loss(a) = " << b.loss(a, ct, ref) << "; a.loss(min) = " << a.loss(r, ct, ref)
@@ -236,7 +234,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(tciAggr) {
     TestHost::getInstance().reset();
-    
+
     Time ct = Time::getCurrentTime();
     ClusteringVector<TimeConstraintInfo::MDFCluster>::setDistVectorSize(20);
     unsigned int numpoints = 10;
@@ -251,13 +249,13 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
             off << "# " << (nc * nc * nc) << " clusters" << endl;
             ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
             shared_ptr<TimeConstraintInfo> result = t.test(i);
-            
+
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
             TimeConstraintInfo::ATFunction minAvail, aggrAvail, treeAvail;
             TimeConstraintInfo::ATFunction & totalAvail = const_cast<TimeConstraintInfo::ATFunction &>(t.getPrivateData().totalAvail);
             minAvail.lc(t.getPrivateData().minAvail, dummy, t.getNumNodes(), 1.0);
-            
+
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
                 shared_ptr<TimeConstraintInfo> totalInformation = t.getTotalInformation();
@@ -269,7 +267,7 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
                     aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
                 }
             }
-            
+
             unsigned long int treeMem = 0, treeDisk = 0;
             {
                 const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = result->getSummary();
@@ -282,7 +280,7 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
                     treeAvail.lc(treeAvail, u.minA, 1.0, u.value);
                 }
             }
-            
+
             LogMsg("Test.RI", INFO) << "H. " << i << " nc. " << nc << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
             << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
             << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";

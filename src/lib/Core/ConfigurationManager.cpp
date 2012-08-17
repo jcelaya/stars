@@ -1,29 +1,28 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <iostream>
 #include <sstream>
 #include <boost/filesystem/fstream.hpp>
 #include "ConfigurationManager.hpp"
+#include "config.h"
 using namespace std;
 using namespace boost::program_options;
 namespace fs = boost::filesystem;
@@ -51,7 +50,7 @@ ConfigurationManager::ConfigurationManager() : description("Allowed options") {
     heartbeat = 60;
     availMemory = 128;
     availDisk = 200;
-    dbPath = workingPath / boost::filesystem::path("PeerComp.db");
+    dbPath = workingPath / boost::filesystem::path("stars.db");
 
     // Options description
     description.add_options()
@@ -100,12 +99,13 @@ bool ConfigurationManager::loadCommandLine(int argc, char * argv[]) {
     notify(vm);
 
     if (vm.count("help")) {
-        cerr << "Usage: PeerComp [options]" << endl;
+        cerr << "Usage: stars-peer [options]" << endl;
         cerr << cmd_line << endl;
         return true;
     }
     if (vm.count("version")) {
-        cerr << "PeerComp v0.1-alpha" << endl << "Copyright Javier Celaya, Universidad de Zaragoza. Licensed under GPLv3." << endl;
+        cerr << "STaRS peer v" << STARS_VERSION_MAJOR << '.' << STARS_VERSION_MINOR << endl;
+        cerr << "Copyright Javier Celaya, Universidad de Zaragoza. Licensed under GPLv3." << endl;
         return true;
     }
     if (vm.count("config")) {

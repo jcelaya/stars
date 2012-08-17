@@ -4,20 +4,18 @@
  *
  *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <sys/user.h>
@@ -48,14 +46,14 @@ void MemoryManager::update() {
         std::ifstream meminfo("/proc/meminfo");
         meminfo >> dummy >> max;
         max = (max << 1) * 461;   // Approx 90% of total memory
-        
+
         std::ifstream file(p);
         for (int i = 0; file.good() && i < 23; ++i)
             file.ignore(1000, ' ');
         file >> current;
         current *= pagesize;
         if (maxUsed < current) maxUsed = current;
-        
+
         nextUpdate = now + boost::posix_time::seconds(5);
     }
 }
