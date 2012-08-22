@@ -70,6 +70,11 @@ private:
     NetworkManager & operator=(const NetworkManager &);
 
     /*
+     * Handler for the connection with a remote node
+     */
+    void handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c);
+
+    /*
      * Handler for the sending of a message
      */
     void handleWrite(const boost::system::error_code & error, boost::shared_ptr<Connection> c);

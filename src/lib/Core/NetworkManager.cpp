@@ -56,11 +56,20 @@ unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg
     msg->pack(pk);
     unsigned int size = c->writeBuffer.size();
     LogMsg("Comm", DEBUG) << "Sending " << *msg << " to " << dst;
-    // TODO: Check dst availability
-    c->socket.connect(tcp::endpoint(dst.getIP(), dst.getPort()));
-    LogMsg("Comm", DEBUG) << "Connection established between src(" << c->socket.local_endpoint() << ") and dst(" << c->socket.remote_endpoint() << ')';
-    net::async_write(c->socket, c->writeBuffer.data(), bind(&NetworkManager::handleWrite, this, net::placeholders::error, c));
+    c->socket.async_connect(tcp::endpoint(dst.getIP(), dst.getPort()),
+            bind(&NetworkManager::handleConnect, this, net::placeholders::error, c));
     return size;
+}
+
+
+void NetworkManager::handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c) {
+    if (!error) {
+        LogMsg("Comm", DEBUG) << "Connection established between src(" << c->socket.local_endpoint() << ") and dst(" << c->socket.remote_endpoint() << ')';
+        net::async_write(c->socket, c->writeBuffer.data(),
+                bind(&NetworkManager::handleWrite, this, net::placeholders::error, c));
+    } else {
+        LogMsg("Comm", ERROR) << "Destination unreachable.";
+    }
 }
 
 
