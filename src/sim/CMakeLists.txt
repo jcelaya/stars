@@ -28,5 +28,5 @@ if(SIMGRID_FOUND)
 
     # add the executable
     add_executable(stars-simgrid${BIN_SUFFIX} ${starssim_sources})
-    target_link_libraries(stars-simgrid${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES} ${MSGPACK_LIBRARIES})
+    target_link_libraries(stars-simgrid${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES} ${MSGPACK_LIBRARIES} ${Wt_LIBRARIES})
 endif(SIMGRID_FOUND)
