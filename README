@@ -1,0 +1,105 @@
+STaRS - A Scalable Task Routing approach to distributed Scheduling
+------------------------------------------------------------------
+
+STaRS is a distributed scheduler of bag-of-tasks applications. It creates a
+P2P overlay for the distribution of tasks among execution nodes, following
+arbitrary policies. Its main goal is to reach scales not provided by any other
+similar project.
+
+It is currently in pre-Alpha stage, only simulation is possible.
+
+
+License
+=======
+
+STaRS is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+STaRS is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details. A copy of the license
+is included in the file LICENSE; if not, see <http://www.gnu.org/licenses/>.
+
+
+Compilation
+===========
+
+STaRS depends on the following software:
+
+- CMake 2.6 or higher
+- Boost libs 1.46 or higher
+- libLog4CPP
+- MsgPack (tested with v. 0.5.7)
+
+Optionally, some parts are also compiled with the following software:
+
+- SimGrid 3.6 or higher
+- Wt 3.2 or higher
+
+The build system uses a mix of GNU make and CMake. CMake should be able to
+find the required libraries if they are in common locations, like /usr or
+/usr/local. In order to build a certain CMake build type, you can type the
+usual:
+
+$ mkdir build
+$ cd build
+$ cmake .. -DCMAKE_BUILD_TYPE:STRING=type
+$ make
+
+or just use the Makefile in the main directory and issue:
+
+$ make CONFIG=type
+
+This is the same as:
+
+$ mkdir -p build/type
+$ cd build/type
+$ cmake ../.. -DCMAKE_BUILD_TYPE:STRING=type
+$ make
+
+In this way, different build types can be built at the same time.
+This Makefile has been included in order to provide compatibility with
+Eclipse CDT. Just create a Makefile project and set the correct CONFIG
+variable for each build configuration.
+
+
+Usage
+=====
+
+TODO
+
+
+Simulation
+==========
+
+Two simulators are provided, a custom sequential simulator and an
+experimental SimGrid based simulator. The later is not finished yet
+and lacks many features.
+
+The custom simulator is located in the oldsim directory. It is invoked with
+the command:
+
+$ stars-oldsim config_file
+
+The config_file is a file with a set of properties in the form of key=value,
+one per line. The special key case_name defines the case to be executed. Then,
+each case has some specific properties and the rest are common to the
+simulation platform. See the examples for further explanation.
+
+The sweeper command can be used to launch a set of parameter sweep simulations.
+It is invoked as:
+
+$ sweeper -c config_file [-p num_proc] [-e simulator_exe] [-m max_memory]
+
+The config_file file is similar to the configuration file of the simulator,
+but special notation is used to assign lists and sequences of values to a
+single key. The sweeper command generates a simulator configuration file for
+each each possible combination. The simulator_exe program is used to launch
+the simulations; if it is missing, only the configuration files are generated.
+Finally, num_proc stablishes the number of parallel simulator processes to
+launch at the same time, and max_memory is the maximum physical memory that
+can be used by all the processes at the same time. See the examples for
+further explanation.
