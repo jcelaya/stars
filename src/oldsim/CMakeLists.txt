@@ -28,4 +28,4 @@ set(STARS_LIBRARIES stars${BIN_SUFFIX})
 
 # add the executable
 add_executable(stars-oldsim${BIN_SUFFIX} ${oldsim_sources})
-target_link_libraries(stars-oldsim${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES})
+target_link_libraries(stars-oldsim${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} ${Wt_LIBRARIES})

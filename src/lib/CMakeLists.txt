@@ -11,7 +11,10 @@ add_subdirectory(ExecutionManager)
 add_subdirectory(GlobalScheduler)
 add_subdirectory(StructureManager)
 add_subdirectory(SubmissionManager)
-add_subdirectory(WtUI)
+if (Wt_FOUND)
+    include_directories(${Wt_INCLUDE_DIR})
+    add_subdirectory(WtUI)
+endif (Wt_FOUND)
 
 # add the library
 set(STARS_LIBRARIES stars${BIN_SUFFIX})
@@ -19,4 +22,4 @@ add_library(${STARS_LIBRARIES} SHARED ${stars_sources})
 
 # add the executable
 add_executable(stars-peer${BIN_SUFFIX} Core/main.cpp)
-target_link_libraries(stars-peer${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES})
+target_link_libraries(stars-peer${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} ${Wt_LIBRARIES})
