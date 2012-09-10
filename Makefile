@@ -1,4 +1,4 @@
-CONFIG=Debug
+CONFIG?=Debug
 
 all: build/$(CONFIG)/Makefile
 	$(MAKE) -C build/$(CONFIG)
