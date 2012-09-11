@@ -28,6 +28,12 @@ using boost::bind;
 using net::ip::tcp;
 
 
+NetworkManager::Connection::~Connection() {
+    socket.shutdown(tcp::socket::shutdown_both);
+    socket.close();
+}
+
+
 NetworkManager::NetworkManager() : acceptor(io), incoming(new Connection(io)), timer(io) {}
 
 
@@ -38,7 +44,7 @@ void NetworkManager::listen() {
     acceptor.listen();
     acceptor.async_accept(incoming->socket,
                           bind(&NetworkManager::handleAccept, this, net::placeholders::error));
-    t.reset(new boost::thread(bind(&net::io_service::run, &io)));
+    t.reset(new boost::thread(bind((size_t (net::io_service:: *)())(&net::io_service::run), &io)));
     LogMsg("Net", INFO) << "Thread " << t->get_id() << " accepting connections on port " << ConfigurationManager::getInstance().getPort();
     // The following is needed for the test cases, it does nothing in production code
     io.dispatch(CommLayer::getInstance);
@@ -48,6 +54,7 @@ void NetworkManager::listen() {
 unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg) {
     // Serialize the message
     boost::shared_ptr<Connection> c(new Connection(io));
+    c->dst = dst;
     std::ostream buffer(&c->writeBuffer);
     msgpack::packer<std::ostream> pk(&buffer);
     // Send the source port number
@@ -64,11 +71,11 @@ unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg
 
 void NetworkManager::handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c) {
     if (!error) {
-        LogMsg("Comm", DEBUG) << "Connection established between src(" << c->socket.local_endpoint() << ") and dst(" << c->socket.remote_endpoint() << ')';
+        LogMsg("Comm", DEBUG) << "Connection established with " << c->dst;
         net::async_write(c->socket, c->writeBuffer.data(),
                 bind(&NetworkManager::handleWrite, this, net::placeholders::error, c));
     } else {
-        LogMsg("Comm", ERROR) << "Destination unreachable.";
+        LogMsg("Comm", WARN) << "Destination unreachable: " << c->dst;
     }
 }
 

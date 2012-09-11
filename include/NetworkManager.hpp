@@ -58,11 +58,13 @@ private:
      * A connection between this node and another one
      */
     struct Connection {
+        CommAddress dst;
         boost::asio::ip::tcp::socket socket;            ///< Socket connecting with the other node
         boost::asio::streambuf readBuffer;    ///< Read buffer
         boost::asio::streambuf writeBuffer;   ///< Write buffer
         static const std::size_t maxReadBufferSize = 1000000;
         Connection(boost::asio::io_service & io) : socket(io), readBuffer(maxReadBufferSize) {}
+        ~Connection();
     };
 
     // Non-copyable
