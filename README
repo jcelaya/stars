@@ -75,9 +75,12 @@ TODO
 Simulation
 ==========
 
-Two simulators are provided, a custom sequential simulator and an
-experimental SimGrid based simulator. The later is not finished yet
-and lacks many features.
+Two simulators are provided, a custom sequential simulator and an experimental
+SimGrid based simulator. The later is not finished yet and lacks many
+features. The simulators substitute all the code related to networking and
+time management, and some other parts that are not relevant for the performance
+analysis, like database access. It also provides those parts that are not yet
+implemented or in an experimental state, like the DHT access and sandboxing.
 
 The custom simulator is located in the oldsim directory. It is invoked with
 the command:
