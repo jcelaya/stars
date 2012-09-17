@@ -172,8 +172,8 @@ private:
             zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
             zone->setMaxAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
         } else {
-            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getSructureNode().getZoneDesc()));
-            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getSructureNode().getZoneDesc()));
+            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getStructureNode().getZoneDesc()));
+            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getStructureNode().getZoneDesc()));
             zone->setMinAddress(zone1->getMinAddress());
             zone->setMaxAddress(zone2->getMaxAddress());
         }
@@ -190,7 +190,7 @@ private:
         int state = StructureNode::ONLINE;
         oa << state << m << level << zone << zone << father << seq << subZones;
         MemoryInArchive ia(v.begin());
-        node.getSructureNode().serializeState(ia);
+        node.getStructureNode().serializeState(ia);
 
         // Generate Dispatcher state
         switch (node.getSchedulerType()) {
@@ -266,9 +266,9 @@ private:
             zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
             zone->setMaxAddress(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
         } else {
-            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getSructureNode().getZoneDesc()));
-            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getSructureNode().getZoneDesc()));
-            zone3.reset(new ZoneDescription(*sim.getNode(schild3).getSructureNode().getZoneDesc()));
+            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getStructureNode().getZoneDesc()));
+            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getStructureNode().getZoneDesc()));
+            zone3.reset(new ZoneDescription(*sim.getNode(schild3).getStructureNode().getZoneDesc()));
             zone->setMinAddress(zone1->getMinAddress());
             zone->setMaxAddress(zone3->getMaxAddress());
         }
@@ -289,7 +289,7 @@ private:
         int state = StructureNode::ONLINE;
         oa << state << m << level << zone << zone << father << seq << subZones;
         MemoryInArchive ia(v.begin());
-        node.getSructureNode().serializeState(ia);
+        node.getStructureNode().serializeState(ia);
 
         // Generate Dispatcher state
         switch (node.getSchedulerType()) {

@@ -55,7 +55,6 @@ ostream & operator<<(ostream& os, const ResourceNode & e) {
         os << "/" << e.newFather;
     }
     os << " seq=" << e.seq;
-    os << " avail=" << e.zoneDesc->getAvailableStrNodes();
     os << " " << e.delayedMessages.size() << " waiting";
     return os;
 }
@@ -80,28 +79,26 @@ string ResourceNode::getStatus() const {
 
 
 ResourceNode::ResourceNode(StructureNode & sn) : StructureNodeObserver(sn),
-        seq(1), transaction(NULL_TRANSACTION_ID) {
-    zoneDesc.reset(new ZoneDescription);
-    zoneDesc->setAvailableStrNodes(1);
-}
+        seq(1), transaction(NULL_TRANSACTION_ID), availableStrNodes(true) {}
 
 
 void ResourceNode::notifyFather() {
     if (father != CommAddress()) {
-        if (!notifiedZoneDesc.get() || !(*notifiedZoneDesc == *zoneDesc)) {
-            notifiedZoneDesc.reset(new ZoneDescription(*zoneDesc));
-            DEBUG_LOG("There were changes. Sending update to the father");
-            UpdateZoneMsg * u = new UpdateZoneMsg;
-            u->setZone(*notifiedZoneDesc);
-            u->setSequence(seq++);
-            CommLayer::getInstance().sendMessage(father, u);
-        }
+        DEBUG_LOG("There were changes. Sending update to the father");
+        ZoneDescription zone;
+        zone.setAvailableStrNodes(availableStrNodes ? 1 : 0);
+        zone.setMaxAddress(CommLayer::getInstance().getLocalAddress());
+        zone.setMinAddress(CommLayer::getInstance().getLocalAddress());
+        UpdateZoneMsg * u = new UpdateZoneMsg;
+        u->setZone(zone);
+        u->setSequence(seq++);
+        CommLayer::getInstance().sendMessage(father, u);
     }
 }
 
 
 void ResourceNode::availabilityChanged(bool available) {
-    zoneDesc->setAvailableStrNodes(available ? 1 : 0);
+    availableStrNodes = available;
     if (transaction == NULL_TRANSACTION_ID) notifyFather();
 }
 
@@ -115,7 +112,6 @@ void ResourceNode::commit() {
         father = newFather;
         newFather = CommAddress();
         seq = 1;
-        notifiedZoneDesc.reset();
         notifyFather();
         fireFatherChanged(true);
     }
@@ -258,8 +254,6 @@ template<> void ResourceNode::handle(const CommAddress & src, const InsertComman
     // Check we are not in network
     if (father == CommAddress()) {
         fireFatherChanging();
-        zoneDesc->setMinAddress(CommLayer::getInstance().getLocalAddress());
-        zoneDesc->setMaxAddress(CommLayer::getInstance().getLocalAddress());
         InsertMsg * im = new InsertMsg;
         im->setWho(CommLayer::getInstance().getLocalAddress());
         // Start a new transaction

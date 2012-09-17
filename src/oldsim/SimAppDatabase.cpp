@@ -26,13 +26,12 @@ using namespace boost::filesystem;
 
 
 long int SimAppDatabase::lastInstance = 0, SimAppDatabase::lastRequest = 0;
-unsigned long int SimAppDatabase::totalApps = 0, SimAppDatabase::totalAppsMemory = 0;
 unsigned long int SimAppDatabase::totalInstances = 0, SimAppDatabase::totalInstancesMemory = 0;
 unsigned long int SimAppDatabase::totalRequests = 0, SimAppDatabase::totalRequestsMemory = 0;
 
 
 std::ostream & operator<<(std::ostream & os, const SimAppDatabase & s) {
-    return os << s.apps.size() << " apps, " << s.instances.size() << " instances, " << s.requests.size() << " requests";
+    return os << s.instances.size() << " instances, " << s.requests.size() << " requests";
 }
 
 
@@ -41,24 +40,6 @@ SimAppDatabase & SimAppDatabase::getCurrentDatabase() {
     LogMsg("Database.Sim", DEBUG) << "Getting database from node " << Simulator::getInstance().getCurrentNode().getLocalAddress()
             << ": " << sdb;
     return sdb;
-}
-
-
-void SimAppDatabase::createAppDescription(const std::string & name, const TaskDescription & req) {
-    lastApp.first = name;
-    lastApp.second = req;
-    apps[name] = req;
-    totalApps++;
-    totalAppsMemory += name.size() + sizeof(TaskDescription);
-    LogMsg("Database.Sim", DEBUG) << "Created app " << name << ", resulting in " << *this;
-}
-
-
-void SimAppDatabase::dropAppDescription(const std::string & name) {
-    totalApps--;
-    totalAppsMemory -= name.size() + sizeof(TaskDescription);
-    apps.erase(name);
-    LogMsg("Database.Sim", DEBUG) << "Removed app " << name << ", resulting in " << *this;
 }
 
 
@@ -104,7 +85,6 @@ Database::Database(const boost::filesystem::path & dbFile) : db(NULL) {
 
 
 void TaskBagAppDatabase::createApp(const std::string & name, const TaskDescription & req) {
-    SimAppDatabase::getCurrentDatabase().createAppDescription(name, req);
 }
 
 
@@ -119,14 +99,11 @@ void TaskBagAppDatabase::getAppRequirements(long int appId, TaskDescription & re
 long int TaskBagAppDatabase::createAppInstance(const std::string & name, Time deadline) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
 
-    map<string, TaskDescription>::iterator it = sdb.apps.find(name);
-    if (it == sdb.apps.end()) throw Database::Exception(db) << "No application with name " << name;
-
     // Create instance
     sdb.lastInstance++;
     LogMsg("Database.Sim", DEBUG) << "Creating instance " << sdb.lastInstance << " for application " << name;
     SimAppDatabase::AppInstance & inst = sdb.instances[sdb.lastInstance];
-    inst.req = it->second;
+    inst.req = sdb.nextApp;
     inst.req.setDeadline(deadline);
     inst.ctime = Time::getCurrentTime();
 

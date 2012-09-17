@@ -56,6 +56,14 @@ public:
         MinSlownessSchedulerClass = 3,
     };
 
+    enum {
+        SN = 0,
+        RN,
+        Sub,
+        Sch,
+        Disp,
+    };
+
     StarsNode() {}
     StarsNode(const StarsNode & copy) {}
 
@@ -74,22 +82,12 @@ public:
         return mailbox;
     }
 
-    // setup() must be called before these methods
-    StructureNode & getSructureNode() const {
-        return *structureNode;
-    }
-    ResourceNode & getResourceNode() const {
-        return *resourceNode;
-    }
-    SubmissionNode & getSubmissionNode() const {
-        return *submissionNode;
-    }
-    Scheduler & getScheduler() const {
-        return *scheduler;
-    }
-    DispatcherInterface & getDispatcher() const {
-        return *dispatcher;
-    }
+    // createServices() must be called before these methods
+    StructureNode & getStructureNode() const { return static_cast<StructureNode &>(*services[SN]); }
+    ResourceNode & getResourceNode() const { return static_cast<ResourceNode &>(*services[RN]); }
+    SubmissionNode & getSubmissionNode() const { return static_cast<SubmissionNode &>(*services[Sub]); }
+    Scheduler & getScheduler() const { return static_cast<Scheduler &>(*services[Sch]); }
+    DispatcherInterface & getDispatcher() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() {
         return db;
     }
@@ -115,14 +113,6 @@ public:
     //     unsigned int getRoot() const;
     //     static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
     //     static void checkTree();
-
-    //     void generateRNode(uint32_t rfather);
-    //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, int level);
-    //     void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
-    //     template <class T>
-    //     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, int level);
-    //     template <class T>
-    //     void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
 
     friend std::ostream & operator<<(std::ostream & os, const StarsNode & n) {
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
@@ -150,11 +140,6 @@ private:
     m_host_t simHost;
     std::string mailbox;
     int schedulerType;
-    boost::scoped_ptr<StructureNode> structureNode;
-    boost::scoped_ptr<ResourceNode> resourceNode;
-    boost::scoped_ptr<SubmissionNode> submissionNode;
-    boost::scoped_ptr<Scheduler> scheduler;
-    boost::scoped_ptr<DispatcherInterface> dispatcher;
     SimAppDatabase db;
     double power;
     unsigned long int mem;

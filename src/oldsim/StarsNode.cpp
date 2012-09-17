@@ -220,39 +220,32 @@ void StarsNode::finish() {
     // Very important to set current node before destroying services
     Simulator::getInstance().setCurrentNode(getLocalAddress().getIPNum());
     // Gracely terminate the services
-    unregisterService(dispatcher.get());
-    dispatcher.reset();
-    unregisterService(scheduler.get());
-    scheduler.reset();
-    unregisterService(submissionNode.get());
-    submissionNode.reset();
-    unregisterService(resourceNode.get());
-    resourceNode.reset();
-    unregisterService(structureNode.get());
-    structureNode.reset();
+    for (int i = services.size() - 1; i >= 0; --i)
+        delete services[i];
+    services.clear();
 }
 
 
 void StarsNode::createServices() {
-    structureNode.reset(new StructureNode(2));
-    resourceNode.reset(new ResourceNode(*structureNode));
-    submissionNode.reset(new SubmissionNode(*resourceNode));
+    services.push_back(new StructureNode(2));
+    services.push_back(new ResourceNode(getS()));
+    services.push_back(new SubmissionNode(getE()));
     switch (schedulerType) {
         case StarsNode::FCFSSchedulerClass:
-            scheduler.reset(new FCFSScheduler(*resourceNode));
-            dispatcher.reset(new QueueBalancingDispatcher(*structureNode));
+            services.push_back(new FCFSScheduler(getE()));
+            services.push_back(new QueueBalancingDispatcher(getS()));
             break;
         case StarsNode::EDFSchedulerClass:
-            scheduler.reset(new EDFScheduler(*resourceNode));
-            dispatcher.reset(new DeadlineDispatcher(*structureNode));
+            services.push_back(new EDFScheduler(getE()));
+            services.push_back(new DeadlineDispatcher(getS()));
             break;
         case StarsNode::MSSchedulerClass:
-            scheduler.reset(new MinSlownessScheduler(*resourceNode));
-            dispatcher.reset(new MinSlownessDispatcher(*structureNode));
+            services.push_back(new MinSlownessScheduler(getE()));
+            services.push_back(new MinSlownessDispatcher(getS()));
             break;
         default:
-            scheduler.reset(new SimpleScheduler(*resourceNode));
-            dispatcher.reset(new SimpleDispatcher(*structureNode));
+            services.push_back(new SimpleScheduler(getE()));
+            services.push_back(new SimpleDispatcher(getS()));
             break;
     }
 }
@@ -297,20 +290,20 @@ void StarsNode::packState(std::streambuf & out) {
     msgpack::sbuffer buffer;
     msgpack::packer<msgpack::sbuffer> pk(&buffer);
     MsgpackOutArchive ar(pk);
-    structureNode->serializeState(ar);
-    resourceNode->serializeState(ar);
+    getS().serializeState(ar);
+    getE().serializeState(ar);
     switch (schedulerType) {
         case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<SimpleDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<QueueBalancingDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<DeadlineDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case MSSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<MinSlownessDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -364,20 +357,20 @@ void StarsNode::unpackState(std::streambuf & in) {
     in.sgetn(upk.buffer(), size);
     upk.buffer_consumed(size);
     MsgpackInArchive ar(upk);
-    structureNode->serializeState(ar);
-    resourceNode->serializeState(ar);
+    getS().serializeState(ar);
+    getE().serializeState(ar);
     switch (schedulerType) {
         case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<SimpleDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<QueueBalancingDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<DeadlineDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         case MSSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<MinSlownessDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -386,20 +379,20 @@ void StarsNode::unpackState(std::streambuf & in) {
 
 
 shared_ptr<AvailabilityInformation> StarsNode::getBranchInfo() const {
-    return dispatcher->getBranchInfo();
+    return getDispatcher().getBranchInfo();
 }
 
 
 shared_ptr<AvailabilityInformation> StarsNode::getChildInfo(const CommAddress & child) const {
-    return dispatcher->getChildInfo(child);
+    return getDispatcher().getChildInfo(child);
 }
 
 
 unsigned int StarsNode::getSNLevel() const {
-    if (!structureNode->inNetwork())
-        return Simulator::getInstance().getNode(resourceNode->getFather().getIPNum()).getSNLevel() + 1;
-    else if (structureNode->getFather() != CommAddress())
-        return Simulator::getInstance().getNode(structureNode->getFather().getIPNum()).getSNLevel() + 1;
+    if (!getS().inNetwork())
+        return Simulator::getInstance().getNode(getE().getFather().getIPNum()).getSNLevel() + 1;
+    else if (getS().getFather() != CommAddress())
+        return Simulator::getInstance().getNode(getS().getFather().getIPNum()).getSNLevel() + 1;
     else return 0;
 }
 
@@ -407,30 +400,30 @@ unsigned int StarsNode::getSNLevel() const {
 void StarsNode::showRecursive(log4cpp::Priority::Value prio, unsigned int level, const string & prefix) {
     shared_ptr<AvailabilityInformation> info = getBranchInfo();
     if (info.get())
-        treeCat << prio << prefix << "S@" << localAddress << ": " << *structureNode << ' ' << *info;
+        treeCat << prio << prefix << "S@" << localAddress << ": " << getS() << ' ' << *info;
     else
-        treeCat << prio << prefix << "S@" << localAddress << ": " << *structureNode << " ?";
+        treeCat << prio << prefix << "S@" << localAddress << ": " << getS() << " ?";
     if (level) {
-        for (unsigned int i = 0; i < structureNode->getNumChildren(); i++) {
-            bool last = i == structureNode->getNumChildren() - 1;
+        for (unsigned int i = 0; i < getS().getNumChildren(); i++) {
+            bool last = i == getS().getNumChildren() - 1;
             stringstream father, child;
             father << prefix << "  " << ((last) ? '\\' : '|') << "- ";
             child << prefix << "  " << ((last) ? ' ' : '|') << "  ";
 
             uint32_t childAddr;
-            if (structureNode->getSubZone(i)->getLink() != CommAddress())
-                childAddr = structureNode->getSubZone(i)->getLink().getIPNum();
-            else childAddr = structureNode->getSubZone(i)->getNewLink().getIPNum();
+            if (getS().getSubZone(i)->getLink() != CommAddress())
+                childAddr = getS().getSubZone(i)->getLink().getIPNum();
+            else childAddr = getS().getSubZone(i)->getNewLink().getIPNum();
             StarsNode & childNode = Simulator::getInstance().getNode(childAddr);
             info = getChildInfo(CommAddress(childAddr, ConfigurationManager::getInstance().getPort()));
             if (info.get())
-                treeCat << prio << father.str() << *structureNode->getSubZone(i) << ' ' << *info;
+                treeCat << prio << father.str() << *getS().getSubZone(i) << ' ' << *info;
             else
-                treeCat << prio << father.str() << *structureNode->getSubZone(i) << " ?";
-            if (!structureNode->isRNChildren()) {
+                treeCat << prio << father.str() << *getS().getSubZone(i) << " ?";
+            if (!getS().isRNChildren()) {
                 childNode.showRecursive(prio, level - 1, child.str());
             } else {
-                treeCat << prio << child.str() << "R@" << CommAddress(childAddr, ConfigurationManager::getInstance().getPort()) << ": " << *childNode.resourceNode << " "
+                treeCat << prio << child.str() << "R@" << CommAddress(childAddr, ConfigurationManager::getInstance().getPort()) << ": " << childNode.getE() << " "
                         << childNode << ' ' << childNode.getScheduler().getAvailability();
             }
         }
@@ -443,18 +436,18 @@ void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
         StructureNode * father = NULL;
         uint32_t fatherIP = 0;
         if (isBranch) {
-            if (structureNode->getFather() != CommAddress()) {
-                fatherIP = structureNode->getFather().getIPNum();
-                father = Simulator::getInstance().getNode(fatherIP).structureNode.get();
+            if (getS().getFather() != CommAddress()) {
+                fatherIP = getS().getFather().getIPNum();
+                father = &Simulator::getInstance().getNode(fatherIP).getS();
             }
         }
         else {
-            if (resourceNode->getFather() != CommAddress()) {
-                fatherIP = resourceNode->getFather().getIPNum();
-                father = Simulator::getInstance().getNode(fatherIP).structureNode.get();
+            if (getE().getFather() != CommAddress()) {
+                fatherIP = getS().getFather().getIPNum();
+                father = &Simulator::getInstance().getNode(fatherIP).getS();
             } else {
                 // This may be an error...
-                treeCat.warnStream() << "Resource node without father???: R@" << localAddress << ": " << *resourceNode;
+                treeCat.warnStream() << "Resource node without father???: R@" << localAddress << ": " << getE();
                 return;
             }
         }
@@ -472,7 +465,7 @@ void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
                 if (!father->isRNChildren()) {
                     childNode.showRecursive(prio, childAddr == localAddress.getIPNum() ? 1 : 0, (last ? "     " : "  |  "));
                 } else {
-                    treeCat << prio << (last ? "     " : "  |  ") << "R@" << childNode.localAddress << ": " << *childNode.resourceNode;
+                    treeCat << prio << (last ? "     " : "  |  ") << "R@" << childNode.localAddress << ": " << childNode.getE();
                 }
             }
         }
@@ -482,7 +475,7 @@ void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
 
 
 unsigned int StarsNode::getRoot() const {
-    const CommAddress & father = structureNode->inNetwork() ? structureNode->getFather() : resourceNode->getFather();
+    const CommAddress & father = getS().inNetwork() ? getS().getFather() : getE().getFather();
     if (father != CommAddress()) return Simulator::getInstance().getNode(father.getIPNum()).getRoot();
     else return localAddress.getIPNum();
 }
@@ -494,7 +487,7 @@ void StarsNode::showTree(log4cpp::Priority::Value prio) {
         for (unsigned int i = 0; i < Simulator::getInstance().getNumNodes(); i++) {
             unsigned int rootIP = Simulator::getInstance().getNode(i).getRoot();
             StarsNode & root = Simulator::getInstance().getNode(rootIP);
-            if (root.structureNode->inNetwork()) {
+            if (root.getS().inNetwork()) {
                 root.showRecursive(prio, -1);
                 treeCat << prio << "";
                 treeCat << prio << "";
@@ -540,14 +533,11 @@ void StarsNode::generateRNode(uint32_t rfather) {
     vector<void *> v(10);
     MemoryOutArchive oa(v.begin());
     // Generate ResourceNode information
-    shared_ptr<ZoneDescription> rzone(new ZoneDescription);
     CommAddress father(rfather, ConfigurationManager::getInstance().getPort());
-    rzone->setMinAddress(father);
-    rzone->setMaxAddress(father);
     uint64_t seq = 0;
-    oa << father << seq << rzone << rzone;
+    oa << father << seq;
     MemoryInArchive ia(v.begin());
-    resourceNode->serializeState(ia);
+    getE().serializeState(ia);
 }
 
 
@@ -572,8 +562,8 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
         zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
         zone->setMaxAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
     } else {
-        zone1.reset(new ZoneDescription(*sim.getNode(schild1).structureNode->getZoneDesc()));
-        zone2.reset(new ZoneDescription(*sim.getNode(schild2).structureNode->getZoneDesc()));
+        zone1.reset(new ZoneDescription(*sim.getNode(schild1).getS().getZoneDesc()));
+        zone2.reset(new ZoneDescription(*sim.getNode(schild2).getS().getZoneDesc()));
         zone->setMinAddress(zone1->getMinAddress());
         zone->setMaxAddress(zone2->getMaxAddress());
     }
@@ -590,7 +580,7 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
     int state = StructureNode::ONLINE;
     oa << state << m << level << zone << zone << father << seq<< subZones;
     MemoryInArchive ia(v.begin());
-    structureNode->serializeState(ia);
+    getS().serializeState(ia);
 
     // Generate Dispatcher state
     switch (schedulerType) {
@@ -621,11 +611,11 @@ void StarsNode::generateDispatcher(const CommAddress & father, uint32_t schild1,
     children[0].addr = CommAddress(schild1, ConfigurationManager::getInstance().getPort());
     children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
     if (level == 0) {
-        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).scheduler->getAvailability().clone()));
-        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).scheduler->getAvailability().clone()));
+        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getScheduler().getAvailability().clone()));
+        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getScheduler().getAvailability().clone()));
     } else {
-        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).dispatcher->getBranchInfo()->clone()));
-        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).dispatcher->getBranchInfo()->clone()));
+        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDispatcher().getBranchInfo()->clone()));
+        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDispatcher().getBranchInfo()->clone()));
     }
     children[0].availInfo->reduce();
     children[1].availInfo->reduce();
@@ -637,8 +627,8 @@ void StarsNode::generateDispatcher(const CommAddress & father, uint32_t schild1,
     children[0].serializeState(oaa);
     children[1].serializeState(oaa);
     MemoryInArchive iaa(vv.begin());
-    static_cast<T &>(*dispatcher).serializeState(iaa);
-    static_cast<T &>(*dispatcher).recomputeInfo();
+    static_cast<T &>(getDispatcher()).serializeState(iaa);
+    static_cast<T &>(getDispatcher()).recomputeInfo();
 }
 
 
@@ -666,9 +656,9 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
         zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
         zone->setMaxAddress(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
     } else {
-        zone1.reset(new ZoneDescription(*sim.getNode(schild1).structureNode->getZoneDesc()));
-        zone2.reset(new ZoneDescription(*sim.getNode(schild2).structureNode->getZoneDesc()));
-        zone3.reset(new ZoneDescription(*sim.getNode(schild3).structureNode->getZoneDesc()));
+        zone1.reset(new ZoneDescription(*sim.getNode(schild1).getS().getZoneDesc()));
+        zone2.reset(new ZoneDescription(*sim.getNode(schild2).getS().getZoneDesc()));
+        zone3.reset(new ZoneDescription(*sim.getNode(schild3).getS().getZoneDesc()));
         zone->setMinAddress(zone1->getMinAddress());
         zone->setMaxAddress(zone3->getMaxAddress());
     }
@@ -689,7 +679,7 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
     int state = StructureNode::ONLINE;
     oa << state << m << level << zone << zone << father << seq << subZones;
     MemoryInArchive ia(v.begin());
-    structureNode->serializeState(ia);
+    getS().serializeState(ia);
 
     // Generate Dispatcher state
     switch (schedulerType) {
@@ -721,13 +711,13 @@ void StarsNode::generateDispatcher(const CommAddress & father, uint32_t schild1,
     children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
     children[2].addr = CommAddress(schild3, ConfigurationManager::getInstance().getPort());
     if (level == 0) {
-        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).scheduler->getAvailability().clone()));
-        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).scheduler->getAvailability().clone()));
-        children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).scheduler->getAvailability().clone()));
+        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getScheduler().getAvailability().clone()));
+        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getScheduler().getAvailability().clone()));
+        children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getScheduler().getAvailability().clone()));
     } else {
-        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).dispatcher->getBranchInfo()->clone()));
-        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).dispatcher->getBranchInfo()->clone()));
-        children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).dispatcher->getBranchInfo()->clone()));
+        children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDispatcher().getBranchInfo()->clone()));
+        children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDispatcher().getBranchInfo()->clone()));
+        children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getDispatcher().getBranchInfo()->clone()));
     }
     children[0].availInfo->reduce();
     children[1].availInfo->reduce();
@@ -741,6 +731,6 @@ void StarsNode::generateDispatcher(const CommAddress & father, uint32_t schild1,
     children[1].serializeState(oaa);
     children[2].serializeState(oaa);
     MemoryInArchive iaa(vv.begin());
-    static_cast<T &>(*dispatcher).serializeState(iaa);
-    static_cast<T &>(*dispatcher).recomputeInfo();
+    static_cast<T &>(getDispatcher()).serializeState(iaa);
+    static_cast<T &>(getDispatcher()).recomputeInfo();
 }

@@ -321,20 +321,20 @@ void StarsNode::packState(std::streambuf & out) {
     msgpack::sbuffer buffer;
     msgpack::packer<msgpack::sbuffer> pk(&buffer);
     MsgpackOutArchive ar(pk);
-    structureNode->serializeState(ar);
-    resourceNode->serializeState(ar);
+    getStructureNode().serializeState(ar);
+    getResourceNode().serializeState(ar);
     switch (schedulerType) {
         case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<SimpleDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<QueueBalancingDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<DeadlineDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case MinSlownessSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<MinSlownessDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         default:
             break;
@@ -388,20 +388,20 @@ void StarsNode::unpackState(std::streambuf & in) {
     in.sgetn(upk.buffer(), size);
     upk.buffer_consumed(size);
     MsgpackInArchive ar(upk);
-    structureNode->serializeState(ar);
-    resourceNode->serializeState(ar);
+    getStructureNode().serializeState(ar);
+    getResourceNode().serializeState(ar);
     switch (schedulerType) {
         case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<SimpleDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<QueueBalancingDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<DeadlineDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         case MinSlownessSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*dispatcher).serializeState(ar);
+            static_cast<MinSlownessDispatcher &>(getDispatcher()).serializeState(ar);
             break;
         default:
             break;
@@ -410,25 +410,25 @@ void StarsNode::unpackState(std::streambuf & in) {
 
 
 void StarsNode::createServices() {
-    structureNode.reset(new StructureNode(2));
-    resourceNode.reset(new ResourceNode(*structureNode));
-    submissionNode.reset(new SubmissionNode(*resourceNode));
+    services.push_back(new StructureNode(2));
+    services.push_back(new ResourceNode(getStructureNode()));
+    services.push_back(new SubmissionNode(getResourceNode()));
     switch (schedulerType) {
         case StarsNode::FCFSSchedulerClass:
-            scheduler.reset(new FCFSScheduler(*resourceNode));
-            dispatcher.reset(new QueueBalancingDispatcher(*structureNode));
+            services.push_back(new FCFSScheduler(getResourceNode()));
+            services.push_back(new QueueBalancingDispatcher(getStructureNode()));
             break;
         case StarsNode::EDFSchedulerClass:
-            scheduler.reset(new EDFScheduler(*resourceNode));
-            dispatcher.reset(new DeadlineDispatcher(*structureNode));
+            services.push_back(new EDFScheduler(getResourceNode()));
+            services.push_back(new DeadlineDispatcher(getStructureNode()));
             break;
         case StarsNode::MinSlownessSchedulerClass:
-            scheduler.reset(new MinSlownessScheduler(*resourceNode));
-            dispatcher.reset(new MinSlownessDispatcher(*structureNode));
+            services.push_back(new MinSlownessScheduler(getResourceNode()));
+            services.push_back(new MinSlownessDispatcher(getStructureNode()));
             break;
         default:
-            scheduler.reset(new SimpleScheduler(*resourceNode));
-            dispatcher.reset(new SimpleDispatcher(*structureNode));
+            services.push_back(new SimpleScheduler(getResourceNode()));
+            services.push_back(new SimpleDispatcher(getStructureNode()));
             break;
     }
 }
@@ -436,16 +436,9 @@ void StarsNode::createServices() {
 
 void StarsNode::destroyServices() {
     // Gracely terminate the services
-    unregisterService(dispatcher.get());
-    dispatcher.reset();
-    unregisterService(scheduler.get());
-    scheduler.reset();
-    unregisterService(submissionNode.get());
-    submissionNode.reset();
-    unregisterService(resourceNode.get());
-    resourceNode.reset();
-    unregisterService(structureNode.get());
-    structureNode.reset();
+    for (int i = services.size() - 1; i >= 0; --i)
+        delete services[i];
+    services.clear();
 }
 
 

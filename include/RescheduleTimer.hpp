@@ -38,7 +38,7 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 #endif /* RESCHEDULETIMER_H_ */

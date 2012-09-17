@@ -21,6 +21,7 @@
 #include <boost/test/unit_test.hpp>
 #include "Database.hpp"
 #include "TaskBagAppDatabase.hpp"
+#include "TestHost.hpp"
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
@@ -33,6 +34,8 @@ BOOST_AUTO_TEST_SUITE(Db)
 
 /// Basic Database control
 BOOST_AUTO_TEST_CASE(testDatabase) {
+    TestHost::getInstance().reset();
+
     // ctor
     Database db = Database(":memory:");
     db.execute("create table if not exists project (name text primary key)");
@@ -107,6 +110,7 @@ BOOST_AUTO_TEST_CASE(testDatabase) {
 }
 
 BOOST_AUTO_TEST_CASE(testTaskBagAppDatabase) {
+    TestHost::getInstance().reset();
     // Create tables
     TaskBagAppDatabase tbad;
     // Clean tables in cascade

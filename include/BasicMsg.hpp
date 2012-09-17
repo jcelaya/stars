@@ -90,11 +90,17 @@ private:
 
 
 #define REGISTER_MESSAGE(name) BasicMsg::MessageRegistrar<name> name ## _reg_var
+
 #define MESSAGE_SUBCLASS(name) \
 virtual name * clone() const { return new name(*this); } \
 virtual std::string getName() const { return className(); } \
 virtual void pack(msgpack::packer<std::ostream> & pk) { pk.pack(className()); pk.pack(*this); } \
 static std::string className() { return std::string(#name); }
+
+#define EMPTY_MSGPACK_DEFINE() \
+template <typename Packer> void msgpack_pack(Packer& pk) const {} \
+void msgpack_unpack(msgpack::object o) {} \
+void msgpack_object(msgpack::object* o, msgpack::zone* z) const {}
 
 
 inline std::ostream & operator<<(std::ostream& os, const BasicMsg & s) {

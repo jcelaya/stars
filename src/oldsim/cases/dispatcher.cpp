@@ -150,7 +150,8 @@ class repeat : public SimulationCase {
         unsigned int appNum;
         uint32_t client;
         Time release;
-        shared_ptr<DispatchCommandMsg> dcm;
+        Time deadline;
+        TaskDescription minReq;
         bool operator<(const AppInstance & r) const { return appNum < r.appNum; }
     };
 
@@ -186,14 +187,9 @@ public:
                 // Else, jump comments
                 if (nextLine[0] == '#') continue;
                 // Else process this line
-                r.dcm.reset(new DispatchCommandMsg);
-                TaskDescription minReq;
                 size_t firstpos = 0, lastpos = nextLine.find_first_of(',');
                 // Get instance number
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> r.appNum;
-                ostringstream appName;
-                appName << "application" << r.appNum;
-                r.dcm->setAppName(appName.str());
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get requester
@@ -204,25 +200,25 @@ public:
                 // Get number of tasks
                 unsigned int numTasks;
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> numTasks;
-                minReq.setNumTasks(numTasks);
+                r.minReq.setNumTasks(numTasks);
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get task length
                 unsigned long int length;
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> length;
-                minReq.setLength(length);
+                r.minReq.setLength(length);
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get task memory
                 unsigned int mem;
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> mem;
-                minReq.setMaxMemory(mem);
+                r.minReq.setMaxMemory(mem);
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get task disk
                 unsigned int disk;
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> disk;
-                minReq.setMaxDisk(disk);
+                r.minReq.setMaxDisk(disk);
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get release date
@@ -234,14 +230,12 @@ public:
                 // Get deadline
                 double deadline;
                 istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> deadline;
-                r.dcm->setDeadline(Time(deadline * 1000000));
+                r.deadline = Time(deadline * 1000000);
                 // Other params
-                minReq.setInputSize(property("task_input_size", 0));
-                minReq.setOutputSize(property("task_output_size", 0));
+                r.minReq.setInputSize(property("task_input_size", 0));
+                r.minReq.setOutputSize(property("task_output_size", 0));
                 // Add request to the list
                 apps.push_back(r);
-                // Add an application to the database
-                sim.getNode(r.client).getDatabase().createAppDescription(appName.str(), minReq);
             }
             apps.sort();
         }
@@ -254,20 +248,24 @@ public:
         AppInstance r = apps.front();
         apps.pop_front();
         // Send this message to the client
-        sim.injectMessage(r.client, r.client, r.dcm, r.release - Time());
+        sim.getNode(r.client).getDatabase().setNextApp(r.minReq);
+        shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
+        dcm->setDeadline(r.deadline);
+        sim.injectMessage(r.client, r.client, dcm, r.release - Time());
         finishedApps = 0;
     }
 
     void afterEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {
         if (typeid(msg) == typeid(DispatchCommandMsg)) {
             Simulator & sim = Simulator::getInstance();
-           // Remove the old app description
-            sim.getCurrentNode().getDatabase().dropAppDescription(static_cast<const DispatchCommandMsg &>(msg).getAppName());
             if (!apps.empty()) {
                 AppInstance r = apps.front();
                 apps.pop_front();
                 // Send this message to the client
-                sim.injectMessage(r.client, r.client, r.dcm, r.release - sim.getCurrentTime());
+                sim.getNode(r.client).getDatabase().setNextApp(r.minReq);
+                shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
+                dcm->setDeadline(r.deadline);
+                sim.injectMessage(r.client, r.client, dcm, r.release - sim.getCurrentTime());
             }
         }
     }
@@ -299,9 +297,17 @@ class siteLevel : public SimulationCase {
     public:
         MESSAGE_SUBCLASS(UserEvent);
 
-        MSGPACK_DEFINE();
+        EMPTY_MSGPACK_DEFINE();
     };
     static shared_ptr<UserEvent> timer;
+
+    class SendJobEvent : public BasicMsg {
+    public:
+        MESSAGE_SUBCLASS(SendJobEvent);
+
+        EMPTY_MSGPACK_DEFINE();
+    };
+    static shared_ptr<SendJobEvent> sendCmd;
 
     struct User {
         enum {
@@ -309,9 +315,7 @@ class siteLevel : public SimulationCase {
             SLEEPING,
             WAIT_TT
         } state;
-        shared_ptr<DispatchCommandMsg> lastAppCmd;
-        pair<string, TaskDescription> lastApp;
-        Time lastAppRT;
+        Duration lastDeadline;
         long int lastInstance;
         unsigned int repeat;
         bool daytime, weekdays;
@@ -374,24 +378,8 @@ class siteLevel : public SimulationCase {
         unsigned int batchSize = batchCDF.inverse(Simulator::uniform01());
         Duration when(0.0);
         LogMsg("Sim.Site", INFO) << "User " << u << " creates a batch of size " << batchSize;
-        SimAppDatabase & sdb = sim.getNode(u).getDatabase();
         for (unsigned int i = 0; i < batchSize; i++) {
-            if (!user.repeat) {
-                user.lastAppRT = sim.getCurrentTime() + when;
-                user.lastAppCmd = rg.generate(sim.getNode(u), user.lastAppRT);
-                user.lastApp = sdb.getLastApp();
-                user.repeat = repeatCDF.inverse(Simulator::uniform01());
-            } else {
-                // Repeat app
-                sdb.createAppDescription(user.lastApp.first, user.lastApp.second);
-                // Update release time and deadline to the new release time 'when'
-                Duration d = user.lastAppCmd->getDeadline() - user.lastAppRT;
-                user.lastAppRT = sim.getCurrentTime() + when;
-                user.lastAppCmd->setDeadline(user.lastAppRT + d);
-            }
-            user.repeat--;
-            LogMsg("Sim.Site", INFO) << "   Sending app " << *user.lastAppCmd << " at " << user.lastAppRT;
-            sim.injectMessage(u, u, shared_ptr<BasicMsg>(user.lastAppCmd->clone()), when);
+            sim.injectMessage(u, u, sendCmd, when);
             when += Duration(interBatchTimeCDF.inverse(Simulator::uniform01()));
         }
         user.state = User::WAIT_JOB_FINISH;
@@ -462,11 +450,8 @@ public:
 
     void afterEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {
         if (typeid(msg) == typeid(DispatchCommandMsg)) {
-            User & u = users[dst];
             // Look for the last instance inserted
-            u.lastInstance = SimAppDatabase::getLastInstance();
-            // Remove the app description
-            //sim.getCurrentNode().getDatabase().dropAppDescription(static_pointer_cast<DispatchCommandMsg>(ev.msg)->getAppName());
+            users[dst].lastInstance = SimAppDatabase::getLastInstance();
         }
         percent = maxTime > 0.0 ? (Time::getCurrentTime() - Time()).seconds() * 100.0 / maxTime : 0.0;
     }
@@ -484,6 +469,22 @@ public:
                     sleep(dst);
                 }
             }
+        } else if (typeid(msg) == typeid(SendJobEvent)) {
+            User & u = users[dst];
+            Simulator & sim = Simulator::getInstance();
+            shared_ptr<DispatchCommandMsg> dcm;
+            Time now = sim.getCurrentTime();
+            if (!u.repeat) {
+                dcm = rg.generate(sim.getNode(dst), now);
+                u.lastDeadline = dcm->getDeadline() - now;
+                u.repeat = repeatCDF.inverse(Simulator::uniform01());
+            } else {
+                // Repeat app
+                dcm.reset(new DispatchCommandMsg);
+                dcm->setDeadline(now + u.lastDeadline);
+            }
+            sim.injectMessage(dst, dst, dcm);
+            u.repeat--;
         } else if (typeid(msg) == typeid(RequestTimeout)) {
             // Increase deadline 20%
             long int reqId = static_cast<const RequestTimeout &>(msg).getRequestId();
@@ -531,3 +532,4 @@ REGISTER_SIMULATION_CASE(siteLevel);
 
 Duration siteLevel::User::morning((7*60 + 30) * 60.0), siteLevel::User::night((17*60 + 30) * 60.0);
 shared_ptr<siteLevel::UserEvent> siteLevel::timer(new UserEvent);
+shared_ptr<siteLevel::SendJobEvent> siteLevel::sendCmd(new SendJobEvent);

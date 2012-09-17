@@ -40,8 +40,6 @@ class manySearches : public SimulationCase {
     DispatchCommandMsg dcm;
     TaskDescription minReq;
     Duration deadline;
-    int workingNodes;
-    bool finish;
 
 public:
     manySearches(const Properties & p) : SimulationCase(p) {
@@ -65,61 +63,37 @@ public:
         minReq.setInputSize(property("task_input_size", 0));
         minReq.setOutputSize(property("task_output_size", 0));
         minReq.setNumTasks(property("num_tasks", 10));
-        ostringstream oss;
-        oss << "manySearchesApp" << minReq.getNumTasks();
-        SimAppDatabase::getCurrentDatabase().createAppDescription(oss.str(), minReq);
+        SimAppDatabase::getCurrentDatabase().setNextApp(minReq);
 
         taskDelta = property("task_delta", 0);
         taskRepeat = property("task_repeat", 1);
 
         // Send first app instance
         uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
-        dcm.setAppName(oss.str());
         dcm.setDeadline(sim.getCurrentTime() + deadline);
         sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
         nextSearch = 2;
         taskRepeat--;
-        workingNodes = 0;
-        finish = false;
-    }
-
-    void beforeEvent(const Simulator::Event & ev) {
-        if (typeid(*ev.msg) == typeid(DispatchCommandMsg) && Simulator::getInstance().getNode(ev.to).getSub().isIdle())
-            workingNodes++;
     }
 
     void afterEvent(const Simulator::Event & ev) {
         Simulator & sim = Simulator::getInstance();
-        if (sim.emptyEventQueue()) {
-            if (nextSearch > numSearches) finish = true;
-            else {
-                uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
-                if (!taskRepeat) {
-                    minReq.setNumTasks(minReq.getNumTasks() + taskDelta);
-                    ostringstream oss;
-                    oss << "manySearchesApp" << minReq.getNumTasks();
-                    SimAppDatabase::getCurrentDatabase().createAppDescription(oss.str(), minReq);
-                    dcm.setAppName(oss.str());
-                    taskRepeat = property("task_repeat", 1);
-                }
-                dcm.setDeadline(sim.getCurrentTime() + deadline);
-                sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
-                percent = (nextSearch++ * 100.0 / numSearches);
-                taskRepeat--;
+        if (sim.emptyEventQueue() && nextSearch <= numSearches) {
+            uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
+            if (!taskRepeat) {
+                minReq.setNumTasks(minReq.getNumTasks() + taskDelta);
+                SimAppDatabase::getCurrentDatabase().setNextApp(minReq);
+                taskRepeat = property("task_repeat", 1);
             }
-        }
-        else if (typeid(*ev.msg) == typeid(TaskMonitorMsg) || typeid(*ev.msg) == typeid(RequestTimeout) || ev.msg->getName() == "HeartbeatTimeout") {
-            // Check if the node is idle
-            if (sim.getNode(ev.to).getSub().isIdle())
-                workingNodes--;
-        }
-        else if (typeid(*ev.msg) == typeid(TaskStateChgMsg)) {
-            if (sim.getStarsStats().getExistingTasks() == 0) finish = true;
+            dcm.setDeadline(sim.getCurrentTime() + deadline);
+            sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
+            percent = (nextSearch++ * 100.0 / numSearches);
+            taskRepeat--;
         }
     }
 
     bool doContinue() const {
-        return !finish;
+        return nextSearch <= numSearches || Simulator::getInstance().getStarsStats().getExistingTasks() > 0;
     }
 
     void postEnd() {

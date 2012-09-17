@@ -62,12 +62,13 @@ CommLayer & CommLayer::getInstance() {
 
 ConfigurationManager & ConfigurationManager::getInstance() {
     shared_ptr<ConfigurationManager> & current = TestHost::getInstance().getConfigurationManager();
-    if (!current.get())
+    if (!current.get()) {
         current.reset(new ConfigurationManager);
-    // Set the working path
-    current->setWorkingPath(current->getWorkingPath() / "test");
-    // Set the memory database
-    current->setDatabasePath(boost::filesystem::path(":memory:"));
+        // Set the working path
+        current->setWorkingPath(current->getWorkingPath() / "share/test");
+        // Set the memory database
+        current->setDatabasePath(boost::filesystem::path(":memory:"));
+    }
     return *current;
 }
 

@@ -47,7 +47,7 @@ public:
         return executionNode;
     }
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 

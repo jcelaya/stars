@@ -35,7 +35,10 @@
 #include "SubmissionNode.hpp"
 #include "EDFScheduler.hpp"
 #include "DeadlineDispatcher.hpp"
-// #include "WtUI.hpp"
+#include "config.h"
+#ifdef Wt_FOUND
+#include "WtUI.hpp"
+#endif
 using namespace log4cpp;
 using namespace std;
 namespace fs = boost::filesystem;
@@ -118,15 +121,17 @@ int main(int argc, char * argv[]) {
         // Get local address
         // Init CommLayer and standard services
         LogMsg("", DEBUG) << "Creating standard services";
-//  StructureNode sn(2);
-//  ResourceNode rn(sn);
-//  SubmissionNode sbn(rn);
-//  EDFScheduler sch(rn);
-//  DeadlineDispatcher tbd(sn);
+//  CommLayer::getInstance().registerService(new StructureNode(2));
+//  CommLayer::getInstance().registerService(ResourceNode(sn));
+//  CommLayer::getInstance().registerService(SubmissionNode(rn));
+//  CommLayer::getInstance().registerService(EDFScheduler(rn));
+//  CommLayer::getInstance().registerService(DeadlineDispatcher(sn));
+#ifdef Wt_FOUND
         // Start UI
-//   LogMsg("", DEBUG) << "Starting UI web server";
-//   WtUI::getInstance().start();
-//   LogMsg("", DEBUG) << "Starting main event loop";
+        LogMsg("", DEBUG) << "Starting UI web server";
+        WtUI::getInstance().start();
+#endif
+        LogMsg("", DEBUG) << "Starting main event loop";
         // Start event handling
         CommLayer::getInstance().commEventLoop();
         LogMsg("", DEBUG) << "Gracely exiting";

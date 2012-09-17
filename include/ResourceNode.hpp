@@ -72,10 +72,9 @@ public:
 class ResourceNode : public StructureNodeObserver, public Service {
     CommAddress father;                             ///< StructureNode in charge of this ResourceNode.
     uint64_t seq;                                   ///< Update sequence number.
-    boost::shared_ptr<ZoneDescription> zoneDesc;           ///< Description of this node as a zone of itself
-    boost::shared_ptr<ZoneDescription> notifiedZoneDesc;   ///< Description of this node as a zone of itself
     TransactionId transaction;                      ///< Transaction ID in use
     CommAddress newFather;                          ///< New StructureNode in charge of this ResourceNode.
+    bool availableStrNodes;
 
     /// A pair of an address and a message
     typedef std::pair<CommAddress, boost::shared_ptr<BasicMsg> > AddrMsg;
@@ -160,7 +159,7 @@ public:
 
     template<class Archive> void serializeState(Archive & ar) {
         // Serialization only works if not in a transaction
-        ar & father & seq & zoneDesc & notifiedZoneDesc;
+        ar & father & seq;
     }
 };
 

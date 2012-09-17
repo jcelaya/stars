@@ -43,7 +43,6 @@ class CommLayer;
  */
 class Service {
 public:
-    Service();
     virtual ~Service() {}
 
 protected:
@@ -70,8 +69,15 @@ public:
      */
     static CommLayer & getInstance();
 
+    virtual ~CommLayer() {
+        for (std::vector<Service *>::iterator i = services.begin(); i != services.end(); i++)
+            delete *i;
+        services.clear();
+    }
+
     /**
      * Register a service with the communication layer, so that it can receive messages.
+     * It takes ownership of the service
      * @param c The newly registered service.
      */
     void registerService(Service * c) {
@@ -85,6 +91,7 @@ public:
     void unregisterService(Service * c) {
         for (std::vector<Service *>::iterator i = services.begin(); i != services.end(); i++)
             if (*i == c) {
+                delete c;
                 services.erase(i);
                 break;
             }
@@ -240,10 +247,5 @@ private:
     CommLayer(const CommLayer &);
     CommLayer & operator=(const CommLayer &);
 };
-
-
-inline Service::Service() {
-    CommLayer::getInstance().registerService(this);
-}
 
 #endif /*COMMLAYER_H_*/

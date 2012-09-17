@@ -29,8 +29,9 @@ using net::ip::tcp;
 
 
 NetworkManager::Connection::~Connection() {
-    socket.shutdown(tcp::socket::shutdown_both);
-    socket.close();
+    boost::system::error_code ec;
+    socket.shutdown(tcp::socket::shutdown_both, ec);
+    socket.close(ec);
 }
 
 
@@ -38,10 +39,12 @@ NetworkManager::NetworkManager() : acceptor(io), incoming(new Connection(io)), t
 
 
 void NetworkManager::listen() {
+    // TODO: error checking
+    boost::system::error_code ec;
     // Start async accept before creating the thread. It will maintain the thread alive.
-    acceptor.open(tcp::v4());
-    acceptor.bind(tcp::endpoint(tcp::v4(), ConfigurationManager::getInstance().getPort()));
-    acceptor.listen();
+    acceptor.open(tcp::v4(), ec);
+    acceptor.bind(tcp::endpoint(tcp::v4(), ConfigurationManager::getInstance().getPort()), ec);
+    acceptor.listen(net::socket_base::max_connections, ec);
     acceptor.async_accept(incoming->socket,
                           bind(&NetworkManager::handleAccept, this, net::placeholders::error));
     t.reset(new boost::thread(bind((size_t (net::io_service:: *)())(&net::io_service::run), &io)));

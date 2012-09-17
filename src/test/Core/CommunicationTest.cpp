@@ -41,7 +41,7 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const {}
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 
@@ -54,7 +54,7 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream & os) const {}
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 REGISTER_MESSAGE(Ping);
@@ -137,18 +137,20 @@ BOOST_AUTO_TEST_CASE(testCommLayerLocal) {
     TestHost::getInstance().reset();
     ConfigurationManager::getInstance().setPort(2030);
 
-    PingService s1;
-    PongService s2;
+    PingService * s1 = new PingService;
+    CommLayer::getInstance().registerService(s1);
+    PongService * s2 = new PongService;
+    CommLayer::getInstance().registerService(s2);
 
     CommAddress a1 = CommLayer::getInstance().getLocalAddress();
-    s2.ping(a1);
+    s2->ping(a1);
     CommLayer::getInstance().processNextMessage();
     CommLayer::getInstance().processNextMessage();
-    BOOST_CHECK(s2.isPinged());
-    s2.pingLocal();
+    BOOST_CHECK(s2->isPinged());
+    s2->pingLocal();
     CommLayer::getInstance().processNextMessage();
     CommLayer::getInstance().processNextMessage();
-    BOOST_CHECK(s2.isPinged());
+    BOOST_CHECK(s2->isPinged());
 }
 
 void pingThread() {
@@ -156,7 +158,8 @@ void pingThread() {
     ConfigurationManager::getInstance().setPort(2040);
     CommLayer::getInstance().listen();
 
-    shared_ptr<PongService> s2(new PongService);
+    PongService * s2 = new PongService;
+    CommLayer::getInstance().registerService(s2);
     CommAddress a1(CommLayer::getInstance().getLocalAddress().getIP(), 2030);
     s2->ping(a1);
     CommLayer::getInstance().processNextMessage();
@@ -168,7 +171,8 @@ BOOST_AUTO_TEST_CASE(testCommLayerRemote) {
     ConfigurationManager::getInstance().setPort(2030);
     CommLayer::getInstance().listen();
 
-    shared_ptr<PingService> s1(new PingService);
+    PingService * s1 = new PingService;
+    CommLayer::getInstance().registerService(s1);
 
     // Unlock the other process
     thread t(pingThread);

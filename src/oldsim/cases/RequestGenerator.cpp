@@ -120,10 +120,7 @@ shared_ptr<DispatchCommandMsg> RequestGenerator::generate(StarsNode & client, Ti
     minReq.setLength(ad.length);
     minReq.setInputSize(input);
     minReq.setOutputSize(output);
-    ostringstream oss;
-    oss << "app_" << minReq.getMaxMemory() << '_' << minReq.getMaxDisk() << '_' << minReq.getNumTasks() << '_' << minReq.getLength()
-            << '_' << minReq.getInputSize() << '_' << minReq.getOutputSize();
-    client.getDatabase().createAppDescription(oss.str(), minReq);
+    client.getDatabase().setNextApp(minReq);
 
     // Create instance
     //double d = minReq.getLength() * ad.deadline / client.getAveragePower();
@@ -131,6 +128,5 @@ shared_ptr<DispatchCommandMsg> RequestGenerator::generate(StarsNode & client, Ti
     if (d <= 0.0 || d > 31536000.0)
         d = 31536000.0;
     dcm->setDeadline(releaseDate + Duration(d));
-    dcm->setAppName(oss.str());
     return dcm;
 }

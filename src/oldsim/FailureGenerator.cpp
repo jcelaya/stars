@@ -36,7 +36,7 @@ class FailureMsg : public BasicMsg {
 public:
     MESSAGE_SUBCLASS(FailureMsg);
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 

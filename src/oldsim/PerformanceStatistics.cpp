@@ -80,7 +80,6 @@ void PerformanceStatistics::savePartialStatistics() {
     }
 
     // Harvest memory occupation statistics
-    os << "Database applications: " << SimAppDatabase::getTotalApps() << " apps in " << SimAppDatabase::getTotalAppsMem() << " bytes" << std::endl;
     os << "Database instances: " << SimAppDatabase::getTotalInstances() << " instances in " << SimAppDatabase::getTotalInstancesMem() << " bytes" << std::endl;
     os << "Database requests: " << SimAppDatabase::getTotalRequests() << " requests in " << SimAppDatabase::getTotalRequestsMem() << " bytes" << std::endl;
 }

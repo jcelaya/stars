@@ -45,7 +45,7 @@ class MonitorTimer : public BasicMsg {
 public:
     MESSAGE_SUBCLASS(MonitorTimer);
 
-    MSGPACK_DEFINE();
+    EMPTY_MSGPACK_DEFINE();
 };
 
 

@@ -62,12 +62,10 @@ public:
 private:
     friend class TaskBagAppDatabase;
 
-    std::pair<std::string, TaskDescription> lastApp;
-    std::map<std::string, TaskDescription> apps;
+    TaskDescription nextApp;
     std::map<long int, AppInstance> instances;
     std::map<long int, Request> requests;
 
-    static unsigned long int totalApps, totalAppsMemory;
     static unsigned long int totalInstances, totalInstancesMemory;
     static unsigned long int totalRequests, totalRequestsMemory;
 
@@ -77,9 +75,7 @@ private:
 
 public:
 
-    void createAppDescription(const std::string & name, const TaskDescription & req);
-    void dropAppDescription(const std::string & name);
-    const std::pair<std::string, TaskDescription> & getLastApp() const { return lastApp; }
+    void setNextApp(const TaskDescription & req) { nextApp = req; }
     void appInstanceFinished(long int appId);
     bool appInstanceExists(long int appId) { return instances.count(appId) > 0; }
     const AppInstance & getAppInstance(long int appId) const { return instances.find(appId)->second; }
@@ -92,11 +88,9 @@ public:
 
     static SimAppDatabase & getCurrentDatabase();
     static void reset() {
-        totalApps = totalAppsMemory = totalInstances = totalInstancesMemory = totalRequests = totalRequestsMemory = lastInstance = lastRequest = 0;
+        totalInstances = totalInstancesMemory = totalRequests = totalRequestsMemory = lastInstance = lastRequest = 0;
     }
     static long int getLastInstance() { return lastInstance; }
-    static unsigned long int getTotalApps() { return totalApps; }
-    static unsigned long int getTotalAppsMem() { return totalAppsMemory; }
     static unsigned long int getTotalInstances() { return totalInstances; }
     static unsigned long int getTotalInstancesMem() { return totalInstancesMemory; }
     static unsigned long int getTotalRequests() { return totalRequests; }

@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(testDescriptionFile) {
     TestHost::getInstance().reset();
 
     // ctor
-    DescriptionFile df("share/test/testTask");
+    DescriptionFile df("testTask");
 
     BOOST_CHECK(df.getExecutable() == "ls -l > kk.txt");
     BOOST_CHECK(df.getResult() == "kk.txt");
@@ -201,20 +201,23 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     Time reference = Time::getCurrentTime();
 
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
-    StructureNode sn(2);
-    ResourceNode rn(sn);
-    EDFScheduler sched(rn);
-    list<shared_ptr<Task> > & tasks = sched.getTasks();
+    StructureNode * sn = new StructureNode(2);
+    CommLayer::getInstance().registerService(sn);
+    ResourceNode * rn = new ResourceNode(*sn);
+    CommLayer::getInstance().registerService(rn);
+    EDFScheduler * sched = new EDFScheduler(*rn);
+    CommLayer::getInstance().registerService(sched);
+    list<shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;
     msg.setOldState(Task::Running);
     msg.setNewState(Task::Finished);
 
     // Check creation
-    const AvailabilityInformation & avail = sched.getAvailability();
+    const AvailabilityInformation & avail = sched->getAvailability();
     LogMsg("Test.Sch", DEBUG) << "New availability: " << avail;
     {
         Time time1 = reference;
-        unsigned long int a = sched.getAvailabilityBefore(reference + Duration(1.0));
+        unsigned long int a = sched->getAvailabilityBefore(reference + Duration(1.0));
         Time time2 = reference;
         BOOST_CHECK(a <= 1000);
         BOOST_CHECK(a >= 1000 - (unsigned long int)ceil(1000.0 * (time2 - time1).seconds()));
@@ -245,12 +248,12 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     task3req.setFirstTask(1);
     task3req.setLastTask(1);
 
-    BOOST_CHECK(sched.accept(task2req));
-    BOOST_CHECK(sched.accept(task1req));
-    BOOST_CHECK(!sched.accept(task3req));
+    BOOST_CHECK(sched->accept(task2req));
+    BOOST_CHECK(sched->accept(task1req));
+    BOOST_CHECK(!sched->accept(task3req));
     task3desc.setLength(300000);
     task3req.setMinRequirements(task3desc);
-    BOOST_CHECK(sched.accept(task3req));
+    BOOST_CHECK(sched->accept(task3req));
 
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
@@ -267,7 +270,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
         BOOST_CHECK(it == tasks.end());
     }
 
-    sched.receiveMessage(addr, msg);
+    sched->receiveMessage(addr, msg);
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 3);
@@ -279,10 +282,10 @@ BOOST_AUTO_TEST_CASE(testEDF) {
         BOOST_CHECK(it == tasks.end());
     }
 
-    BOOST_CHECK(!sched.accept(task2req));
+    BOOST_CHECK(!sched->accept(task2req));
     task2desc.setLength(50000);
     task2req.setMinRequirements(task2desc);
-    BOOST_CHECK(sched.accept(task2req));
+    BOOST_CHECK(sched->accept(task2req));
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 3);
@@ -304,16 +307,19 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     TestHost::getInstance().reset();
 
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
-    StructureNode sn(2);
-    ResourceNode rn(sn);
-    MinSlownessScheduler sched(rn);
-    list<shared_ptr<Task> > & tasks = sched.getTasks();
+    StructureNode * sn = new StructureNode(2);
+    CommLayer::getInstance().registerService(sn);
+    ResourceNode * rn = new ResourceNode(*sn);
+    CommLayer::getInstance().registerService(rn);
+    MinSlownessScheduler * sched = new MinSlownessScheduler(*rn);
+    CommLayer::getInstance().registerService(sched);
+    list<shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;
     msg.setOldState(Task::Running);
     msg.setNewState(Task::Finished);
 
     // Check creation
-    BOOST_CHECK_EQUAL(sched.getAvailability().getMinimumSlowness(), 0.0);
+    BOOST_CHECK_EQUAL(sched->getAvailability().getMinimumSlowness(), 0.0);
 
     // Add three of tasks
     TaskDescription task1desc, task2desc, task3desc;
@@ -340,9 +346,9 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     task3req.setFirstTask(1);
     task3req.setLastTask(1);
 
-    BOOST_CHECK(sched.accept(task3req));
-    BOOST_CHECK(sched.accept(task1req));
-    BOOST_CHECK(sched.accept(task2req));
+    BOOST_CHECK(sched->accept(task3req));
+    BOOST_CHECK(sched->accept(task1req));
+    BOOST_CHECK(sched->accept(task2req));
 
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
@@ -357,10 +363,10 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched.getAvailability().getMinimumSlowness(), 0.0055, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.0055, 0.01);
     }
 
-    sched.receiveMessage(addr, msg);
+    sched->receiveMessage(addr, msg);
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 2);
@@ -370,12 +376,12 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched.getAvailability().getMinimumSlowness(), 0.0015, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.0015, 0.01);
     }
 
     task3desc.setLength(50000);
     task3req.setMinRequirements(task3desc);
-    BOOST_CHECK(sched.accept(task3req));
+    BOOST_CHECK(sched->accept(task3req));
     {
         list<shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 2);
@@ -388,7 +394,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched.getAvailability().getMinimumSlowness(), 0.005, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.005, 0.01);
     }
 }
 

@@ -54,6 +54,14 @@ public:
         MSSchedulerClass = 3,
     };
 
+    enum {
+        SN = 0,
+        RN,
+        Sub,
+        Sch,
+        Disp,
+    };
+
     static void libStarsConfigure(const Properties & property);
 
     StarsNode() {}
@@ -74,10 +82,11 @@ public:
     void setLocalAddress(const CommAddress & local) { localAddress = local; }
 
     // setup() must be called before these methods
-    StructureNode & getS() const { return *structureNode; }
-    ResourceNode & getE() const { return *resourceNode; }
-    SubmissionNode & getSub() const { return *submissionNode; }
-    Scheduler & getScheduler() const { return *scheduler; }
+    StructureNode & getS() const { return static_cast<StructureNode &>(*services[SN]); }
+    ResourceNode & getE() const { return static_cast<ResourceNode &>(*services[RN]); }
+    SubmissionNode & getSub() const { return static_cast<SubmissionNode &>(*services[Sub]); }
+    Scheduler & getScheduler() const { return static_cast<Scheduler &>(*services[Sch]); }
+    DispatcherInterface & getDispatcher() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() { return db; }
 
     double getAveragePower() const { return power; }
@@ -111,11 +120,6 @@ private:
     void createServices();
 
     int schedulerType;
-    boost::scoped_ptr<StructureNode> structureNode;
-    boost::scoped_ptr<ResourceNode> resourceNode;
-    boost::scoped_ptr<SubmissionNode> submissionNode;
-    boost::scoped_ptr<Scheduler> scheduler;
-    boost::scoped_ptr<DispatcherInterface> dispatcher;
     SimAppDatabase db;
     double power;
     unsigned long int mem;

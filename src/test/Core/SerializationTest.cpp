@@ -47,6 +47,8 @@ BOOST_AUTO_TEST_CASE(testSerializable) {
         SerializableBatch * b = dynamic_cast<SerializableBatch *>(c);
         BOOST_REQUIRE(b);
         BOOST_CHECK(*static_cast<SerializableBatch *>(a) == *b);
+        delete a;
+        delete c;
     }
 }
 
