@@ -133,6 +133,10 @@ void SimpleDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             remainingTasks = 0;
         }
     }
+    for (std::vector<Link>::iterator child = children.begin(); child != children.end(); ++child) {
+        if (child->availInfo.get())
+            child->availInfo->updated();
+    }
 
     // Now create and send the messages
     numZone = 0;

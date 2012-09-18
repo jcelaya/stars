@@ -102,6 +102,12 @@ public:
         QueueBalancingInfo * reference;
     };
 
+    enum {
+        MINIMUM = 0,
+        MEAN_QUEUE,
+        MEAN_FULL,
+    };
+
     MESSAGE_SUBCLASS(QueueBalancingInfo);
 
     QueueBalancingInfo() {
@@ -112,6 +118,10 @@ public:
         unsigned int size = summary.getSize();
         for (unsigned int i = 0; i < size; i++)
             summary[i].setReference(this);
+    }
+
+    static void setMethod(int method) {
+        aggrMethod = method;
     }
 
     static void setNumClusters(unsigned int c) {
@@ -180,6 +190,7 @@ public:
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
+    static int aggrMethod;
     Time minQueue;
     ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
     uint32_t minM, maxM, minD, maxD, minP, maxP;

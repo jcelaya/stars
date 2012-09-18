@@ -188,6 +188,8 @@ void StarsNode::libStarsConfigure(const Properties & property) {
         TimeConstraintInfo::setNumClusters(clustersBase * clustersBase * clustersBase);
         SlownessInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
     }
+    BasicAvailabilityInfo::setMethod(property("aggregation_method", (int)BasicAvailabilityInfo::MINIMUM));
+    QueueBalancingInfo::setMethod(property("aggregation_method", (int)QueueBalancingInfo::MINIMUM));
     TimeConstraintInfo::setNumRefPoints(property("tci_ref_points", 8U));
     SlownessInformation::setNumPieces(property("si_pieces", 64U));
     SimAppDatabase::reset();

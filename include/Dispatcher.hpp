@@ -105,8 +105,9 @@ public:
         size_t s = children.size();
         ar & s;
         children.resize(s);
-        for (size_t i = 0; i < s; ++i)
+        for (size_t i = 0; i < s; ++i) {
             children[i].serializeState(ar);
+        }
     }
 
     struct Link {

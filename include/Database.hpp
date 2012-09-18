@@ -42,45 +42,6 @@ class Database {
 public:
 
     /**
-     * \brief Failed database access exception.
-     *
-     * This exception is thrown when a database access is not correctly performed
-     */
-    class Exception : public std::exception {
-        std::ostringstream msg;
-
-    public:
-        /// Default constructor, copies SQLite error msg.
-        Exception(const Database & db) throw() {
-            msg << sqlite3_errmsg(db.getDatabase()) << ". ";
-        }
-        /// Copy constructor, just copies msg.
-        Exception(const Exception & copy) throw() {
-            msg << copy.msg.str();
-        }
-        /// Destructor, does nothing.
-        ~Exception() throw() {}
-
-        /**
-         * Returns the message of this exception.
-         * @return The message stored in msg.
-         */
-        const char * what() const throw() {
-            return msg.str().c_str();
-        }
-
-        /**
-         * Adds information to the message of the exception.
-         * @param o New information to be appended to the message.
-         * @return Reference to this object, to concatenate many calls to operator<<.
-         */
-        template<class T> Exception & operator<<(const T & o) {
-            msg << o;
-            return *this;
-        }
-    };
-
-    /**
      * \brief A query interface for SQLite3.
      *
      * This class provides an obejct-oriented proxy for persistent statements on an SQLite3 database.
@@ -123,10 +84,10 @@ public:
             return result;
         }
 
-        void execute() {
+        bool execute() {
             bool bad = sqlite3_step(statement) != SQLITE_DONE;
             reset();
-            if (bad) throw Database::Exception(db) << "Failed executing " << sqlite3_sql(statement);
+            return !bad;
         }
 
         sqlite3_int64 getInt() {
@@ -146,7 +107,7 @@ public:
 
     Database(const boost::filesystem::path & dbFile);
 
-    ~Database() throw() {
+    ~Database() {
         sqlite3_close(db);
     }
 
@@ -158,9 +119,8 @@ public:
      * Easy interface to execute an SQL query.
      * @param sql Query definition.
      */
-    void execute(std::string sql) {
-        if (!db || sqlite3_exec(db, sql.c_str(), NULL, NULL, NULL))
-            throw Exception(*this) << "Failed executing " << sql;
+    bool execute(std::string sql) {
+        return db && !sqlite3_exec(db, sql.c_str(), NULL, NULL, NULL);
     }
 
     void beginTransaction() {
@@ -172,7 +132,7 @@ public:
         execute("COMMIT");
     }
 
-    // A failing rollback is no-op, so no exception is thrown
+    // A failing rollback is no-op
     void rollbackTransaction();
 
     long int getLastRowid();

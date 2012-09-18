@@ -84,13 +84,21 @@ public:
         void aggregate(const MDCluster & r) {
             // Update minimums/maximums and sum up values
             uint32_t newMinD = minD, newMinM = minM;
-            if (newMinM > r.minM) newMinM = r.minM;
-            if (newMinD > r.minD) newMinD = r.minD;
-            uint64_t dm = minM - newMinM, rdm = r.minM - newMinM;
+            switch (aggrMethod) {
+            case MEAN:
+                newMinM = (minM * value + r.minM * r.value) / (value + r.value);
+                newMinD = (minD * value + r.minD * r.value) / (value + r.value);
+                break;
+            default:
+                if (newMinM > r.minM) newMinM = r.minM;
+                if (newMinD > r.minD) newMinD = r.minD;
+                break;
+            }
+            int64_t dm = minM - newMinM, rdm = r.minM - newMinM;
             accumMsq += value * dm * dm + 2 * dm * accumMln
                         + r.accumMsq + r.value * rdm * rdm + 2 * rdm * r.accumMln;
             accumMln += value * dm + r.accumMln + r.value * rdm;
-            uint64_t dd = minD - newMinD, rdd = r.minD - newMinD;
+            int64_t dd = minD - newMinD, rdd = r.minD - newMinD;
             accumDsq += value * dd * dd + 2 * dd * accumDln
                         + r.accumDsq + r.value * rdd * rdd + 2 * rdd * r.accumDln;
             accumDln += value * dd + r.accumDln + r.value * rdd;
@@ -115,8 +123,17 @@ public:
 
         uint32_t value;
         uint32_t minM, minD;
-        uint64_t accumMsq, accumDsq, accumMln, accumDln;
+        int64_t accumMsq, accumDsq, accumMln, accumDln;
     };
+
+    enum {
+        MINIMUM = 0,
+        MEAN,
+    };
+
+    static void setMethod(int method) {
+        aggrMethod = method;
+    }
 
     static void setNumClusters(unsigned int c) {
         numClusters = c;
@@ -182,6 +199,10 @@ public:
         }
     }
 
+    void updated() {
+        summary.purge();
+    }
+
     void addNode(uint32_t mem, uint32_t disk) {
         if (summary.isEmpty()) {
             minM = mem;
@@ -203,9 +224,11 @@ public:
     }
 
     MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD);
+
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
+    static int aggrMethod;
     ClusteringVector<MDCluster> summary;
     uint32_t minM, maxM;
     uint32_t minD, maxD;

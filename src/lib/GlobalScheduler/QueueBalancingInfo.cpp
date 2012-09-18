@@ -29,6 +29,7 @@ using namespace boost;
 
 unsigned int QueueBalancingInfo::numClusters = 256;
 unsigned int QueueBalancingInfo::numIntervals = 4;
+int QueueBalancingInfo::aggrMethod = QueueBalancingInfo::MINIMUM;
 
 
 double QueueBalancingInfo::MDPTCluster::distance(const MDPTCluster & r, MDPTCluster & sum) const {
@@ -100,14 +101,39 @@ void QueueBalancingInfo::MDPTCluster::aggregate(const MDPTCluster & r) {
     // Update minimums/maximums and sum up values
     uint32_t newMinM = minM, newMinD = minD, newMinP = minP;
     Time newMaxT = maxT;
-    if (newMinM > r.minM) newMinM = r.minM;
-    if (newMinD > r.minD) newMinD = r.minD;
-    if (newMinP > r.minP) newMinP = r.minP;
-    if (newMaxT < r.maxT) newMaxT = r.maxT;
-    accumM += value * (minM - newMinM) + r.accumM + r.value * (r.minM - newMinM);
-    accumD += value * (minD - newMinD) + r.accumD + r.value * (r.minD - newMinD);
-    accumP += value * (minP - newMinP) + r.accumP + r.value * (r.minP - newMinP);
-    accumT += (newMaxT - maxT) * value + r.accumT + (newMaxT - r.maxT) * r.value;
+    switch (aggrMethod) {
+    case MEAN_FULL:
+        newMinM = (minM * value + r.minM * r.value) / (value + r.value);
+        newMinD = (minD * value + r.minD * r.value) / (value + r.value);
+        newMinP = (minP * value + r.minP * r.value) / (value + r.value);
+        if (maxT > r.maxT) {
+            newMaxT = r.maxT + Duration(maxT - r.maxT) * (value / (value + r.value));
+        } else {
+            newMaxT = maxT + Duration(r.maxT - maxT) * (r.value / (value + r.value));
+        }
+        break;
+    case MEAN_QUEUE:
+        if (newMinM > r.minM) newMinM = r.minM;
+        if (newMinD > r.minD) newMinD = r.minD;
+        newMinP = (minP * value + r.minP * r.value) / (value + r.value);
+        if (maxT > r.maxT) {
+            newMaxT = r.maxT + Duration(maxT - r.maxT) * (value / (value + r.value));
+        } else {
+            newMaxT = maxT + Duration(r.maxT - maxT) * (r.value / (value + r.value));
+        }
+        break;
+    default:
+        if (newMinM > r.minM) newMinM = r.minM;
+        if (newMinD > r.minD) newMinD = r.minD;
+        if (newMinP > r.minP) newMinP = r.minP;
+        if (newMaxT < r.maxT) newMaxT = r.maxT;
+        break;
+    }
+    accumM += value * abs(minM - newMinM) + r.accumM + r.value * abs(r.minM - newMinM);
+    accumD += value * abs(minD - newMinD) + r.accumD + r.value * abs(r.minD - newMinD);
+    accumP += value * abs(minP - newMinP) + r.accumP + r.value * abs(r.minP - newMinP);
+    accumT += (newMaxT > maxT ? newMaxT - maxT : maxT - newMaxT) * value
+            + r.accumT + (newMaxT > r.maxT ? newMaxT - r.maxT : r.maxT - newMaxT) * r.value;
     minM = newMinM;
     minD = newMinD;
     minP = newMinP;

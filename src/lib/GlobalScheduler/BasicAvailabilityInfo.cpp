@@ -22,3 +22,4 @@
 
 unsigned int BasicAvailabilityInfo::numClusters = 256;
 unsigned int BasicAvailabilityInfo::numIntervals = 16;
+int BasicAvailabilityInfo::aggrMethod = BasicAvailabilityInfo::MINIMUM;
