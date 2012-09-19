@@ -50,7 +50,7 @@ void RequestGenerator::createUniformCDF(CDF & cdf, const std::string & values) {
         for (unsigned int i = 0; i < v.size(); i++)
             cdf.addValue(v[i], prob += resolution);
         cdf.addValue(v.back(), 1.0);
-    } else throw std::runtime_error("Creating CDF with invalid values: " + values);
+    }
 }
 
 

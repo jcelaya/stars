@@ -105,11 +105,15 @@ public:
         }
     };
 
-    Database(const boost::filesystem::path & dbFile);
-
+    Database() : db(NULL) {}
     ~Database() {
-        sqlite3_close(db);
+        close();
     }
+
+    bool open(const boost::filesystem::path & dbFile);
+    void close();
+
+    bool isOpen() const { return db != NULL; }
 
     sqlite3 * getDatabase() const {
         return db;

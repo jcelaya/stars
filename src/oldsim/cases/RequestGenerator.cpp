@@ -52,7 +52,6 @@ void RequestGenerator::createUniformCDF(CDF & cdf, const string & values) {
             cdf.addValue(v[i], prob += resolution);
         cdf.addValue(v.back(), 1.0);
     }
-    else throw runtime_error("Creating CDF with invalid values: " + values);
 }
 
 

@@ -47,12 +47,15 @@ public:
      * @param reqId The ID of the request which this task arrived in.
      * @param ctId The ID of this task relative to its request.
      * @param d TaskDescription with the task requirements.
-     * @throws runtime_error When the task cannot be created.
      */
     UnixProcess(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
             Task(o, reqId, ctid, d), pid(0), runlock(m), status(Inactive) {
         // Launch a thread to prepare task while waiting to be run
-        thread thrdExe(bind(&UnixProcess::prepareAndRun, this));
+        try {
+            thread thrdExe(bind(&UnixProcess::prepareAndRun, this));
+        } catch (boost::thread_resource_error & e) {
+            status = Aborted;
+        }
     }
 
     ~UnixProcess() {

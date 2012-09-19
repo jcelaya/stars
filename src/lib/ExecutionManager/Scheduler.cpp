@@ -228,7 +228,7 @@ shared_ptr<Task> Scheduler::getTask(unsigned int id) {
     for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
         if ((*i)->getTaskId() == id) return *i;
     LogMsg("Ex.Sch", ERROR) << "Trying to get a non-existent task!!";
-    throw runtime_error("Non-existent task");
+    return shared_ptr<Task>();
 }
 
 

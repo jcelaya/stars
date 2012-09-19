@@ -37,7 +37,8 @@ BOOST_AUTO_TEST_CASE(testDatabase) {
     TestHost::getInstance().reset();
 
     // ctor
-    Database db = Database(":memory:");
+    Database db;
+    db.open(":memory:");
     db.execute("create table if not exists project (name text primary key)");
 
     // Some insertions
@@ -124,18 +125,13 @@ BOOST_AUTO_TEST_CASE(testTaskBagAppDatabase) {
     // Check it was created
     BOOST_CHECK(Database::Query(tbad.getDatabase(), "select * from tb_app_description where name = 'app1' and length = 1000").fetchNextRow());
     // Check we cannot create another app with the same name
-    BOOST_CHECK_THROW(tbad.createApp("app1", desc1), Database::Exception);
+    BOOST_CHECK(!tbad.createApp("app1", desc1));
 
     // Create an app instance
     Time deadline = Time::getCurrentTime();
     long int appInst = tbad.createAppInstance("app1", deadline);
     // Check we cannot create an app instance for an inexistent app
-    BOOST_CHECK_THROW(tbad.createAppInstance("app2", deadline), Database::Exception);
-    // Check that the task description from appInst is the same as app1
-    TaskDescription desc2;
-    tbad.getAppRequirements(appInst, desc2);
-    BOOST_CHECK(desc1.getLength() == desc2.getLength());
-    BOOST_CHECK(desc1.getNumTasks() == desc2.getNumTasks());
+    BOOST_CHECK(tbad.createAppInstance("app2", deadline) == -1);
     // Prepare a taskbagmsg for the four ready tasks
     TaskBagMsg tbm, tmp;
     tbad.requestFromReadyTasks(appInst, tbm);
@@ -147,7 +143,7 @@ BOOST_AUTO_TEST_CASE(testTaskBagAppDatabase) {
     // Check that the request id is ok
     BOOST_CHECK(tbad.getInstanceId(tbm.getRequestId()) == appInst);
     // Check there is an error for another request id
-    BOOST_CHECK_THROW(tbad.getInstanceId(234526), Database::Exception);
+    BOOST_CHECK(tbad.getInstanceId(234526) == -1);
     // Start the search
     tbad.startSearch(tbm.getRequestId(), deadline);
     // Check that all tasks are now not ready

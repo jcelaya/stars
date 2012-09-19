@@ -69,12 +69,12 @@ public:
         virtual unsigned long int getAvailableDisk() const = 0;
 
         /**
-         * Creates an implementation dependent Task object
+         * Creates an implementation dependent Task object.
+         * On failure, the new task starts with state Aborted.
          * @param o The address of the task owner node.
          * @param reqId The ID of the request which this task arrived in.
          * @param ctId The ID of this task relative to its request.
          * @param d TaskDescription with the task requirements.
-         * @throws runtime_error When the task cannot be created.
          */
         virtual boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };

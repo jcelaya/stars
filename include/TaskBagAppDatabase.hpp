@@ -51,12 +51,7 @@ public:
     /**
      * Creates an application
      */
-    void createApp(const std::string & name, const TaskDescription & req);
-
-    /**
-     * Retrieve the application requirements
-     */
-    void getAppRequirements(long int appId, TaskDescription & req);
+    bool createApp(const std::string & name, const TaskDescription & req);
 
     /**
      * Create a new application instance
@@ -77,7 +72,7 @@ public:
     /**
      * Sets the search state to all the tasks in a request and sets the timeout of the request
      */
-    void startSearch(long int rid, Time timeout);
+    bool startSearch(long int rid, Time timeout);
 
     /**
      * Cancels the search for tasks that are not yet allocated in a request. They are removed from

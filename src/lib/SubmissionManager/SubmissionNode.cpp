@@ -71,18 +71,20 @@ void SubmissionNode::sendRequest(long int appInstance, int prevRetries) {
         retries[reqId] = prevRetries + 1;
         remainingTasks[appInstance] += tbm->getLastTask() - tbm->getFirstTask() + 1;
 
-        LogMsg("Sb", INFO) << "Sending request with " << (tbm->getLastTask() - tbm->getFirstTask() + 1) << " tasks of length "
-        << tbm->getMinRequirements().getLength() << " and deadline " << tbm->getMinRequirements().getDeadline();
-        // Send this message to the father's Dispatcher
-        CommLayer::getInstance().sendMessage(resourceNode.getFather(), tbm);
         // Set a request timeout of 30 seconds
         Time timeout = Time::getCurrentTime() + Duration(30.0);
-        db.startSearch(reqId, timeout);
         // Schedule the timeout message
         RequestTimeout * rt = new RequestTimeout;
         rt->setRequestId(reqId);
         /*timeouts[rt->getRequestId()] = */
         CommLayer::getInstance().setTimer(timeout, rt);
+        if (db.startSearch(reqId, timeout)) {
+            LogMsg("Sb", INFO) << "Sending request with " << (tbm->getLastTask() - tbm->getFirstTask() + 1) << " tasks of length "
+                    << tbm->getMinRequirements().getLength() << " and deadline " << tbm->getMinRequirements().getDeadline();
+            // Send this message to the father's Dispatcher
+            CommLayer::getInstance().sendMessage(resourceNode.getFather(), tbm);
+        }
+        // On error, the request is sent again in 30 seconds
     } else {
         // Delay until the father node is stable again
         delayedInstances.push_back(make_pair(appInstance, prevRetries));
@@ -104,7 +106,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCo
     }
 
     long int appId = db.createAppInstance(msg.getAppName(), msg.getDeadline());
-    sendRequest(appId, 0);
+    if (appId != -1)
+        sendRequest(appId, 0);
+    else
+        LogMsg("Sb", ERROR) << "Application " << msg.getAppName() << " does not exist in database.";
 }
 
 
@@ -143,18 +148,23 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
 
     // Accept the rest
     if (numTasks < msg.getLastTask() - msg.getFirstTask() + 1) {
-        db.acceptedTasks(src, msg.getRequestId(), msg.getFirstTask(), msg.getLastTask());
-        // Reset the number of retries for this instance
         long int appId = db.getInstanceId(msg.getRequestId());
-        retries[msg.getRequestId()] = 0;
-        // Program a heartbeat timeout for this execution node if it does not exist yet
-        int & timer = heartbeats.insert(make_pair(src, 0)).first->second;
-        if (timer == 0)
-            timer = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                    new HeartbeatTimeout(src));
-        // Count tasks
-        remoteTasks[src].insert(make_pair(appId, 0)).first->second += msg.getLastTask() - msg.getFirstTask() + 1 - numTasks;
+        if (appId != -1) {
+            db.acceptedTasks(src, msg.getRequestId(), msg.getFirstTask(), msg.getLastTask());
+            // Reset the number of retries for this instance
+            retries[msg.getRequestId()] = 0;
+            // Program a heartbeat timeout for this execution node if it does not exist yet
+            int & timer = heartbeats.insert(make_pair(src, 0)).first->second;
+            if (timer == 0)
+                timer = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
+                        new HeartbeatTimeout(src));
+            // Count tasks
+            remoteTasks[src].insert(make_pair(appId, 0)).first->second += msg.getLastTask() - msg.getFirstTask() + 1 - numTasks;
+            return;
+        }
     }
+    // Reaching here means error
+    LogMsg("Sb", WARN) << "No application instance for request " << msg.getRequestId();
 }
 
 
@@ -169,9 +179,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
     int prevRetries = retries[msg.getRequestId()];
     retries.erase(msg.getRequestId());
 
-    try {
-        long int appId = db.getInstanceId(msg.getRequestId());
+    long int appId = db.getInstanceId(msg.getRequestId());
 
+    // Ignore a non-existent request
+    if (appId != -1) {
         // Change all SEARCHING tasks to READY
         remainingTasks[appId] -= db.cancelSearch(msg.getRequestId());
         if (db.getNumReady(appId) > 0
@@ -185,8 +196,6 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
                 remainingTasks.erase(it);
             }
         }
-    } catch (Database::Exception & e) {
-        // Ignore a non-existent request
     }
 }
 

@@ -75,7 +75,6 @@ void ZoneDescription::aggregate(const std::list<boost::shared_ptr<ZoneDescriptio
             maxAddr = (*it)->maxAddr;
     }
 
-    if (avail < 0) throw runtime_error("Available nodes < 0");
     // Now round up the result to the higher power of two lower than itself.
     // For example, if the result is 45, round it to 32.
     if (avail) {

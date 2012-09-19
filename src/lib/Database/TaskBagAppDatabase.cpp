@@ -24,7 +24,8 @@ using namespace std;
 using namespace boost::filesystem;
 
 
-TaskBagAppDatabase::TaskBagAppDatabase() : db(ConfigurationManager::getInstance().getDatabasePath()) {
+TaskBagAppDatabase::TaskBagAppDatabase() {
+    db.open(ConfigurationManager::getInstance().getDatabasePath());
     createTables();
 }
 
@@ -72,57 +73,44 @@ void TaskBagAppDatabase::createTables() {
 }
 
 
-void TaskBagAppDatabase::createApp(const std::string & name, const TaskDescription & req) {
-    Database::Query(db, "insert into tb_app_description values (?, ?, ?, ?, ?, ?, ?)")
+bool TaskBagAppDatabase::createApp(const std::string & name, const TaskDescription & req) {
+    return Database::Query(db, "insert into tb_app_description values (?, ?, ?, ?, ?, ?, ?)")
     .par(name).par(req.getNumTasks()).par(req.getLength()).par(req.getMaxMemory())
     .par(req.getMaxDisk()).par(req.getInputSize()).par(req.getOutputSize()).execute();
-    LogMsg("Database.App", DEBUG) << "Created app " << name;
-}
-
-
-void TaskBagAppDatabase::getAppRequirements(long int appId, TaskDescription & req) {
-    Database::Query selectQuery(db, "select num_tasks, length, memory, disk, input, output from tb_app_description where name in "
-                                "(select app_type from tb_app_instance where id = ?)");
-
-    if (selectQuery.par(appId).fetchNextRow()) {
-        req.setNumTasks(selectQuery.getInt());
-        req.setLength(selectQuery.getInt());
-        req.setMaxMemory(selectQuery.getInt());
-        req.setMaxDisk(selectQuery.getInt());
-        req.setInputSize(selectQuery.getInt());
-        req.setOutputSize(selectQuery.getInt());
-    } else
-        throw Database::Exception(db) << "Error getting data for app " << appId;
 }
 
 
 long int TaskBagAppDatabase::createAppInstance(const std::string & name, Time deadline) {
     long int instanceId = 0;
     db.beginTransaction();
-    try {
-        unsigned int numTasks;
+    unsigned int numTasks;
+    {
         Database::Query getNumTasks(db, "select num_tasks from tb_app_description where name = ?");
         if (getNumTasks.par(name).fetchNextRow()) {
             numTasks = getNumTasks.getInt();
-        } else throw Database::Exception(db) << "No application with name " << name;
 
-        // Create instance
-        Database::Query(db, "insert into tb_app_instance (app_type, ctime, deadline) values (?, ?, ?)")
-        .par(name).par(Time::getCurrentTime().getRawDate()).par(deadline.getRawDate()).execute();
-        instanceId = db.getLastRowid();
+            // Create instance
+            if (Database::Query(db, "insert into tb_app_instance (app_type, ctime, deadline) values (?, ?, ?)")
+                    .par(name).par(Time::getCurrentTime().getRawDate()).par(deadline.getRawDate()).execute()) {
+                instanceId = db.getLastRowid();
 
-        // Create tasks
-        Database::Query createTask(db, "insert into tb_task (tid, app_instance) values (?, ?)");
-        for (unsigned int t = 1; t <= numTasks; t++) {
-            createTask.par(t).par(instanceId).execute();
+                // Create tasks
+                bool good = true;
+                Database::Query createTask(db, "insert into tb_task (tid, app_instance) values (?, ?)");
+                for (unsigned int t = 1; good && t <= numTasks; t++) {
+                    good &= createTask.par(t).par(instanceId).execute();
+                }
+
+                if (good) {
+                    db.commitTransaction();
+                    return instanceId;
+                }
+            }
         }
-        db.commitTransaction();
-    } catch (Database::Exception & e) {
-        db.rollbackTransaction();
-        throw;
     }
-
-    return instanceId;
+    LogMsg("Database.App", WARN) << "No instance created for application " << name;
+    db.rollbackTransaction();
+    return -1;
 }
 
 
@@ -130,41 +118,53 @@ void TaskBagAppDatabase::requestFromReadyTasks(long int appId, TaskBagMsg & msg)
     long int requestId = 0;
     unsigned int numTasks = 0;
     TaskDescription req;
+    msg.setFirstTask(1);
 
-    db.beginTransaction();
-    try {
-        // Get app requirements if they exist, otherwise return
-        getAppRequirements(appId, req);
-        Database::Query getDeadline(db, "select deadline from tb_app_instance where id = ?");
-        if (!getDeadline.par(appId).fetchNextRow()) throw Database::Exception(db) << "No application instance with id " << appId;
-        req.setDeadline(Time(getDeadline.getInt()));
+    db.beginTransaction(); {
+        // Get app requirements if they exist
+        Database::Query selectQuery(db, "select num_tasks, length, memory, disk, input, output from tb_app_description where name in "
+                                    "(select app_type from tb_app_instance where id = ?)");
+        if (selectQuery.par(appId).fetchNextRow()) {
+            req.setNumTasks(selectQuery.getInt());
+            req.setLength(selectQuery.getInt());
+            req.setMaxMemory(selectQuery.getInt());
+            req.setMaxDisk(selectQuery.getInt());
+            req.setInputSize(selectQuery.getInt());
+            req.setOutputSize(selectQuery.getInt());
 
-        // Look for ready tasks
-        Database::Query getReady(db, "select tid from tb_task where app_instance = ? and state = 'READY'");
-        getReady.par(appId);
-        if (getReady.fetchNextRow()) {
-            // Create request
-            Database::Query(db, "insert into tb_request (app_instance) values (?)").par(appId).execute();
-            requestId = db.getLastRowid();
+            Database::Query getDeadline(db, "select deadline from tb_app_instance where id = ?");
+            if (getDeadline.par(appId).fetchNextRow()) {
+                req.setDeadline(Time(getDeadline.getInt()));
 
-            // Associate task and request ids
-            Database::Query associateTidRid(db, "insert into tb_task_request values (?, ?, ?)");
-            associateTidRid.par(requestId).par(++numTasks).par(getReady.getInt()).execute();
-            while (getReady.fetchNextRow()) {
-                associateTidRid.par(requestId).par(++numTasks).par(getReady.getInt()).execute();
+                // Look for ready tasks
+                Database::Query getReady(db, "select tid from tb_task where app_instance = ? and state = 'READY'");
+                getReady.par(appId);
+                if (getReady.fetchNextRow()) {
+                    // Create request
+                    if (Database::Query(db, "insert into tb_request (app_instance) values (?)").par(appId).execute()) {
+                        requestId = db.getLastRowid();
+
+                        // Associate task and request ids
+                        Database::Query associateTidRid(db, "insert into tb_task_request values (?, ?, ?)");
+                        bool good = associateTidRid.par(requestId).par(++numTasks).par(getReady.getInt()).execute();
+                        while (good && getReady.fetchNextRow()) {
+                            good &= associateTidRid.par(requestId).par(++numTasks).par(getReady.getInt()).execute();
+                        }
+
+                        if (good) {
+                            db.commitTransaction();
+                            msg.setRequestId(requestId);
+                            msg.setLastTask(numTasks);
+                            msg.setMinRequirements(req);
+                            return;
+                        }
+                    }
+                }
             }
         }
-
-        db.commitTransaction();
-    } catch (Database::Exception & e) {
-        db.rollbackTransaction();
-        throw;
     }
-
-    msg.setRequestId(requestId);
-    msg.setFirstTask(1);
-    msg.setLastTask(numTasks);
-    msg.setMinRequirements(req);
+    db.rollbackTransaction();
+    msg.setLastTask(0);
 }
 
 
@@ -173,53 +173,50 @@ long int TaskBagAppDatabase::getInstanceId(long int rid) {
 
     if (getId.par(rid).fetchNextRow())
         return getId.getInt();
-    else
-        throw Database::Exception(db) << "No request with id " << rid;
+    else {
+        LogMsg("Database.App", WARN) << "No request with id " << rid;
+        return -1;
+    }
 }
 
 
-void TaskBagAppDatabase::startSearch(long int rid, Time timeout) {
+bool TaskBagAppDatabase::startSearch(long int rid, Time timeout) {
     db.beginTransaction();
-    try {
-        Database::Query(db, "update tb_app_instance set rtime = ? "
-                        "where rtime is NULL and id in (select app_instance from tb_request where rid = ?)")
-        .par(Time::getCurrentTime().getRawDate()).par(rid).execute();
-        Database::Query(db, "update tb_task set state = 'SEARCHING' where "
-                        "app_instance = (select app_instance from tb_request where rid = ?) "
-                        "and tid in (select tid from tb_task_request where rid = ?1)")
-        .par(rid).execute();
-        Database::Query(db, "update tb_request set timeout = ? where rid = ?")
-        .par(timeout.getRawDate()).par(rid).execute();
-
+    if(Database::Query(db, "update tb_app_instance set rtime = ? "
+       "where rtime is NULL and id in (select app_instance from tb_request where rid = ?)")
+       .par(Time::getCurrentTime().getRawDate()).par(rid).execute()
+       && Database::Query(db, "update tb_task set state = 'SEARCHING' where "
+          "app_instance = (select app_instance from tb_request where rid = ?) "
+          "and tid in (select tid from tb_task_request where rid = ?1)")
+          .par(rid).execute()
+          && Database::Query(db, "update tb_request set timeout = ? where rid = ?")
+             .par(timeout.getRawDate()).par(rid).execute()) {
         db.commitTransaction();
-    } catch (Database::Exception & e) {
+        return true;
+    } else {
         db.rollbackTransaction();
-        throw;
+        return false;
     }
 }
 
 
 unsigned int TaskBagAppDatabase::cancelSearch(long int rid) {
-    unsigned int readyTasks = 0;
     db.beginTransaction();
-    try {
-        Database::Query(db, "update tb_task set state = 'READY' where "
+    if (Database::Query(db, "update tb_task set state = 'READY' where "
                         "app_instance = (select app_instance from tb_request where rid = ?) "
                         "and tid in (select tid from tb_task_request where rid = ?1) and state = 'SEARCHING'")
-        .par(rid).execute();
-        int tmp = db.getChangedRows();
-        Database::Query(db, "delete from tb_task_request where rid = ? and tid in "
-                        "(select tid from tb_task where state = 'READY' and "
-                        "app_instance = (select app_instance from tb_request where rid = ?1))")
-        .par(rid).execute();
-
-        db.commitTransaction();
-        readyTasks = tmp;
-    } catch (Database::Exception & e) {
-        db.rollbackTransaction();
-        throw;
+        .par(rid).execute() ) {
+        unsigned int readyTasks = db.getChangedRows();
+        if (Database::Query(db, "delete from tb_task_request where rid = ? and tid in "
+                            "(select tid from tb_task where state = 'READY' and "
+                            "app_instance = (select app_instance from tb_request where rid = ?1))")
+            .par(rid).execute()) {
+            db.commitTransaction();
+            return readyTasks;
+        }
     }
-    return readyTasks;
+    db.rollbackTransaction();
+    return 0;
 }
 
 
@@ -274,47 +271,37 @@ bool TaskBagAppDatabase::abortedTask(const CommAddress & src, long int rid, unsi
             .par(src.getIPString()).par(src.getPort()).par(rid).par(rtid).fetchNextRow())
         return false;
     db.beginTransaction();
-    try {
-        // Change their status to READY
+    if (// Change their status to READY
         Database::Query(db, "update tb_task set state = 'READY', atime = NULL, ftime = NULL, host_IP = NULL, host_port = NULL "
                         "where host_IP = ? and host_port = ? and "
                         "tid = (select tid from tb_task_request where rid = ? and rtid = ?) and "
                         "app_instance = (select app_instance from tb_request where rid = ?3)")
-        .par(src.getIPString()).par(src.getPort()).par(rid).par(rtid).execute();
+        .par(src.getIPString()).par(src.getPort()).par(rid).par(rtid).execute() &&
         // Take that task from its request
         Database::Query(db, "delete from tb_task_request where rid = ? and rtid = ?")
-        .par(rid).par(rtid).execute();
+        .par(rid).par(rtid).execute())
         db.commitTransaction();
-    } catch (Database::Exception & e) {
+    else
         db.rollbackTransaction();
-        throw;
-    }
     return true;
 }
 
 
 void TaskBagAppDatabase::deadNode(const CommAddress & fail) {
-    db.beginTransaction();
-    try {
-        // Make a list of all tasks that where executing in that node
-        Database::Query failedTasks(db, "select B.rid, A.tid from tb_task A, tb_request B where "
-                                    "state = 'EXECUTING' and host_IP = ? and host_port = ? and A.app_instance = B.app_instance");
-        failedTasks.par(fail.getIPString()).par(fail.getPort());
-        while (failedTasks.fetchNextRow()) {
-            // Take it out of its request
-            long int rid = failedTasks.getInt();
-            long int tid = failedTasks.getInt();
-            Database::Query(db, "delete from tb_task_request where rid = ? and tid = ?")
-            .par(rid).par(tid).execute();
-        }
-        // Change their status to READY
-        Database::Query(db, "update tb_task set state = 'READY', atime = NULL, ftime = NULL, host_IP = NULL, host_port = NULL "
-                        "where host_IP = ? and host_port = ? and state = 'EXECUTING'").par(fail.getIPString()).par(fail.getPort()).execute();
-        db.commitTransaction();
-    } catch (Database::Exception & e) {
-        db.rollbackTransaction();
-        throw;
+    // Make a list of all tasks that where executing in that node
+    Database::Query failedTasks(db, "select B.rid, A.tid from tb_task A, tb_request B where "
+                                "state = 'EXECUTING' and host_IP = ? and host_port = ? and A.app_instance = B.app_instance");
+    failedTasks.par(fail.getIPString()).par(fail.getPort());
+    while (failedTasks.fetchNextRow()) {
+        // Take it out of its request
+        long int rid = failedTasks.getInt();
+        long int tid = failedTasks.getInt();
+        Database::Query(db, "delete from tb_task_request where rid = ? and tid = ?")
+        .par(rid).par(tid).execute();
     }
+    // Change their status to READY
+    Database::Query(db, "update tb_task set state = 'READY', atime = NULL, ftime = NULL, host_IP = NULL, host_port = NULL "
+                    "where host_IP = ? and host_port = ? and state = 'EXECUTING'").par(fail.getIPString()).par(fail.getPort()).execute();
 }
 
 

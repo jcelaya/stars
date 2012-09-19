@@ -126,7 +126,6 @@ protected:
      * @param reqId The ID of the request which this task arrived in.
      * @param ctId The ID of this task relative to its request.
      * @param d TaskDescription with the task requirements.
-     * @throws runtime_error When the task cannot be created.
      */
     Task(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
             taskId(nextId++), owner(o), clientRequestId(reqId), clientTaskId(ctid), description(d),

@@ -24,11 +24,23 @@ using namespace std;
 using namespace boost;
 
 
-Database::Database(const boost::filesystem::path & dbFile) : db(NULL) {
-    if (sqlite3_open(dbFile.string().c_str(), &db))
-        throw Exception(*this) << "Error opening database";
-    // We usually want foreign key constraints
-    execute("pragma foreign_keys = on");
+bool Database::open(const boost::filesystem::path & dbFile) {
+    if (sqlite3_open(dbFile.string().c_str(), &db) == SQLITE_OK) {
+        // We usually want foreign key constraints
+        execute("pragma foreign_keys = on");
+        return true;
+    } else {
+        sqlite3_close(db);
+        db = NULL;
+        return false;
+    }
+}
+
+
+void Database::close() {
+    for (map<std::string, sqlite3_stmt *>::iterator it = queryCache.begin(); it != queryCache.end(); ++it)
+        sqlite3_finalize(it->second);
+    sqlite3_close(db);
 }
 
 
@@ -36,9 +48,7 @@ Database::Query::Query(Database & d, const std::string & sql) : db(d), nextCol(0
     map<std::string, sqlite3_stmt *>::iterator it = d.queryCache.find(sql);
     if (it == d.queryCache.end()) {
         const char * tmp;
-        if (sqlite3_prepare_v2(db.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
-            throw Database::Exception(db) << "Unable to prepare query " << sql;
-        } else {
+        if (!sqlite3_prepare_v2(db.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
             d.queryCache[sql] = statement;
         }
     } else
