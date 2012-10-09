@@ -19,17 +19,18 @@
  */
 
 #include "Logger.hpp"
-#include "../SimulationCase.hpp"
+#include "SimulationCase.hpp"
+#include "Simulator.hpp"
 #include "TaskDescription.hpp"
 #include "DispatchCommandMsg.hpp"
 #include "Time.hpp"
-#include "../SimAppDatabase.hpp"
+#include "SimAppDatabase.hpp"
 #include "SubmissionNode.hpp"
 #include "TaskMonitorMsg.hpp"
 #include "RequestTimeout.hpp"
 #include "AvailabilityInformation.hpp"
 #include "TaskStateChgMsg.hpp"
-#include "../SimTask.hpp"
+#include "../sim/SimTask.hpp"
 using namespace std;
 using namespace boost;
 
@@ -93,7 +94,7 @@ public:
     }
 
     bool doContinue() const {
-        return nextSearch <= numSearches || Simulator::getInstance().getStarsStats().getExistingTasks() > 0;
+        return nextSearch <= numSearches || Simulator::getInstance().getStarsStatistics().getExistingTasks() > 0;
     }
 
     void postEnd() {

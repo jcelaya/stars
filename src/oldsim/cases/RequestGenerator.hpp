@@ -23,9 +23,9 @@
 
 #include <string>
 #include <vector>
-#include "../Properties.hpp"
-#include "../Distributions.hpp"
-#include "../StarsNode.hpp"
+#include "../sim/Properties.hpp"
+#include "../sim/Distributions.hpp"
+#include "StarsNode.hpp"
 #include "DispatchCommandMsg.hpp"
 #include "Time.hpp"
 
@@ -51,7 +51,7 @@ class RequestGenerator {
 public:
     RequestGenerator(const Properties & property);
 
-    boost::shared_ptr<DispatchCommandMsg> generate(StarsNode & client, Time releaseDate);
+    DispatchCommandMsg * generate(StarsNode & client, Time releaseDate);
 };
 
 #endif /* REQUESTGENERATOR_H_ */

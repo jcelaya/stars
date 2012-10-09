@@ -21,30 +21,26 @@
 #include "SimTask.hpp"
 #include "Logger.hpp"
 #include "TaskStateChgMsg.hpp"
+#include "TaskDescription.hpp"
 #include "Simulator.hpp"
-#include "CommLayer.hpp"
-#include "StarsNode.hpp"
-using namespace std;
-using namespace boost::posix_time;
 
 
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
-    Simulator::getInstance().getStarsStats().taskStarted();
-    taskDuration = Duration(description.getLength() /
-            (double)Simulator::getInstance().getCurrentNode().getAveragePower());
+    Simulator::getInstance().getStarsStatistics().taskStarted();
+    taskDuration = Duration(description.getLength() / Simulator::getInstance().getCurrentNode().getAveragePower());
     LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
 }
 
 
 SimTask::~SimTask() {
-    Simulator::getInstance().getStarsStats().taskFinished(timer != -1);
+    Simulator::getInstance().getStarsStatistics().taskFinished(*this, timer != -1);
 }
 
 
 int SimTask::getStatus() const {
     if (timer == -1) return Prepared;
-    else if (finishTime > Simulator::getInstance().getCurrentTime()) return Running;
+    else if (finishTime > Time::getCurrentTime()) return Running;
     else return Finished;
 }
 
@@ -56,7 +52,7 @@ void SimTask::run() {
         tfm->setOldState(Running);
         tfm->setNewState(Finished);
         timer = Simulator::getInstance().getCurrentNode().setTimer(taskDuration, tfm);
-        finishTime = Simulator::getInstance().getCurrentTime() + taskDuration;
+        finishTime = Time::getCurrentTime() + taskDuration;
         LogMsg("Sim.Task", DEBUG) << "Running task " << taskId << " until " << finishTime;
     }
 }
@@ -64,8 +60,8 @@ void SimTask::run() {
 
 void SimTask::abort() {
     // Cancel timer only if the task is running
-    if (timer != -1 && finishTime > Simulator::getInstance().getCurrentTime()) {
-        Simulator::getInstance().cancelTimer(timer);
+    if (timer != -1 && finishTime > Time::getCurrentTime()) {
+        Simulator::getInstance().getCurrentNode().cancelTimer(timer);
         timer = -1;
     }
 }
@@ -73,7 +69,7 @@ void SimTask::abort() {
 
 Duration SimTask::getEstimatedDuration() const {
     if (timer == -1) return taskDuration;
-    else if (finishTime > Simulator::getInstance().getCurrentTime())
-        return finishTime - Simulator::getInstance().getCurrentTime();
+    else if (finishTime > Time::getCurrentTime())
+        return finishTime - Time::getCurrentTime();
     else return Duration();
 }

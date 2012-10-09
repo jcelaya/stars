@@ -204,7 +204,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
     double maxSlowness = slowness;
     for (std::list<std::pair<Time, double> >::iterator it = lastSlowness.begin(); it != lastSlowness.end(); ++it)
         if (maxSlowness < it->second) maxSlowness = it->second;
-            lastSlowness.push_back(std::make_pair(end, maxSlowness));
+    lastSlowness.push_back(std::make_pair(end, maxSlowness));
 }
 
 

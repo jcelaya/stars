@@ -26,8 +26,8 @@
 #include "PerfectScheduler.hpp"
 
 
-LibStarsStatistics::LibStarsStatistics() : existingTasks(0),
-        partialFinishedTasks(0), totalFinishedTasks(0), numNodesHist(1.0), finishedHist(0.1), searchHist(100U),
+LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
+        partialComputation(0), totalComputation(0), numNodesHist(1.0), finishedHist(0.1), searchHist(100U),
         jttHist(100U), seqHist(100U), spupHist(0.1), slownessHist(100U), unfinishedApps(0), totalApps(0) {}
 
 
@@ -38,8 +38,8 @@ void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir)
 
     // Throughput statistics
     throughputos.open(statDir / fs::path("throughput.stat"));
-    throughputos << "# Time, tasks finished per second, total tasks finished" << std::endl;
-    throughputos << "0,0,0" << std::endl;
+    throughputos << "# Time, tasks finished per second, total tasks finished, computation per second, total computation" << std::endl;
+    throughputos << "0,0,0,0,0" << std::endl;
 
     // App statistics
     appos.open(statDir / fs::path("apps.stat"));
@@ -54,7 +54,7 @@ void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir)
 
 // Queue statistics
 void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
-    Simulator::getInstance().getStarsStats().queueChangedStatistics(rid, numAccepted, queueEnd);
+    Simulator::getInstance().getStarsStatistics().queueChangedStatistics(rid, numAccepted, queueEnd);
 }
 
 
@@ -80,20 +80,38 @@ void LibStarsStatistics::finishQueueLengthStatistics() {
 void LibStarsStatistics::finishThroughputStatistics() {
     Time now = Simulator::getInstance().getCurrentTime();
     double elapsed = (now - lastTSample).seconds();
-    throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ',' << (partialFinishedTasks / elapsed) << ',' << totalFinishedTasks << std::endl;
+    throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ','
+            << (partialFinishedTasks / elapsed) << ','
+            << totalFinishedTasks << ','
+            << (partialComputation / elapsed) << ','
+            << totalComputation
+            << std::endl;
 }
 
 
-void LibStarsStatistics::taskFinished(bool successful) {
+void LibStarsStatistics::taskStarted() {
+    ++existingTasks;
+}
+
+
+void LibStarsStatistics::taskFinished(const Task & t, bool successful) {
     --existingTasks;
     if (successful) {
         partialFinishedTasks++;
+        partialComputation += t.getDescription().getLength();
         totalFinishedTasks++;
+        totalComputation += t.getDescription().getLength();
         Time now = Simulator::getInstance().getCurrentTime();
         double elapsed = (now - lastTSample).seconds();
         if (elapsed >= delayTSample) {
-            throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ',' << (partialFinishedTasks / elapsed) << ',' << totalFinishedTasks << std::endl;
+            throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ','
+                    << (partialFinishedTasks / elapsed) << ','
+                    << totalFinishedTasks << ','
+                    << (partialComputation / elapsed) << ','
+                    << totalComputation
+                    << std::endl;
             partialFinishedTasks = 0;
+            partialComputation = 0;
             lastTSample = now;
         }
     }

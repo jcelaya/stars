@@ -116,7 +116,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
             LogMsg("Ex.Sch", DEBUG) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
         } else {
             // Take the TaskDescription object and try to accept it
-            LogMsg("Ex.Sch", DEBUG) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
+            LogMsg("Ex.Sch", INFO) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
             numAccepted = accept(msg);
             if (numAccepted > 0) {
                 notifySchedule();
@@ -140,7 +140,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
             if (numAccepted == numTasks) return;
         }
         // If control reaches this point, there are tasks which were not accepted.
-        LogMsg("Ex.Sch", DEBUG) << (numTasks - numAccepted) << " tasks rejected.";
+        LogMsg("Ex.Sch", WARN) << (numTasks - numAccepted) << " tasks rejected.";
     }
 }
 
@@ -218,8 +218,7 @@ void Scheduler::rescheduleAt(Time r) {
 
 void Scheduler::setMonitorTimer() {
     // Randomize monitor timer with 10%
-    double seconds = ConfigurationManager::getInstance().getHeartbeat() * (0.9 + (rand() / (RAND_MAX * 10.0)));
-    monitorTimer = CommLayer::getInstance().setTimer(Duration(seconds), new MonitorTimer);
+    monitorTimer = CommLayer::getInstance().setTimer(Duration((double)ConfigurationManager::getInstance().getHeartbeat()), new MonitorTimer);
 }
 
 

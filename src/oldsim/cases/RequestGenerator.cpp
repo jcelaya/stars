@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include "RequestGenerator.hpp"
 #include "TaskDescription.hpp"
-#include "../Simulator.hpp"
+#include "Simulator.hpp"
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
 using namespace std;
@@ -108,8 +108,8 @@ RequestGenerator::RequestGenerator(const Properties & property) {
 }
 
 
-shared_ptr<DispatchCommandMsg> RequestGenerator::generate(StarsNode & client, Time releaseDate) {
-    shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
+DispatchCommandMsg * RequestGenerator::generate(StarsNode & client, Time releaseDate) {
+    DispatchCommandMsg * dcm = new DispatchCommandMsg;
     // Create application
     TaskDescription minReq;
     SWFAppDescription & ad = descriptions[floor(appDistribution.inverse(Simulator::uniform01()))];

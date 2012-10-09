@@ -24,8 +24,6 @@
 #include <map>
 #include <string>
 #include <sstream>
-#include <boost/filesystem/fstream.hpp>
-namespace fs = boost::filesystem;
 
 
 class Properties : public std::map<std::string, std::string> {
@@ -41,7 +39,7 @@ public:
         } else return defaultValue;
     }
 
-    void loadFromFile(const fs::path & fileName);
+    void loadFrom(std::istream & is);
 
     friend std::ostream & operator<<(std::ostream & os, const Properties & o);
 };

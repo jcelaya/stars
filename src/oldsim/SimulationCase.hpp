@@ -24,6 +24,7 @@
 #include <string>
 #include <map>
 #include <boost/shared_ptr.hpp>
+#include <boost/cstdint.hpp>
 #include "Properties.hpp"
 class BasicMsg;
 

@@ -78,7 +78,7 @@ bool PerfectScheduler::blockEvent(const Simulator::Event & ev) {
             // This message was sent by the centralized scheduler
             outTraffic += ev.size;
         }
-    } else if (typeid(*ev.msg) == typeid(TaskMonitorMsg)) {
+    } else if (typeid(*ev.msg) == typeid(TaskMonitorMsg) && !ev.inRecvQueue) {
         // Meassure traffic
         inTraffic += ev.size;
 
@@ -115,14 +115,7 @@ void PerfectScheduler::addToQueue(const TaskDesc & task, unsigned int node) {
     list<TaskDesc> & queue = queues[node];
     queue.push_back(task);
     if (queue.size() == 1) {
-        shared_ptr<TaskBagMsg> tbm(task.msg->clone());
-        tbm->setFromEN(false);
-        tbm->setForEN(true);
-        tbm->setFirstTask(task.tid);
-        tbm->setLastTask(task.tid);
-        queue.front().running = true;
-        LogMsg("Dsp.Perf", INFO) << "Finally sending a task of request" << tbm->getRequestId() << " to " << AddrIO(node) << ": " << *tbm;
-        sim.sendMessage(sim.getNode(node).getE().getFather().getIPNum(), node, tbm);
+        sendOneTask(node);
     }
     if (queueEnds[node] < now)
         queueEnds[node] = now;
@@ -278,14 +271,14 @@ class CentralizedRandomDeadlines : public PerfectScheduler {
                 if (node.getScheduler().getTasks().empty())
                     start += it->a;
                 else
-                    start += node.getScheduler().getTasks().front()->getEstimatedDuration();// + Duration(1.0);
+                    start += node.getScheduler().getTasks().front()->getEstimatedDuration();
                 for (it++; it != queue.end() && it->d <= deadline; it++) {
-                    start += it->a;// + Duration(1.0);
+                    start += it->a;
                 }
                 start += task.a;
                 meets = start <= deadline;
                 for (; meets && it != queue.end(); it++) {
-                    start += it->a;// + Duration(1.0);
+                    start += it->a;
                     meets = start <= it->d;
                 }
             } else {
@@ -411,7 +404,7 @@ class CentralizedDeadlines : public PerfectScheduler {
         unsigned int node;
         unsigned int numTasks;
         unsigned long remaining;
-        bool operator<(const Hole & r) const { return remaining < r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
+        bool operator<(const Hole & r) const { return remaining > r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
     };
 
     void newApp(shared_ptr<TaskBagMsg> msg) {
@@ -436,39 +429,41 @@ class CentralizedDeadlines : public PerfectScheduler {
                     if (node.getScheduler().getTasks().empty())
                         start += queue.front().a;
                     else
-                        start += node.getScheduler().getTasks().front()->getEstimatedDuration();// + Duration(1.0);
+                        start += node.getScheduler().getTasks().front()->getEstimatedDuration();
                     for (list<TaskDesc>::iterator it = ++queue.begin(); it != queue.end() && it->d <= deadline; it++) {
-                        start += it->a + Duration(1.0);
+                        start += it->a;
                     }
                 }
                 unsigned long avail, availTotal;
                 if (queue.empty() || queue.back().d <= deadline) {
-                    avail = deadline > start ? ((deadline - start).seconds() * sim.getNode(n).getAveragePower()) : 0;
-                    availTotal = -1;//avail - avail % a;
+                    avail = deadline > start ? ((deadline - start).seconds() * node.getAveragePower()) : 0;
+                    //availTotal = -1;
+                    availTotal = avail;
                 } else {
                     Time end = queue.back().d;
                     for (list<TaskDesc>::reverse_iterator it = queue.rbegin(); it != queue.rend() && it->d > deadline; it++) {
                         if (it->d < end) end = it->d;
-                        end -= it->a + Duration(1.0); // 1 second for the msg sending
+                        end -= it->a;
                     }
-                    availTotal = ((end - start).seconds() * sim.getNode(n).getAveragePower());
+                    availTotal = ((end - start).seconds() * node.getAveragePower());
                     if (deadline < end) end = deadline;
-                    avail = end > start ? ((end - start).seconds() * sim.getNode(n).getAveragePower()) : 0;
+                    avail = end > start ? ((end - start).seconds() * node.getAveragePower()) : 0;
                 }
-                //LogMsg("Dsp.Perf", DEBUG) << "Node " << n << " provides " << avail;
+                LogMsg("Dsp.Perf", DEBUG) << "Node " << n << " provides " << avail;
                 // If hole is enough add it
                 if (avail > a) {
                     Hole h;
                     h.node = n;
                     h.numTasks = avail / a;
-                    h.remaining = availTotal - a * h.numTasks;
+                    //h.remaining = availTotal - a * h.numTasks;
+                    h.remaining = avail - a * h.numTasks;
                     // Check whether it's needed
                     if (cachedTasks == 0 || cachedTasks < numTasks) {
                         // Just add the hole
                         holeCache[lastHole++] = h;
                         cachedTasks += h.numTasks;
                         push_heap(holeCache, holeCache + lastHole);
-                        //LogMsg("Dsp.Perf", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
+                        LogMsg("Dsp.Perf", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
                     } else if (h < holeCache[0]) {
                         // Add the hole but, eliminate the worst?
                         while (cachedTasks > 0 && cachedTasks - holeCache[0].numTasks + h.numTasks >= numTasks && h < holeCache[0]) {
@@ -478,7 +473,7 @@ class CentralizedDeadlines : public PerfectScheduler {
                         holeCache[lastHole++] = h;
                         cachedTasks += h.numTasks;
                         push_heap(holeCache, holeCache + lastHole);
-                        //LogMsg("Dsp.Perf", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
+                        LogMsg("Dsp.Perf", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
                     }
                 }
             }
@@ -500,8 +495,8 @@ class CentralizedDeadlines : public PerfectScheduler {
                 ignoreTasks -= best.numTasks;
             } else {
                 unsigned int numTasks = best.numTasks - ignoreTasks;
-                //LogMsg("Dsp.Perf", DEBUG) << numTasks << " tasks allocated to node " << best.node << " with room for " << best.numTasks
-                //  << " tasks and still remains " << best.remaining;
+                LogMsg("Dsp.Perf", DEBUG) << numTasks << " tasks allocated to node " << best.node << " with room for " << best.numTasks
+                  << " tasks and still remains " << best.remaining;
                 for (unsigned int i = 0; i < numTasks; i++, task.tid++) {
                     //LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
                     addToQueue(task, best.node);

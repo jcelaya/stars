@@ -18,11 +18,11 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../Simulator.hpp"
-#include "../SimulationCase.hpp"
+#include "Simulator.hpp"
+#include "SimulationCase.hpp"
 #include "StructureNode.hpp"
 #include "TaskDescription.hpp"
-#include "../TrafficStatistics.hpp"
+#include "TrafficStatistics.hpp"
 #include "InsertCommandMsg.hpp"
 #include "Logger.hpp"
 using namespace std;

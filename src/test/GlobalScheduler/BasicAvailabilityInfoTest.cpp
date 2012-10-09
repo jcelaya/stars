@@ -62,13 +62,13 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(baiAggr) {
     ofstream ofmd("abai_test_mem_disk.stat");
-    int numClusters[] = { 9, 25, 64, 121, 225 };
+    int numClusters[] = { 9, 64, 225 };
 
-    AggregationTest<BasicAvailabilityInfo> t;
-    for (int i = 0; i < 17; i++) {
-        for (int j = 0; j < 5; j++) {
-            BasicAvailabilityInfo::setNumClusters(numClusters[j]);
-            ofmd << "# " << numClusters[j] << " clusters" << endl;
+    for (int j = 0; j < 3; ++j) {
+        BasicAvailabilityInfo::setNumClusters(numClusters[j]);
+        ofmd << "# " << numClusters[j] << " clusters" << endl;
+        AggregationTest<BasicAvailabilityInfo> t;
+        for (int i = 0; i < 17; ++i) {
             list<BasicAvailabilityInfo::MDCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);
@@ -83,13 +83,16 @@ BOOST_AUTO_TEST_CASE(baiAggr) {
                 aggrMem += (unsigned long int)(*it)->minM * (*it)->value;
                 aggrDisk += (unsigned long int)(*it)->minD * (*it)->value;
             }
-            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << numClusters[j] << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-            << " mem " << aggrMem << '/' << t.getTotalMem() << '(' << (aggrMem * 100.0 / t.getTotalMem()) << "%)"
-            << " disk " << aggrDisk << '/' << t.getTotalDisk() << '(' << (aggrDisk * 100.0 / t.getTotalDisk()) << "%)";
+            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << numClusters[j] << " s.f., "
+                    << t.getMeanTime().total_microseconds() << " us/msg, "
+                    << "min/mean/max size " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
+                    << " mem " << aggrMem << '/' << t.getTotalMem() << '(' << (aggrMem * 100.0 / t.getTotalMem()) << "%)"
+                    << " disk " << aggrDisk << '/' << t.getTotalDisk() << '(' << (aggrDisk * 100.0 / t.getTotalDisk()) << "%)";
 
             ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << endl;
+            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
             ofmd << endl;
         }
         ofmd << endl;

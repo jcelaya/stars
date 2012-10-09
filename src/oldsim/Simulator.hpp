@@ -120,7 +120,7 @@ public:
     const std::list<Event *> & getGeneratedEvents() const { return generatedEvents; }
     const fs::path & getResultDir() const { return resultDir; }
     PerformanceStatistics & getPerfStats() { return pstats; }
-    LibStarsStatistics & getStarsStats() { return sstats; }
+    LibStarsStatistics & getStarsStatistics() { return sstats; }
     const boost::shared_ptr<PerfectScheduler> & getPerfectScheduler() { return ps; }
     const boost::shared_ptr<SimulationCase> & getSimulationCase() { return simCase; }
 

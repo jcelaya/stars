@@ -23,18 +23,18 @@
 #include <sqlite3.h>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include "Logger.hpp"
-#include "../SimulationCase.hpp"
-#include "../Simulator.hpp"
+#include "SimulationCase.hpp"
+#include "Simulator.hpp"
 #include "Time.hpp"
 #include "DispatchCommandMsg.hpp"
 #include "TaskBagAppDatabase.hpp"
-#include "../SimTask.hpp"
+#include "../sim/SimTask.hpp"
 #include "RequestGenerator.hpp"
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
 #include "RequestTimeout.hpp"
 #include "TimeConstraintInfo.hpp"
-#include "../Distributions.hpp"
+#include "../sim/Distributions.hpp"
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
@@ -107,7 +107,7 @@ public:
 
         // Send first request
         uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
-        shared_ptr<DispatchCommandMsg> dcm = rg.generate(sim.getNode(client), Time());
+        shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), Time()));
         // Send this message to the client
         sim.injectMessage(client, client, dcm, Duration());
         nextInstance = 1;
@@ -121,7 +121,7 @@ public:
             Duration timeToNext(Simulator::exponential(meanTime));
 
             uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
-            shared_ptr<DispatchCommandMsg> dcm = rg.generate(sim.getNode(client), sim.getCurrentTime() + timeToNext);
+            shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), sim.getCurrentTime() + timeToNext));
             // Send this message to the client
             sim.injectMessage(client, client, dcm, timeToNext);
             nextInstance++;
@@ -315,19 +315,22 @@ class siteLevel : public SimulationCase {
             SLEEPING,
             WAIT_TT
         } state;
-        Duration lastDeadline;
-        long int lastInstance;
+        double perceivedSpeed;
+        unsigned int batchSize;
         unsigned int repeat;
         bool daytime, weekdays;
         Duration wDelta;
         static Duration morning, night;
 
-        void setup() {
+        void setup(double p) {
             repeat = 0;
             daytime = Simulator::uniform01() > 0.3;
             weekdays = Simulator::uniform01() > 0.2;
             wDelta = Duration(Simulator::uniform(-3600.0, 3600.0));
+            perceivedSpeed = p;
         }
+
+
 
         bool isWtime(Time now) const {
             greg_weekday today = now.to_posix_time().date().day_of_week();
@@ -375,10 +378,10 @@ class siteLevel : public SimulationCase {
     void generateWorkload(uint32_t u) {
         Simulator & sim = Simulator::getInstance();
         User & user = users[u];
-        unsigned int batchSize = batchCDF.inverse(Simulator::uniform01());
+        user.batchSize = batchCDF.inverse(Simulator::uniform01());
         Duration when(0.0);
-        LogMsg("Sim.Site", INFO) << "User " << u << " creates a batch of size " << batchSize;
-        for (unsigned int i = 0; i < batchSize; i++) {
+        LogMsg("Sim.Site", INFO) << "User " << u << " creates a batch of size " << user.batchSize;
+        for (unsigned int i = 0; i < user.batchSize; i++) {
             sim.injectMessage(u, u, sendCmd, when);
             when += Duration(interBatchTimeCDF.inverse(Simulator::uniform01()));
         }
@@ -416,7 +419,8 @@ class siteLevel : public SimulationCase {
     double deadlineMultiplier;
 
 public:
-    siteLevel(const Properties & p) : SimulationCase(p), rg(p) {
+    siteLevel(const Properties & p) : SimulationCase(p), rg(p),
+            maxTime(p("max_sim_time", 0.0)), deadlineMultiplier(p("deadline_mult", 1.0)) {
         // Prepare the properties
     }
 
@@ -425,8 +429,6 @@ public:
     void preStart() {
         Simulator & sim = Simulator::getInstance();
         // Before running simulation
-        maxTime = property("max_sim_time", 0.0);
-
         // Data distributions
         fs::path cdfpath(property("traces_path", string("share/oldsim/traces")));
         thinkTimeCDF.loadFrom(cdfpath / fs::path(property("think_time_distribution", string("thinktime.cdf"))));
@@ -434,12 +436,11 @@ public:
         repeatCDF.loadFrom(cdfpath / fs::path(property("job_repeat_distribution", string("jobrepeat.cdf"))));
         batchCDF.loadFrom(cdfpath / fs::path(property("batch_width_distribution", string("batchwidth.cdf"))));
         interBatchTimeCDF.loadFrom(cdfpath / fs::path(property("interbatch_time_distribution", string("interbatchtime.cdf"))));
-        deadlineMultiplier = property("deadline_mult", 1.0);
 
         // Create users
-        users.resize(Simulator::getInstance().getNumNodes());
+        users.resize(sim.getNumNodes());
         for (uint32_t u = 0; u < users.size(); u++) {
-            users[u].setup();
+            users[u].setup(sim.getNode(u).getAveragePower());
             if (users[u].isWtime(sim.getCurrentTime())) {
                 generateThinkTime(u, Duration(0.0));
             } else {
@@ -449,15 +450,12 @@ public:
     }
 
     void afterEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {
-        if (typeid(msg) == typeid(DispatchCommandMsg)) {
-            // Look for the last instance inserted
-            users[dst].lastInstance = SimAppDatabase::getLastInstance();
-        }
         percent = maxTime > 0.0 ? (Time::getCurrentTime() - Time()).seconds() * 100.0 / maxTime : 0.0;
     }
 
     void beforeEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {
-        if (typeid(msg) == typeid(UserEvent)) {
+        //if (typeid(msg) == typeid(UserEvent)) {
+        if (&msg == timer.get()) {
             User & u = users[dst];
             if (u.state == User::SLEEPING) {
                 generateWorkload(dst);
@@ -469,44 +467,59 @@ public:
                     sleep(dst);
                 }
             }
-        } else if (typeid(msg) == typeid(SendJobEvent)) {
+        //} else if (typeid(msg) == typeid(SendJobEvent)) {
+        } else if (&msg == sendCmd.get()) {
             User & u = users[dst];
             Simulator & sim = Simulator::getInstance();
             shared_ptr<DispatchCommandMsg> dcm;
             Time now = sim.getCurrentTime();
             if (!u.repeat) {
-                dcm = rg.generate(sim.getNode(dst), now);
-                u.lastDeadline = dcm->getDeadline() - now;
+                dcm.reset(rg.generate(sim.getNode(dst), now));
                 u.repeat = repeatCDF.inverse(Simulator::uniform01());
             } else {
                 // Repeat app
                 dcm.reset(new DispatchCommandMsg);
-                dcm->setDeadline(now + u.lastDeadline);
             }
+            // Calculate deadline
+            uint64_t w = sim.getNode(dst).getDatabase().getNextApp().getAppLength();
+            // Max time: local computing time
+            double max = w / sim.getNode(dst).getAveragePower();
+            // Min time: perceived platform time
+            double min = w * deadlineMultiplier / u.perceivedSpeed;
+            // Ref time: time to break
+            double ref = 1200.0 * (0.8 / Simulator::uniform01() - 1.0);
+            if (ref < min) ref = min;
+            if (ref > max) ref = max;
+            Time deadline = now + Duration(ref);
+            if (!u.isWtime(deadline))
+                deadline = u.getWakeTime(deadline);
+            dcm->setDeadline(deadline);
             sim.injectMessage(dst, dst, dcm);
             u.repeat--;
-        } else if (typeid(msg) == typeid(RequestTimeout)) {
-            // Increase deadline 20%
-            long int reqId = static_cast<const RequestTimeout &>(msg).getRequestId();
-            SimAppDatabase & sdb = Simulator::getInstance().getCurrentNode().getDatabase();
-            long int appId = sdb.getAppId(reqId);
-            if (appId != -1) {
-                const SimAppDatabase::AppInstance & app = sdb.getAppInstance(appId);
-                double d = (app.req.getDeadline() - app.ctime).seconds();
-                sdb.updateDeadline(appId, Simulator::getInstance().getCurrentTime() + Duration(d * deadlineMultiplier));
-            }
+//        } else if (typeid(msg) == typeid(RequestTimeout)) {
+//            // Increase deadline 20%
+//            long int reqId = static_cast<const RequestTimeout &>(msg).getRequestId();
+//            SimAppDatabase & sdb = Simulator::getInstance().getCurrentNode().getDatabase();
+//            long int appId = sdb.getAppId(reqId);
+//            if (appId != -1) {
+//                const SimAppDatabase::AppInstance & app = sdb.getAppInstance(appId);
+//                double d = (app.req.getDeadline() - app.ctime).seconds();
+//                sdb.updateDeadline(appId, Simulator::getInstance().getCurrentTime() + Duration(d * 2));
+//            }
         }
     }
 
     virtual void finishedApp(long int appId) {
-       Simulator & sim = Simulator::getInstance();
-       uint32_t dst = sim.getCurrentNode().getLocalAddress().getIPNum();
+        Simulator & sim = Simulator::getInstance();
+        uint32_t dst = sim.getCurrentNode().getLocalAddress().getIPNum();
         User & u = users[dst];
         SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
-        if (appId == u.lastInstance) {
+        Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).rtime;
+        u.perceivedSpeed *= 0.8;
+        u.perceivedSpeed += 0.2 * sdb.getAppInstance(appId).req.getAppLength() / rt.seconds();
+        if (--u.batchSize == 0) {
             // Batch is finished
             if (u.isWtime(sim.getCurrentTime())) {
-                Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).rtime;
                 generateThinkTime(dst, rt);
             } else {
                 sleep(dst);

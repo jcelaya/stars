@@ -90,7 +90,7 @@ void Simulator::progressLog(const string & msg) {
 
 void SubmissionNode::finishedApp(long int appId) {
     Simulator & sim = Simulator::getInstance();
-    sim.getStarsStats().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
+    sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
     sim.getSimulationCase()->finishedApp(appId);
     sim.getCurrentNode().getDatabase().appInstanceFinished(appId);
 }
@@ -126,7 +126,13 @@ int main(int argc, char * argv[]) {
     Simulator & sim = Simulator::getInstance();
 
     Properties property;
-    property.loadFromFile(string(argv[1]));
+    string src(argv[1]);
+    if (src == "-")
+        property.loadFrom(cin);
+    else {
+        fs::ifstream ifs(src);
+        property.loadFrom(ifs);
+    }
     sim.setProperties(property);
     if (sim.isPrepared()) {
         std::signal(SIGUSR1, finish);
@@ -271,9 +277,10 @@ void Simulator::setProperties(Properties & property) {
     ps = PerfectScheduler::createScheduler(property("perfect_scheduler", string("")));
 
     // Failure generator
-    if (property.count("mtbf")) {
-        fg.startFailures(property("mtbf", 1000.0), property("min_failed_nodes", 1),
-                property("max_failed_nodes", 1), property("max_failures", -1));
+    if (property.count("median_session")) {
+        fg.startFailures(property("median_session", 1.0),
+                property("min_failed_nodes", 1),
+                property("max_failed_nodes", 1));
     }
 
 //	interEventHandlers.push_back(shared_ptr<InterEventHandler>(new AvailabilityStatistics()));
@@ -413,7 +420,6 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<Basic
     if (src != dst) {
         if (measureSize) {
             size = getMsgSize(msg) + 90;   // 90 bytes of Ethernet + IP + TCP
-            //size = msg->getSize() + 90;   // 90 bytes of Ethernet + IP + TCP
         }
         NodeNetInterface & srcIface = iface[src];
         NodeNetInterface & dstIface = iface[dst];

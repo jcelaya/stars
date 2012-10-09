@@ -42,14 +42,24 @@ public:
     Histogram(double res) : calibrating(false), first(0.0), resolution(res), samples(0) {}
     Histogram(unsigned int l) : calibrating(true), limit(l), first(0.0), resolution(0.0), samples(0) {}
 
-    bool isCalibrating() const { return calibrating; }
+    bool isCalibrating() const {
+        return calibrating;
+    }
     void calibrate();
 
     void addValue(double value);
-    unsigned long int getNumBins() const { return histogram.size(); }
-    unsigned long int getSamples() const { return samples; }
-    double getBin(unsigned int i) const { return first + i * resolution; }
-    unsigned long int getSamples(unsigned int i) const { return histogram[i]; }
+    unsigned long int getNumBins() const {
+        return histogram.size();
+    }
+    unsigned long int getSamples() const {
+        return samples;
+    }
+    double getBin(unsigned int i) const {
+        return first + i * resolution;
+    }
+    unsigned long int getSamples(unsigned int i) const {
+        return histogram[i];
+    }
 };
 
 
@@ -60,8 +70,12 @@ class CDF {
 
 public:
     CDF() {}
-    CDF(Histogram & h) { loadFrom(h); }
-    CDF(const boost::filesystem::path & file) { loadFrom(file); }
+    CDF(Histogram & h) {
+        loadFrom(h);
+    }
+    CDF(const boost::filesystem::path & file) {
+        loadFrom(file);
+    }
 
     void loadFrom(Histogram & h);
     void loadFrom(const boost::filesystem::path & file);

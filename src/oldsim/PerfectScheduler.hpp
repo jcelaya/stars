@@ -39,7 +39,7 @@ public:
         Duration a;
         bool running;
         bool operator<(const TaskDesc & rt) const { return running || (!rt.running && d <= rt.d); }
-        TaskDesc(boost::shared_ptr<TaskBagMsg> m) : msg(m), r(Time::getCurrentTime()), running(false) {}
+        TaskDesc(boost::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
     };
 
     virtual ~PerfectScheduler();

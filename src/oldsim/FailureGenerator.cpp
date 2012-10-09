@@ -40,28 +40,31 @@ public:
 };
 
 
-void FailureGenerator::startFailures(double mtbf, unsigned int minf, unsigned int maxf, unsigned int mf) {
-    meanTime = mtbf;
+void FailureGenerator::startFailures(double median_session, unsigned int minf, unsigned int maxf) {
+    meanTime = median_session / (Simulator::getInstance().getNumNodes() * log(2.0));
     minFail = minf;
     maxFail = maxf;
-    maxFailures = mf;
-    failingNodes.resize(Simulator::getInstance().getNumNodes());
-    for (unsigned int i = 0; i < failingNodes.size(); i++)
-        failingNodes[i] = i;
+    numFailures = 0;
     randomFailure();
 }
 
 
 void FailureGenerator::randomFailure() {
-    if (maxFailures == 0) return;
-    else if (maxFailures != (unsigned int)(-1)) maxFailures--;
     LogMsg("Sim.Fail", DEBUG) << "Generating new failure";
     // Get number of failing nodes
-    numFailing = Simulator::uniform(minFail, maxFail, 1);
+    size_t numFailing = Simulator::uniform(minFail, maxFail, 1);
     Simulator & sim = Simulator::getInstance();
     if (numFailing > sim.getNumNodes()) numFailing = sim.getNumNodes();
-    Duration failAt(Simulator::exponential((meanTime * numFailing) / sim.getNumNodes()));
-    random_shuffle(failingNodes.begin(), failingNodes.end());
+    Duration failAt(Simulator::exponential(meanTime * numFailing));
+    // Simulate a random shuffle
+    failingNodes.resize(numFailing);
+    for (size_t i = 0; i < sim.getNumNodes(); ++i) {
+        size_t pos = Simulator::uniform(0, i, 1);
+        if (pos < numFailing) {
+            if (i < numFailing && pos != i) failingNodes[i] = failingNodes[pos];
+            failingNodes[pos] = i;
+        }
+    }
     sim.injectMessage(0, 0, shared_ptr<FailureMsg>(new FailureMsg), failAt);
 }
 
@@ -70,50 +73,9 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
     if (typeid(msg) == typeid(FailureMsg)) {
         Simulator & sim = Simulator::getInstance();
         // nodes fail!!
-        LogMsg("Sim.Fail", DEBUG) << numFailing << " nodes FAIL at " << sim.getCurrentTime();
-
-        for (unsigned int i = 0; i < numFailing; i++) {
-            unsigned int failed = failingNodes[i];
-            LogMsg("Sim.Fail", DEBUG) << "Fails node " << CommAddress(failed, ConfigurationManager::getInstance().getPort());
-
-            // Stop tasks at failed node
-            list<shared_ptr<Task> > t;
-            t.swap(sim.getNode(failed).getScheduler().getTasks());
-            if (!t.empty()) t.front()->abort();
-
-            // Reset availability info at failed node
-            list<CommAddress> children;
-            sim.setCurrentNode(failed);
-            StructureNode & sn = sim.getCurrentNode().getS();
-            if (sn.inNetwork()) {
-                // Inform nodes about structure changes
-                // Delete children and father
-                for (unsigned int i = 0; i < sn.getNumChildren(); i++)
-                    children.push_back(sn.getSubZone(i)->getLink());
-                sn.fireCommitChanges(false, children);
-                // Add them again
-                sn.fireCommitChanges(true, children);
-                // The father, if it exists
-                if (sn.getFather() != CommAddress()) {
-                    list<CommAddress> thisNode;
-                    thisNode.push_back(CommAddress(failed, ConfigurationManager::getInstance().getPort()));
-                    sim.setCurrentNode(sn.getFather().getIPNum());
-                    // Remove
-                    sim.getCurrentNode().getS().fireCommitChanges(false, thisNode);
-                    // And add again
-                    sim.getCurrentNode().getS().fireCommitChanges(false, thisNode);
-                }
-                // The children
-                for (unsigned int i = 0; i < sn.getNumChildren(); i++) {
-                    sim.setCurrentNode(sn.getSubZone(i)->getLink().getIPNum());
-                    if (!sn.isRNChildren()) {
-                        sim.getCurrentNode().getS().fireCommitChanges(true, list<CommAddress>());
-                    } else {
-                        sim.getCurrentNode().getE().fireFatherChanged(true);
-                    }
-                }
-            }
-        }
+        LogMsg("Sim.Fail", DEBUG) << failingNodes.size() << " nodes FAIL at " << sim.getCurrentTime();
+        for (unsigned int i = 0; i < failingNodes.size(); ++i)
+            sim.getNode(failingNodes[i]).fail();
         // Program next failure
         randomFailure();
         return true;

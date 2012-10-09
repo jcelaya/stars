@@ -42,7 +42,7 @@ template<class T> class AggregationTest {
         unsigned int mem;
         unsigned int disk;
         shared_ptr<T> avail;
-        unsigned int size;
+        size_t size;
     };
     list<Node> nodes;
     unsigned long int totalPower, totalMem, totalDisk;
@@ -57,6 +57,7 @@ template<class T> class AggregationTest {
     // Progress
     unsigned int totalCalls, numCalls;
     ptime lastProgress;
+    time_duration aggregationDuration;
 
     shared_ptr<T> createInfo(const Node & n);
 
@@ -74,16 +75,18 @@ template<class T> class AggregationTest {
             totalMem += n.mem;
             totalDisk += n.disk;
             n.avail = createInfo(n);
-            measureSize(n.avail);
+            n.avail->reduce();
+            n.size = measureSize(n.avail);
             return n.avail;
         }
     }
 
-    void measureSize(shared_ptr<AvailabilityInformation> e) {
+    size_t measureSize(shared_ptr<AvailabilityInformation> e) {
         ostringstream oss;
         msgpack::packer<std::ostream> pk(&oss);
         e->pack(pk);
         recordSize(oss.tellp());
+        return oss.tellp();
     }
 
     void recordSize(unsigned int size) {
@@ -99,14 +102,23 @@ template<class T> class AggregationTest {
             result.reset(newNode()->clone());
             for (unsigned int i = 1; i < fanout; i++) {
                 shared_ptr<T> tmp = newNode();
+                ptime start = microsec_clock::universal_time();
                 result->join(*tmp);
+                aggregationDuration += microsec_clock::universal_time() - start;
             }
         } else {
             result = aggregateLevel(level - 1);
-            for (unsigned int i = 1; i < fanout; i++)
-                result->join(*aggregateLevel(level - 1));
+            for (unsigned int i = 1; i < fanout; i++) {
+                shared_ptr<T> tmp = aggregateLevel(level - 1);
+                ptime start = microsec_clock::universal_time();
+                result->join(*tmp);
+                aggregationDuration += microsec_clock::universal_time() - start;
+            }
         }
+        ptime start = microsec_clock::universal_time();
+        result->reduce();
         measureSize(result);
+        aggregationDuration += microsec_clock::universal_time() - start;
 
         numCalls++;
         unsigned int p = floor(numCalls * 100.0 / totalCalls);
@@ -149,6 +161,7 @@ public:
         bytes = 0;
         totalCalls = (pow((double)fanout, (int)(numLevels + 1)) - 1) / (fanout - 1);
         numCalls = 0;
+        aggregationDuration = seconds(0);
         lastProgress = microsec_clock::universal_time();
         return aggregateLevel(numLevels);
     }
@@ -163,6 +176,10 @@ public:
 
     double getMeanSize() const {
         return (double)bytes / messages;
+    }
+
+    time_duration getMeanTime() const {
+        return aggregationDuration / (messages / 2);
     }
 
     unsigned long int getTotalPower() const {

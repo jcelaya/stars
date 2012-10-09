@@ -69,6 +69,7 @@ public:
     StarsNode & operator=(const StarsNode & copy) { return *this; }
     void setup(unsigned int addr);
     void finish();
+    void fail();
 
     void packState(std::streambuf & out);
 

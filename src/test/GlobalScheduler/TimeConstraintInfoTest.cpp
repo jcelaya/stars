@@ -234,6 +234,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(tciAggr) {
     TestHost::getInstance().reset();
+    int numClusters[] = { 8, 64, 225 };
 
     Time ct = Time::getCurrentTime();
     ClusteringVector<TimeConstraintInfo::MDFCluster>::setDistVectorSize(20);
@@ -241,13 +242,14 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
     TimeConstraintInfo::setNumRefPoints(numpoints);
     ofstream off("atci_test_function.stat"), ofmd("atci_test_mem_disk.stat");
     TimeConstraintInfo::ATFunction dummy;
-    AggregationTest<TimeConstraintInfo> t;
-    t.getPrivateData().ref = ct;
-    for (int i = 0; i < 10; i++) {
-        for (int nc = 2; nc < 7; nc++) {
-            TimeConstraintInfo::setNumClusters(nc * nc * nc);
-            off << "# " << (nc * nc * nc) << " clusters" << endl;
-            ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
+
+    for (int j = 0; j < 3; j++) {
+        TimeConstraintInfo::setNumClusters(numClusters[j]);
+        off << "# " << numClusters[j] << " clusters" << endl;
+        ofmd << "# " << numClusters[j] << " clusters" << endl;
+        AggregationTest<TimeConstraintInfo> t;
+        t.getPrivateData().ref = ct;
+        for (int i = 0; i < 17; i++) {
             shared_ptr<TimeConstraintInfo> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
@@ -281,14 +283,16 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
                 }
             }
 
-            LogMsg("Test.RI", INFO) << "H. " << i << " nc. " << nc << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-            << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-            << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-            //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
-            LogMsg("Test.RI", INFO) << "N. " << t.getNumNodes() << " nc. " << nc
-            << " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-            << " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-            //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
+            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << numClusters[j] << " s.f., "
+                    << t.getMeanTime().total_microseconds() << " us/msg, "
+                    << "min/mean/max size " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
+                    << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
+                    << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
+                    //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
+            LogMsg("Test.RI", INFO) << "Full aggregation: "
+                    << " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
+                    << " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
+                    //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
             list<Time> p;
             for (vector<pair<Time, uint64_t> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
                 p.push_back(it->first);
@@ -301,8 +305,9 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
             p.sort();
             off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
-            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
+            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
+            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
+            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
             double lastTime = -1.0;
             for (list<Time>::iterator it = p.begin(); it != p.end(); it++) {
                 unsigned long t = totalAvail.getAvailabilityBefore(*it),

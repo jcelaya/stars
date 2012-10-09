@@ -75,13 +75,13 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(qbiAggr) {
     ofstream ofmd("aqbi_test_mem_disk_power.stat");
-    int numClusters[] = { 16, 27, 81, 125, 256 };
+    int numClusters[] = { 16, 81, 256 };
 
-    AggregationTest<QueueBalancingInfo> t;
-    for (int i = 0; i < 17; i++) {
-        for (int j = 0; j < 5; j++) {
-            QueueBalancingInfo::setNumClusters(numClusters[j]);
-            ofmd << "# " << numClusters[j] << " clusters" << endl;
+    for (int j = 0; j < 3; j++) {
+        QueueBalancingInfo::setNumClusters(numClusters[j]);
+        ofmd << "# " << numClusters[j] << " clusters" << endl;
+        AggregationTest<QueueBalancingInfo> t;
+        for (int i = 0; i < 17; i++) {
             list<QueueBalancingInfo::MDPTCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);
@@ -104,17 +104,20 @@ BOOST_AUTO_TEST_CASE(qbiAggr) {
                 aggrPower += (unsigned long int)(*it)->minP * (*it)->value;
                 aggrQueue += (t.getPrivateData().maxQueue - ((*it)->maxT - reference)) * (*it)->value;
             }
-            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << " nc. " << numClusters[j] << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-            << " mem " << aggrMem << " / " << t.getTotalMem() << " = " << (aggrMem * 100.0 / t.getTotalMem()) << "%"
-            << " disk " << aggrDisk << " / " << t.getTotalDisk() << " = " << (aggrDisk * 100.0 / t.getTotalDisk()) << "%"
-            << " power " << aggrPower << " / " << t.getTotalPower() << " = " << (aggrPower * 100.0 / t.getTotalPower()) << "%"
-            << " queue " << aggrQueue.seconds() << " / " << totalQueue.seconds() << " = " << (aggrQueue.seconds() * 100.0 / totalQueue.seconds()) << "%";
+            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << numClusters[j] << " s.f., "
+                    << t.getMeanTime().total_microseconds() << " us/msg, "
+                    << "min/mean/max size " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
+                    << " mem " << aggrMem << " / " << t.getTotalMem() << " = " << (aggrMem * 100.0 / t.getTotalMem()) << "%"
+                    << " disk " << aggrDisk << " / " << t.getTotalDisk() << " = " << (aggrDisk * 100.0 / t.getTotalDisk()) << "%"
+                    << " power " << aggrPower << " / " << t.getTotalPower() << " = " << (aggrPower * 100.0 / t.getTotalPower()) << "%"
+                    << " queue " << aggrQueue.seconds() << " / " << totalQueue.seconds() << " = " << (aggrQueue.seconds() * 100.0 / totalQueue.seconds()) << "%";
 
             ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalPower() << ',' << minPower << ',' << aggrPower << ',' << (aggrPower * 100.0 / t.getTotalPower()) << endl;
             ofmd << (i + 1) << ',' << numClusters[j] << ',' << totalQueue.seconds() << ',' << maxQueue.seconds() << ',' << aggrQueue.seconds() << ',' << (aggrQueue.seconds() * 100.0 / totalQueue.seconds()) << endl;
+            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
             ofmd << endl;
         }
         ofmd << endl;

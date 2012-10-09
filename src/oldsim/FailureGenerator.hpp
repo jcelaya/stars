@@ -24,19 +24,29 @@
 #include <vector>
 class BasicMsg;
 
+
+/**
+ * Node failure generation class.
+ *
+ * This class generates the failure of a node or set of nodes with a poisson process as described in
+ * Rhea, S et. al. "Handling Churn in a DHT". Given the median session time tm of the nodes, failures are
+ * generated with a poisson process of mean tm/(N * ln2), where N is the size of the network.
+ * At each failure, more than one node may fail, and
+ */
 class FailureGenerator {
     double meanTime;
     unsigned int minFail, maxFail;
-    unsigned int numFailing;
-    unsigned int maxFailures;
+    unsigned int numFailures;
     std::vector<unsigned int> failingNodes;
 
     void randomFailure();
 
 public:
-    void startFailures(double mtbf, unsigned int minf, unsigned int maxf, unsigned int mf = -1);
+    void startFailures(double median_session, unsigned int minf, unsigned int maxf);
 
     bool isNextFailure(const BasicMsg & msg);
+
+    unsigned int getNumFailures() const { return numFailures; }
 };
 
 #endif /*FAILUREGENERATOR_H_*/

@@ -228,6 +228,36 @@ void StarsNode::finish() {
 }
 
 
+void StarsNode::fail() {
+    LogMsg("Sim.Fail", DEBUG) << "Fails node " << localAddress;
+
+    // Stop running task at failed node
+    if (!getScheduler().getTasks().empty())
+        getScheduler().getTasks().front()->abort();
+    // Reset submission node, scheduler and dispatcher
+    delete services[Disp];
+    delete services[Sch];
+    switch (schedulerType) {
+        case StarsNode::FCFSSchedulerClass:
+            services[Sch] = new FCFSScheduler(getE());
+            services[Disp] = new QueueBalancingDispatcher(getS());
+            break;
+        case StarsNode::EDFSchedulerClass:
+            services[Sch] = new EDFScheduler(getE());
+            services[Disp] = new DeadlineDispatcher(getS());
+            break;
+        case StarsNode::MSSchedulerClass:
+            services[Sch] = new MinSlownessScheduler(getE());
+            services[Disp] = new MinSlownessDispatcher(getS());
+            break;
+        default:
+            services[Sch] = new SimpleScheduler(getE());
+            services[Disp] = new SimpleDispatcher(getS());
+            break;
+    }
+}
+
+
 void StarsNode::createServices() {
     services.push_back(new StructureNode(2));
     services.push_back(new ResourceNode(getS()));
@@ -292,6 +322,7 @@ void StarsNode::packState(std::streambuf & out) {
     msgpack::sbuffer buffer;
     msgpack::packer<msgpack::sbuffer> pk(&buffer);
     MsgpackOutArchive ar(pk);
+    ar & power & mem & disk;
     getS().serializeState(ar);
     getE().serializeState(ar);
     switch (schedulerType) {
@@ -359,6 +390,7 @@ void StarsNode::unpackState(std::streambuf & in) {
     in.sgetn(upk.buffer(), size);
     upk.buffer_consumed(size);
     MsgpackInArchive ar(upk);
+    ar & power & mem & disk;
     getS().serializeState(ar);
     getE().serializeState(ar);
     switch (schedulerType) {

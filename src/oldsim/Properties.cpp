@@ -19,10 +19,9 @@
  */
 
 #include "Properties.hpp"
-using namespace std;
 
 
-ostream & operator<<(ostream & os, const Properties & o) {
+std::ostream & operator<<(std::ostream & os, const Properties & o) {
     for (Properties::const_iterator it = o.begin(); it != o.end(); it++) {
         os << it->first << "=" << it->second << " ";
     }
@@ -30,13 +29,11 @@ ostream & operator<<(ostream & os, const Properties & o) {
 }
 
 
-void Properties::loadFromFile(const fs::path & fileName) {
-    fs::ifstream ifs(fileName);
-    string nextLine;
-
-    while (ifs.good()) {
+void Properties::loadFrom(std::istream & is) {
+    std::string nextLine;
+    while (is.good()) {
         // Read next line
-        getline(ifs, nextLine);
+        getline(is, nextLine);
         // If it is just an empty line, skip it
         if (nextLine.length() == 0) continue;
         // If it is a comment, skip it
@@ -44,7 +41,7 @@ void Properties::loadFromFile(const fs::path & fileName) {
 
         // Get key
         size_t equalPos = nextLine.find_first_of('=');
-        if (equalPos == string::npos) continue; // wrong format
+        if (equalPos == std::string::npos) continue; // wrong format
         // Get Value
         // BEWARE!! Spaces are not ignored, as they can be part of valid values
         (*this)[nextLine.substr(0, equalPos)] = nextLine.substr(equalPos + 1);

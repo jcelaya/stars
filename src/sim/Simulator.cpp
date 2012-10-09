@@ -132,7 +132,12 @@ static bool checkLogFile(const fs::path & logFile) {
 
 bool Simulator::run(const std::string & confFile) {
     Properties property;
-    property.loadFromFile(confFile);
+    if (confFile == "-")
+        property.loadFrom(std::cin);
+    else {
+        fs::ifstream ifs(confFile);
+        property.loadFrom(ifs);
+    }
 
     // Simulator starts running
     pt::ptime start = pt::microsec_clock::local_time();

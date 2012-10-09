@@ -19,7 +19,6 @@
  */
 
 #include "Properties.hpp"
-namespace fs = boost::filesystem;
 
 
 std::ostream & operator<<(std::ostream & os, const Properties & o) {
@@ -30,13 +29,11 @@ std::ostream & operator<<(std::ostream & os, const Properties & o) {
 }
 
 
-void Properties::loadFromFile(const fs::path & fileName) {
-    fs::ifstream ifs(fileName);
+void Properties::loadFrom(std::istream & is) {
     std::string nextLine;
-
-    while (ifs.good()) {
+    while (is.good()) {
         // Read next line
-        std::getline(ifs, nextLine);
+        getline(is, nextLine);
         // If it is just an empty line, skip it
         if (nextLine.length() == 0) continue;
         // If it is a comment, skip it

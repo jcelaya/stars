@@ -59,23 +59,8 @@ public:
         }
     };
 
-private:
-    friend class TaskBagAppDatabase;
-
-    TaskDescription nextApp;
-    std::map<long int, AppInstance> instances;
-    std::map<long int, Request> requests;
-
-    static unsigned long int totalInstances, totalInstancesMemory;
-    static unsigned long int totalRequests, totalRequestsMemory;
-
-    static long int lastInstance, lastRequest;
-
-    friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
-
-public:
-
     void setNextApp(const TaskDescription & req) { nextApp = req; }
+    const TaskDescription & getNextApp() const { return nextApp; }
     void appInstanceFinished(long int appId);
     bool appInstanceExists(long int appId) { return instances.count(appId) > 0; }
     const AppInstance & getAppInstance(long int appId) const { return instances.find(appId)->second; }
@@ -95,6 +80,21 @@ public:
     static unsigned long int getTotalInstancesMem() { return totalInstancesMemory; }
     static unsigned long int getTotalRequests() { return totalRequests; }
     static unsigned long int getTotalRequestsMem() { return totalRequestsMemory; }
+
+private:
+    friend class TaskBagAppDatabase;
+
+    TaskDescription nextApp;
+    std::map<long int, AppInstance> instances;
+    std::map<long int, Request> requests;
+
+    static unsigned long int totalInstances, totalInstancesMemory;
+    static unsigned long int totalRequests, totalRequestsMemory;
+
+    static long int lastInstance, lastRequest;
+
+    friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
+
 };
 
 #endif /* SIMAPPDATABASE_H_ */
