@@ -120,6 +120,7 @@ void Simulations::getNewCases() {
 
 int Simulations::run(int argc, char * argv[]) {
     signal(SIGTERM, finish);
+    signal(SIGINT, finish);
     parseCmdLine(argc, argv);
     if (simExec == "") {
         cerr << "Usage: " << argv[0] << " -e sim_program [-f pipe_name] [-p num_processes] [-m max_memory]" << endl;
@@ -135,7 +136,10 @@ int Simulations::run(int argc, char * argv[]) {
         {
             mutex::scoped_lock lock(caseListMutex);
             // Wait until there are messages in the queue
-            if (caseInstances.empty()) nonEmptyList.wait(lock);
+            if (caseInstances.empty()){
+                cout << "Waiting for tests..." << endl;
+                nonEmptyList.wait(lock);
+            }
             if (end) break;
             instance = caseInstances.front();
             caseInstances.pop_front();
@@ -185,6 +189,7 @@ int Simulations::run(int argc, char * argv[]) {
             execl(simExec.c_str(), simExec.c_str(), "-", NULL);
             // This function only returns on error
             cout << "Error running simulation." << endl;
+            close(fd[0]);
             return 1;
         }
     }

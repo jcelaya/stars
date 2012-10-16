@@ -54,6 +54,14 @@ using boost::scoped_ptr;
 static log4cpp::Category & treeCat = log4cpp::Category::getInstance("Sim.Tree");
 
 
+//class CheckTimersMsg : public BasicMsg {
+//public:
+//    MESSAGE_SUBCLASS(CheckTimersMsg);
+//
+//    EMPTY_MSGPACK_DEFINE();
+//};
+
+
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
     StarsNode & node;
 public:
@@ -234,6 +242,8 @@ void StarsNode::fail() {
     // Stop running task at failed node
     if (!getScheduler().getTasks().empty())
         getScheduler().getTasks().front()->abort();
+    // Remove timers
+
     // Reset submission node, scheduler and dispatcher
     delete services[Disp];
     delete services[Sch];

@@ -107,6 +107,7 @@ public:
     bool isPrepared() const { return !doStop; }
     void showStatistics();
     void finish();
+    void showInformation();
 
     bool inEvent() const { return p != NULL; }
     void setCurrentNode(uint32_t n) { currentNode = &routingTable[n]; }

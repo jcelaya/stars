@@ -62,7 +62,15 @@ public:
      * @param sn The StructureNode of this branch.
      */
     Dispatcher(StructureNode & sn) :
-            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {}
+            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {
+        // See if sn is already in the network
+        if (sn.inNetwork()) {
+            father.addr = sn.getFather();
+            children.resize(sn.getNumChildren());
+            for (size_t i = 0; i < children.size(); ++i)
+                children[i].addr = sn.getSubZone(i)->getLink();
+        }
+    }
 
     virtual ~Dispatcher() {}
 
@@ -236,7 +244,7 @@ protected:
             if (!inChange && father.addr != CommAddress() && father.waitingInfo.get() &&
                     !(father.notifiedInfo.get() && *father.notifiedInfo == *father.waitingInfo)) {
                 LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
-                uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 0;
+                uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 1;
                 father.notifiedInfo.reset(father.waitingInfo->clone());
                 father.notifiedInfo->setSeq(seq);
                 father.notifiedInfo->setFromSch(false);
@@ -250,7 +258,7 @@ protected:
                     if (children[i].waitingInfo.get() &&
                             !(children[i].notifiedInfo.get() && *children[i].notifiedInfo == *children[i].waitingInfo)) {
                         LogMsg("Dsp", DEBUG) << "There were changes with children " << i << ", sending update";
-                        uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 0;
+                        uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 1;
                         children[i].notifiedInfo.reset(children[i].waitingInfo->clone());
                         children[i].notifiedInfo->setSeq(seq);
                         children[i].notifiedInfo->setFromSch(false);

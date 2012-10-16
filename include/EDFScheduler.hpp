@@ -50,6 +50,7 @@ public:
      */
     EDFScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
         calculateAvailability();
+        notifySchedule();
     }
 
     // This is documented in Scheduler

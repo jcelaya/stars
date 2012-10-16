@@ -184,13 +184,13 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
     // Ignore a non-existent request
     if (appId != -1) {
         // Change all SEARCHING tasks to READY
-        remainingTasks[appId] -= db.cancelSearch(msg.getRequestId());
+        map<long int, unsigned int>::iterator it = remainingTasks.find(appId);
+        it->second -= db.cancelSearch(msg.getRequestId());
         if (db.getNumReady(appId) > 0
                 && prevRetries < ConfigurationManager::getInstance().getSubmitRetries()) {
             // Start a new search
             sendRequest(appId, prevRetries);
         } else {
-            map<long int, unsigned int>::iterator it = remainingTasks.find(appId);
             if (it->second == 0) {
                 finishedApp(it->first);
                 remainingTasks.erase(it);

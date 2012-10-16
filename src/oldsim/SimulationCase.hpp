@@ -47,6 +47,7 @@ public:
     double getCompletedPercent() const { return percent; }
     // Some common events
     virtual void finishedApp(long int appId) {}
+    const Properties & getProperties() const { return property; }
 };
 
 

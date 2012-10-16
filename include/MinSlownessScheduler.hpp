@@ -40,6 +40,7 @@ public:
      */
     MinSlownessScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
         reschedule();
+        notifySchedule();
     }
 
     /**

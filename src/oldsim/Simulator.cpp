@@ -102,6 +102,12 @@ void finish(int param) {
 }
 
 
+void showInformation(int param) {
+    Simulator::getInstance().showInformation();
+    std::signal(SIGUSR1, showInformation);
+}
+
+
 int main(int argc, char * argv[]) {
 #ifdef __x86_64__
     int bits = 64;
@@ -135,7 +141,9 @@ int main(int argc, char * argv[]) {
     }
     sim.setProperties(property);
     if (sim.isPrepared()) {
-        std::signal(SIGUSR1, finish);
+        std::signal(SIGUSR1, showInformation);
+        std::signal(SIGINT, finish);
+        std::signal(SIGTERM, finish);
         sim.getPerfStats().startEvent("Prepare simulation case");
         sim.getSimulationCase()->preStart();
         sim.getPerfStats().endEvent("Prepare simulation case");
@@ -182,6 +190,11 @@ void Simulator::finish() {
     // Clean node state
     for (vector<StarsNode>::iterator it = routingTable.begin(); it != routingTable.end(); it++)
         it->finish();
+}
+
+
+void Simulator::showInformation() {
+    LogMsg("Sim.Progress", 0) << getSimulationCase()->getProperties();
 }
 
 
@@ -279,6 +292,10 @@ void Simulator::setProperties(Properties & property) {
     // Failure generator
     if (property.count("median_session")) {
         fg.startFailures(property("median_session", 1.0),
+                property("min_failed_nodes", 1),
+                property("max_failed_nodes", 1));
+    } else if (property.count("big_fail_at")) {
+        fg.bigFailure(Duration(property("big_fail_at", 1.0)),
                 property("min_failed_nodes", 1),
                 property("max_failed_nodes", 1));
     }

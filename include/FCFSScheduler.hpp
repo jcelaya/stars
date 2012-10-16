@@ -47,6 +47,7 @@ public:
      */
     FCFSScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
         reschedule();
+        notifySchedule();
     }
 
     // This is documented in Scheduler

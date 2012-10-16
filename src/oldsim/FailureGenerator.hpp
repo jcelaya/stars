@@ -22,6 +22,7 @@
 #define FAILUREGENERATOR_H_
 
 #include <vector>
+#include "Time.hpp"
 class BasicMsg;
 
 
@@ -36,13 +37,14 @@ class BasicMsg;
 class FailureGenerator {
     double meanTime;
     unsigned int minFail, maxFail;
-    unsigned int numFailures;
+    unsigned int numFailures, numFailed;
     std::vector<unsigned int> failingNodes;
 
-    void randomFailure();
+    void programFailure(Duration failAt, unsigned int numFailing);
 
 public:
     void startFailures(double median_session, unsigned int minf, unsigned int maxf);
+    void bigFailure(Duration failAt, unsigned int minf, unsigned int maxf);
 
     bool isNextFailure(const BasicMsg & msg);
 

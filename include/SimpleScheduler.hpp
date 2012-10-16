@@ -42,11 +42,12 @@ class SimpleScheduler : public Scheduler {
 
 public:
     /**
-     * Creates a new SimpleScheduler with an empty task.
+     * Creates a new SimpleScheduler with an empty task queue.
      * @param resourceNode Resource node associated with this scheduler.
      */
     SimpleScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
         reschedule();
+        notifySchedule();
     }
 
     // This is documented in Scheduler

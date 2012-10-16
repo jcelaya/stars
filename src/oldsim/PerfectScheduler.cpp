@@ -222,6 +222,8 @@ class CentralizedRandomFCFS : public PerfectScheduler {
             }
         }
 
+        if(usableNodes.empty()) return;
+
         TaskDesc task(msg);
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
             LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
@@ -253,6 +255,8 @@ class CentralizedRandomDeadlines : public PerfectScheduler {
                 usableNodes.push_back(n);
             }
         }
+
+        if(usableNodes.empty()) return;
 
         TaskDesc task(msg);
         task.d = deadline;
@@ -404,7 +408,7 @@ class CentralizedDeadlines : public PerfectScheduler {
         unsigned int node;
         unsigned int numTasks;
         unsigned long remaining;
-        bool operator<(const Hole & r) const { return remaining > r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
+        bool operator<(const Hole & r) const { return remaining < r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
     };
 
     void newApp(shared_ptr<TaskBagMsg> msg) {
@@ -455,8 +459,8 @@ class CentralizedDeadlines : public PerfectScheduler {
                     Hole h;
                     h.node = n;
                     h.numTasks = avail / a;
-                    //h.remaining = availTotal - a * h.numTasks;
-                    h.remaining = avail - a * h.numTasks;
+                    h.remaining = availTotal - a * h.numTasks;
+                    //h.remaining = avail - a * h.numTasks;
                     // Check whether it's needed
                     if (cachedTasks == 0 || cachedTasks < numTasks) {
                         // Just add the hole

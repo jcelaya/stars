@@ -73,9 +73,9 @@ void SimpleDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
     unsigned int nextTask = msg.getFirstTask();
-    LogMsg("Dsp.Simple", INFO) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
-    LogMsg("Dsp.Simple", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
-    LogMsg("Dsp.Simple", INFO) << "Length: " << req.getLength() << "   Deadline: " << req.getDeadline();
+    LogMsg("Dsp.Simple", DEBUG) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
+    LogMsg("Dsp.Simple", DEBUG) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
+    LogMsg("Dsp.Simple", DEBUG) << "Length: " << req.getLength() << "   Deadline: " << req.getDeadline();
 
     // Distribute it downwards
 
@@ -156,7 +156,7 @@ void SimpleDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // If this branch cannot execute all the tasks, send the request to the father
     if (remainingTasks) {
-        LogMsg("Dsp.Simple", INFO) << "There are " << remainingTasks << " remaining tasks";
+        LogMsg("Dsp.Simple", DEBUG) << "There are " << remainingTasks << " remaining tasks";
         if (structureNode.getFather() != CommAddress()) {
             TaskBagMsg * tbm = msg.clone();
             tbm->setFirstTask(nextTask);
@@ -164,11 +164,11 @@ void SimpleDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             tbm->setFromEN(false);
             if (structureNode.getFather() == src) {
                 // Just ignore them
-                LogMsg("Dsp.Simple", INFO) << "But came from the father.";
+                LogMsg("Dsp.Simple", DEBUG) << "But came from the father.";
             } else
                 CommLayer::getInstance().sendMessage(structureNode.getFather(), tbm);
         } else {
-            LogMsg("Dsp.Simple", INFO) << "But we are the root";
+            LogMsg("Dsp.Simple", DEBUG) << "But we are the root";
         }
     }
 }
