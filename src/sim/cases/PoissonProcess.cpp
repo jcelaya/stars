@@ -58,7 +58,7 @@ public:
         nextInstance = 0;
         for (uint32_t client = 0; client < sim.getNumNodes() && nextInstance < numInstances; ++client) {
             Time nextMsg = now + Duration(Simulator::exponential(meanTime));
-            DispatchCommandMsg * dcm = rg.generate(sim.getNode(client), nextMsg);
+            boost::shared_ptr<DispatchCommandMsg> dcm( rg.generate(sim.getNode(client), nextMsg));
             // Send this message to the client
             sim.getNode(client).setTimer(nextMsg, dcm);
             nextInstance++;
@@ -71,7 +71,7 @@ public:
             // Calculate next send
             Time nextMsg = Time::getCurrentTime() + Duration(Simulator::exponential(meanTime));
             StarsNode & node = Simulator::getInstance().getCurrentNode();
-            DispatchCommandMsg * dcm = rg.generate(node, nextMsg);
+            boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(node, nextMsg));
             // Send this message to the client
             node.setTimer(nextMsg, dcm);
             nextInstance++;

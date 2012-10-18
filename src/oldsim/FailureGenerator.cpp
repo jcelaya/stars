@@ -38,6 +38,7 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
+static shared_ptr<FailureMsg> failMsg(new FailureMsg);
 
 
 void FailureGenerator::startFailures(double median_session, unsigned int minf, unsigned int maxf) {
@@ -74,12 +75,12 @@ void FailureGenerator::programFailure(Duration failAt, unsigned int numFailing) 
             failingNodes[pos] = i;
         }
     }
-    sim.injectMessage(0, 0, shared_ptr<FailureMsg>(new FailureMsg), failAt);
+    sim.injectMessage(0, 0, failMsg, failAt);
 }
 
 
 bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
-    if (typeid(msg) == typeid(FailureMsg)) {
+    if (&msg == failMsg.get()) {
         ++numFailed;
         Simulator & sim = Simulator::getInstance();
         // nodes fail!!

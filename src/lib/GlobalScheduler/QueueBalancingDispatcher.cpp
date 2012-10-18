@@ -54,11 +54,8 @@ void QueueBalancingDispatcher::recomputeInfo() {
                 Time minQueue = queueLengths.front();
                 for (std::list<Time>::iterator it = queueLengths.begin(); it != queueLengths.end(); it++)
                     if (minQueue > *it) minQueue = *it;
-                if (!children[i].waitingInfo.get() || children[i].waitingInfo->getMinQueueLength() != minQueue) {
-                    LogMsg("Dsp.QB", DEBUG) << "There were changes with children " << i << ", new min queue is " << minQueue;
-                    children[i].waitingInfo.reset(new QueueBalancingInfo);
-                    children[i].waitingInfo->setMinQueueLength(minQueue);
-                }
+                children[i].waitingInfo.reset(new QueueBalancingInfo);
+                children[i].waitingInfo->setMinQueueLength(minQueue);
             }
         }
     }
@@ -98,7 +95,8 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
         LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but not in network";
         return;
     }
-    if (!father.waitingInfo.get()) {
+    boost::shared_ptr<QueueBalancingInfo> zoneInfo = father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
+    if (!zoneInfo.get()) {
         LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but no information!";
         return;
     }
@@ -115,7 +113,7 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
     if (structureNode.getFather() != CommAddress()) {
         // Count number of tasks before the minimum length in the rest of the tree
         req.setDeadline(fatherInfo);
-        unsigned int tasks = father.waitingInfo->getAvailability(nodeGroups, req);
+        unsigned int tasks = zoneInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.QB", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
 
         if (tasks < remainingTasks && (src != structureNode.getFather() || msg.isFromEN())) {
@@ -129,13 +127,15 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
     }
 
     // If there are enough tasks, distribute it downwards
-    Time balancedQueue = father.waitingInfo->getAvailability(nodeGroups, remainingTasks, req);
+    Time balancedQueue = zoneInfo->getAvailability(nodeGroups, remainingTasks, req);
     if (balancedQueue == Time()) {
         LogMsg("Dsp.QB", WARN) << "No node fulfills requirements, dropping!";
         return;
     }
     req.setDeadline(balancedQueue);
-    father.waitingInfo->updateAvailability(req);
+    zoneInfo->updateAvailability(req);
+    father.waitingInfo = zoneInfo;
+    father.notifiedInfo.reset();
     LogMsg("Dsp.QB", DEBUG) << "The calculated queue length is " << balancedQueue;
 
     // Calculate distances

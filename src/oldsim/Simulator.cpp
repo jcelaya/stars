@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <log4cpp/Category.hh>
+#include <google/heap-profiler.h>
 #include "config.h"
 #include "Logger.hpp"
 #include "Simulator.hpp"
@@ -148,6 +149,8 @@ int main(int argc, char * argv[]) {
         sim.getSimulationCase()->preStart();
         sim.getPerfStats().endEvent("Prepare simulation case");
         LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
+        if (property("profile_heap", false))
+            HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
         sim.run();
         sim.showStatistics();
         StarsNode::showTree(log4cpp::Priority::INFO);
@@ -157,6 +160,8 @@ int main(int argc, char * argv[]) {
         ptime end = microsec_clock::local_time();
         size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
         LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
+        if (property("profile_heap", false))
+            HeapProfilerStop();
     }
 
     return 0;
@@ -176,7 +181,6 @@ Simulator::Simulator() {
     real_time = seconds(0);
     start = microsec_clock::local_time();
     doStop = false;
-    inactiveEvents = 0;
 }
 
 
@@ -312,64 +316,54 @@ void Simulator::stepForward() {
     while (!events.empty()) {
         p = events.top();
         events.pop();
-        if (!p->active) {
-            inactiveEvents--;
-            delete p;
-        }
-        else {
-            time = p->t;
-            // Measure operation duration if the event is blocked
-            opStart = microsec_clock::local_time();
-            currentNode = &routingTable[p->to];
-            generatedEvents.clear();
+        time = p->t;
+        // Measure operation duration if the event is blocked
+        opStart = microsec_clock::local_time();
+        currentNode = &routingTable[p->to];
+        generatedEvents.clear();
 
-            // See if the message is captured
-            if ((ps.get() && ps->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
-                // Erase from timers list, if it is there
-                if (p->from == p->to && p->size == 0) timers.erase(p->id);
-                delete p;
+        // See if the message is captured
+        if ((ps.get() && ps->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
+            delete p;
+            continue;
+        }
+
+        // Not captured
+        if (p->size && p->from != p->to && !p->inRecvQueue) {
+            // Not a self-message, check incoming queue
+            totalBytesSent += p->size;
+            NodeNetInterface & dstIface = iface[p->to];
+            dstIface.inQueueFreeTime += p->txDuration;
+            if (dstIface.inQueueFreeTime <= p->t) {
+                dstIface.inQueueFreeTime = p->t;
+            } else {
+                // Delay the message in the incoming queue
+                p->t = dstIface.inQueueFreeTime;
+                p->inRecvQueue = true;
+                events.push(p);
                 continue;
             }
-
-            // Not captured
-            if (p->size && p->from != p->to && !p->inRecvQueue) {
-                // Not a self-message, check incoming queue
-                totalBytesSent += p->size;
-                NodeNetInterface & dstIface = iface[p->to];
-                dstIface.inQueueFreeTime += p->txDuration;
-                if (dstIface.inQueueFreeTime <= p->t) {
-                    dstIface.inQueueFreeTime = p->t;
-                } else {
-                    // Delay the message in the incoming queue
-                    p->t = dstIface.inQueueFreeTime;
-                    p->inRecvQueue = true;
-                    events.push(p);
-                    continue;
-                }
-            }
-
-            // Deal with the event
-            numEvents++;
-            LogMsg("Sim.Event", INFO) << "";
-            LogMsg("Sim.Event", INFO) << "###################################";
-            LogMsg("Sim.Event", INFO) << "Event #" << numEvents
-                << ": " << *p->msg
-                << " at " << time
-                << " from " << AddrIO(p->from)
-                << " to " << AddrIO(p->to);
-            tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
-            simCase->beforeEvent(p->from, p->to, *p->msg);
-            pstats.startEvent(p->msg->getName());
-            // Measure operation duration from this point
-            opStart = microsec_clock::local_time();
-            routingTable[p->to].receiveMessage(p->from, p->msg);
-            pstats.endEvent(p->msg->getName());
-            simCase->afterEvent(p->from, p->to, *p->msg);
-            // Erase from timers list, if it is there
-            if (p->from == p->to && p->size == 0) timers.erase(p->id);
-            delete p;
-            break;
         }
+
+        // Deal with the event
+        numEvents++;
+        LogMsg("Sim.Event", INFO) << "";
+        LogMsg("Sim.Event", INFO) << "###################################";
+        LogMsg("Sim.Event", INFO) << "Event #" << numEvents
+            << ": " << *p->msg
+            << " at " << time
+            << " from " << AddrIO(p->from)
+            << " to " << AddrIO(p->to);
+        tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
+        simCase->beforeEvent(p->from, p->to, *p->msg);
+        pstats.startEvent(p->msg->getName());
+        // Measure operation duration from this point
+        opStart = microsec_clock::local_time();
+        routingTable[p->to].receiveMessage(p->from, p->msg);
+        pstats.endEvent(p->msg->getName());
+        simCase->afterEvent(p->from, p->to, *p->msg);
+        delete p;
+        break;
     }
     currentNode = NULL;
     p = NULL;
@@ -464,9 +458,8 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, shared_ptr<Bas
     numMsgSent++;
 
     unsigned long int size = 0;
-    if (measureSize) {
+    if (src != dst && measureSize) {
         size = getMsgSize(msg);
-        //size = msg->getSize();
     }
     if (withOpDuration)
         d += Duration((microsec_clock::local_time() - opStart).total_microseconds());
@@ -475,29 +468,6 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, shared_ptr<Bas
     event->from = src;
     events.push(event);
     return size;
-}
-
-
-int Simulator::setTimer(uint32_t dst, Time when, shared_ptr<BasicMsg> msg) {
-    if (ps.get() && ps->blockMessage(msg)) return 0;
-
-    Event * event = new Event(when, msg, 0);
-    event->to = dst;
-    event->from = dst;
-    timers[event->id] = event;
-    events.push(event);
-    generatedEvents.push_back(event);
-    return event->id;
-}
-
-
-void Simulator::cancelTimer(int timerId) {
-    map<int, Event *>::iterator timer = timers.find(timerId);
-    if (timer != timers.end()) {
-        timer->second->active = false;
-        timers.erase(timer);
-        inactiveEvents++;
-    }
 }
 
 

@@ -178,7 +178,7 @@ void StructureNode::checkFanout() {
             txDriver = CommLayer::getInstance().getLocalAddress();
             // This node needs to split. First look for a new father
             // by sending a StrNodeNeeded
-            StrNodeNeededMsg * snnm = new StrNodeNeededMsg;
+            shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
             snnm->setWhoNeeds(CommLayer::getInstance().getLocalAddress());
             snnm->setTransactionId(transaction);
             CommLayer::getInstance().sendMessage(CommLayer::getInstance().getLocalAddress(), snnm->clone());
@@ -470,7 +470,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             // Put the node in the NoAck list
             txMembersNoAck.push_back(AddrService(msg.getWhoOffers(), false));
             // We need another node
-            StrNodeNeededMsg * snnm = new StrNodeNeededMsg;
+            shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
             snnm->setWhoNeeds(CommLayer::getInstance().getLocalAddress());
             snnm->setTransactionId(transaction);
             CommLayer::getInstance().sendMessage(CommLayer::getInstance().getLocalAddress(), snnm->clone());

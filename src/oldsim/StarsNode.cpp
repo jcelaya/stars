@@ -54,12 +54,13 @@ using boost::scoped_ptr;
 static log4cpp::Category & treeCat = log4cpp::Category::getInstance("Sim.Tree");
 
 
-//class CheckTimersMsg : public BasicMsg {
-//public:
-//    MESSAGE_SUBCLASS(CheckTimersMsg);
-//
-//    EMPTY_MSGPACK_DEFINE();
-//};
+class CheckTimersMsg : public BasicMsg {
+public:
+    MESSAGE_SUBCLASS(CheckTimersMsg);
+
+    EMPTY_MSGPACK_DEFINE();
+};
+static shared_ptr<CheckTimersMsg> timerMsg(new CheckTimersMsg);
 
 
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
@@ -101,12 +102,28 @@ unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
 
 
 int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
-    return Simulator::getInstance().setTimer(localAddress.getIPNum(), time, msg);
+    // Set a new timer if this timer is the first or comes before the first
+    if (timerList.empty() || time < timerList.front().timeout) {
+        Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(),
+            timerMsg, time - Time::getCurrentTime());
+        ++static_cast<StarsNode *>(this)->numProgTimers;
+    }
+    // Add a task to the timer structure
+    Timer t(time, msg);
+    timerList.push_front(t);
+    timerList.sort();
+    return t.id;
 }
 
 
 void CommLayer::cancelTimer(int timerId) {
-    Simulator::getInstance().cancelTimer(timerId);
+    // Erase timer in list
+    for (std::list<Timer>::iterator it = timerList.begin(); it != timerList.end(); it++) {
+        if (it->id == timerId) {
+            timerList.erase(it);
+            break;
+        }
+    }
 }
 
 
@@ -222,6 +239,32 @@ void StarsNode::setup(unsigned int addr) {
 }
 
 
+void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
+    // Check if it is the timer
+    if (msg == timerMsg) {
+        Time ct = Time::getCurrentTime();
+        --numProgTimers;
+        while (!timerList.empty()) {
+            if (timerList.front().timeout <= ct) {
+                Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
+                timerList.pop_front();
+            } else {
+                if (!numProgTimers){
+                    // Program next timer
+                    Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerMsg,
+                            timerList.front().timeout - ct);
+                    ++numProgTimers;
+                }
+                break;
+            }
+        }
+    } else {
+        enqueueMessage(CommAddress(src, ConfigurationManager::getInstance().getPort()), msg);
+        processNextMessage();
+    }
+}
+
+
 void StarsNode::finish() {
     StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
     if (cfg.outFile.is_open()) {
@@ -242,8 +285,11 @@ void StarsNode::fail() {
     // Stop running task at failed node
     if (!getScheduler().getTasks().empty())
         getScheduler().getTasks().front()->abort();
-    // Remove timers
-
+    // Remove timers not belonging to SubmissionNode
+    for (list<Timer>::iterator i = timerList.begin(); i != timerList.end();)
+        if (i->msg->getName() != "HeartbeatTimeout" && i->msg->getName() != "RequestTimeout")
+            i = timerList.erase(i);
+        else ++i;
     // Reset submission node, scheduler and dispatcher
     delete services[Disp];
     delete services[Sch];

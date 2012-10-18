@@ -74,7 +74,7 @@ void SubmissionNode::sendRequest(long int appInstance, int prevRetries) {
         // Set a request timeout of 30 seconds
         Time timeout = Time::getCurrentTime() + Duration(30.0);
         // Schedule the timeout message
-        RequestTimeout * rt = new RequestTimeout;
+        boost::shared_ptr<RequestTimeout> rt(new RequestTimeout);
         rt->setRequestId(reqId);
         /*timeouts[rt->getRequestId()] = */
         CommLayer::getInstance().setTimer(timeout, rt);
@@ -157,7 +157,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
             int & timer = heartbeats.insert(make_pair(src, 0)).first->second;
             if (timer == 0)
                 timer = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                        new HeartbeatTimeout(src));
+                        boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
             // Count tasks
             remoteTasks[src].insert(make_pair(appId, 0)).first->second += msg.getLastTask() - msg.getFirstTask() + 1 - numTasks;
             return;
@@ -243,7 +243,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
         // If there are still any remote task in that execution node, reprogram a heartbeat timeout
         if (!tasksPerApp.empty())
             tout->second = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                           new HeartbeatTimeout(src));
+                    boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
         else {
             remoteTasks.erase(src);
             heartbeats.erase(tout);

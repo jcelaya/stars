@@ -76,17 +76,16 @@ public:
         Time t;
         boost::shared_ptr<BasicMsg> msg;
         uint32_t from, to;
-        bool active;
         bool inRecvQueue;
         unsigned int size;
         Event(Time c, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++), creationTime(c),
-            txTime(c), txDuration(0.0), t(c), msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+            txTime(c), txDuration(0.0), t(c), msg(initmsg), inRecvQueue(false), size(sz) {}
         Event(Time c, Time outQueue, Duration tx, Duration d, boost::shared_ptr<BasicMsg> initmsg,
             unsigned int sz) : id(lastEventId++), creationTime(c), txTime(outQueue), txDuration(tx), t(txTime + tx + d),
-            msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+            msg(initmsg), inRecvQueue(false), size(sz) {}
         Event(Time c, Duration d, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++),
             creationTime(c), txTime(c), t(c + d),
-            msg(initmsg), active(true), inRecvQueue(false), size(sz) {}
+            msg(initmsg), inRecvQueue(false), size(sz) {}
     };
 
     struct NodeNetInterface {
@@ -117,7 +116,7 @@ public:
     StarsNode & getCurrentNode() { return *currentNode; }
     int getCurrentEventId() const { return p != NULL ? p->id : 0; }
     Event & getCurrentEvent() { return *p; }
-    bool emptyEventQueue() const { return events.size() == inactiveEvents; }
+    bool emptyEventQueue() const { return events.empty(); }
     const std::list<Event *> & getGeneratedEvents() const { return generatedEvents; }
     const fs::path & getResultDir() const { return resultDir; }
     PerformanceStatistics & getPerfStats() { return pstats; }
@@ -133,8 +132,6 @@ public:
     // Time methods
     Time getCurrentTime() const { return time; }
     pt::time_duration getRealTime() const { return real_time + (pt::microsec_clock::local_time() - start); }
-    int setTimer(uint32_t dst, Time when, boost::shared_ptr<BasicMsg> msg);
-    void cancelTimer(int timerId);
 
     void progressLog(const std::string & msg);
     bool isLogEnabled(const std::string & category, int priority);
@@ -199,12 +196,10 @@ private:
     std::vector<NodeNetInterface> iface;
     Time time;
     std::priority_queue<Event *, std::vector<Event *>, ptrCompare > events;
-    std::map<int, Event *> timers;
 
     Event * p;
     StarsNode * currentNode;
     std::list<Event *> generatedEvents;
-    unsigned int inactiveEvents;
     double minDelay;   // network min delay
     double maxDelay;   // network max delay
     fs::path resultDir;

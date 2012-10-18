@@ -47,6 +47,8 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
+static shared_ptr<MonitorTimer> monTmr(new MonitorTimer);
+static shared_ptr<RescheduleTimer> reschTmr(new RescheduleTimer);
 
 
 /**
@@ -212,13 +214,13 @@ bool Scheduler::receiveMessage(const CommAddress & src, const BasicMsg & msg) {
 void Scheduler::rescheduleAt(Time r) {
     if (rescheduleTimer != 0)
         CommLayer::getInstance().cancelTimer(rescheduleTimer);
-    rescheduleTimer = CommLayer::getInstance().setTimer(r, new RescheduleTimer);
+    rescheduleTimer = CommLayer::getInstance().setTimer(r, reschTmr);
 }
 
 
 void Scheduler::setMonitorTimer() {
     // Randomize monitor timer with 10%
-    monitorTimer = CommLayer::getInstance().setTimer(Duration((double)ConfigurationManager::getInstance().getHeartbeat()), new MonitorTimer);
+    monitorTimer = CommLayer::getInstance().setTimer(Duration((double)ConfigurationManager::getInstance().getHeartbeat()), monTmr);
 }
 
 

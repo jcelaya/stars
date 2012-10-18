@@ -64,7 +64,7 @@ public:
 
     static void libStarsConfigure(const Properties & property);
 
-    StarsNode() {}
+    StarsNode() : numProgTimers(0) {}
     StarsNode(const StarsNode & copy) {}
     StarsNode & operator=(const StarsNode & copy) { return *this; }
     void setup(unsigned int addr);
@@ -75,10 +75,7 @@ public:
 
     void unpackState(std::streambuf & out);
 
-    void receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
-        enqueueMessage(CommAddress(src, ConfigurationManager::getInstance().getPort()), msg);
-        processNextMessage();
-    }
+    void receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg);
 
     void setLocalAddress(const CommAddress & local) { localAddress = local; }
 
@@ -118,6 +115,7 @@ public:
     }
 
 private:
+    friend class CommLayer;
     void createServices();
 
     int schedulerType;
@@ -125,6 +123,7 @@ private:
     double power;
     unsigned long int mem;
     unsigned long int disk;
+    unsigned int numProgTimers;
 };
 
 #endif /*PEERCOMPNODE_H_*/

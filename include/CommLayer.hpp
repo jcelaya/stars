@@ -157,9 +157,8 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Time time, BasicMsg * msg) {
-        boost::shared_ptr<BasicMsg> tmp(msg);
-        if (time > Time::getCurrentTime()) return setTimerImpl(time, tmp);
+    int setTimer(Time time, boost::shared_ptr<BasicMsg> msg) {
+        if (time > Time::getCurrentTime()) return setTimerImpl(time, msg);
         else return 0;
     }
 
@@ -170,9 +169,8 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Duration delay, BasicMsg * msg) {
-        boost::shared_ptr<BasicMsg> tmp(msg);
-        if (!delay.is_negative()) return setTimerImpl(Time::getCurrentTime() + delay, tmp);
+    int setTimer(Duration delay, boost::shared_ptr<BasicMsg> msg) {
+        if (!delay.is_negative()) return setTimerImpl(Time::getCurrentTime() + delay, msg);
         else return 0;
     }
 

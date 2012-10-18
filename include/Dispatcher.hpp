@@ -90,7 +90,7 @@ public:
 
     // This is documented in DispatcherInterface.
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const {
-        return father.waitingInfo;
+        return father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
     }
 
     /**
@@ -232,11 +232,12 @@ protected:
      * if the bandwidth limit is going to be overcome.
      */
     void notify() {
+        static boost::shared_ptr<UpdateTimer> upMsg(new UpdateTimer);
         if (nextUpdate > Time::getCurrentTime() || updateTimer != 0) {
             LogMsg("Dsp", DEBUG) << "Wait a bit...";
             if (updateTimer == 0) {
                 // Program the update timer
-                updateTimer = CommLayer::getInstance().setTimer(nextUpdate, new UpdateTimer);
+                updateTimer = CommLayer::getInstance().setTimer(nextUpdate, upMsg);
             }
         } else {
             // No update timer, we can send update messages
@@ -245,7 +246,8 @@ protected:
                     !(father.notifiedInfo.get() && *father.notifiedInfo == *father.waitingInfo)) {
                 LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
                 uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 1;
-                father.notifiedInfo.reset(father.waitingInfo->clone());
+                father.notifiedInfo = father.waitingInfo;
+                father.waitingInfo.reset();
                 father.notifiedInfo->setSeq(seq);
                 father.notifiedInfo->setFromSch(false);
                 T * sendMsg = father.notifiedInfo->clone();
@@ -259,7 +261,8 @@ protected:
                             !(children[i].notifiedInfo.get() && *children[i].notifiedInfo == *children[i].waitingInfo)) {
                         LogMsg("Dsp", DEBUG) << "There were changes with children " << i << ", sending update";
                         uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 1;
-                        children[i].notifiedInfo.reset(children[i].waitingInfo->clone());
+                        children[i].notifiedInfo = children[i].waitingInfo;
+                        children[i].waitingInfo.reset();
                         children[i].notifiedInfo->setSeq(seq);
                         children[i].notifiedInfo->setFromSch(false);
                         T * sendMsg = children[i].notifiedInfo->clone();

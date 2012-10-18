@@ -39,7 +39,7 @@ void MinSlownessDispatcher::recomputeInfo() {
     for (child++; child != children.end(); child++)
         if (child->availInfo.get())
             father.waitingInfo->join(*child->availInfo);
-        LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
+    LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
 
     if(!structureNode.isRNChildren()) {
         for (unsigned int i = 0; i < children.size(); i++) {
@@ -63,12 +63,10 @@ void MinSlownessDispatcher::recomputeInfo() {
                         }
                     }
                 }
-                if (valid && !(children[i].waitingInfo.get()
-                    && children[i].waitingInfo->getMinimumSlowness() == minSlowness)) {
-                    LogMsg("Dsp.MS", DEBUG) << "There were changes with children " << i;
+            if (valid) {
                 children[i].waitingInfo.reset(new SlownessInformation);
                 children[i].waitingInfo->setMinimumSlowness(minSlowness);
-                    }
+            }
         }
     }
 }
@@ -91,7 +89,8 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
     }
-    if (!father.waitingInfo.get()) {
+    boost::shared_ptr<SlownessInformation> zoneInfo = father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
+    if (!zoneInfo.get()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but no information!";
         return;
     }
@@ -171,17 +170,17 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
         double slownessLimit = 0.0;
         if (father.availInfo.get())
             slownessLimit = father.availInfo->getMinimumSlowness();
-        else if (father.waitingInfo.get())
-            slownessLimit = father.waitingInfo->getMinimumSlowness();
+        else if (zoneInfo.get())
+            slownessLimit = zoneInfo->getMinimumSlowness();
         LogMsg("Dsp.MS", DEBUG) << "The minimum slowness in the rest of the tree is " << slownessLimit;
         slownessLimit *= ConfigurationManager::getInstance().getSlownessRatio();
-        if (father.waitingInfo.get()) {
-            LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << father.waitingInfo->getMaximumSlowness();
-            if (father.waitingInfo->getMaximumSlowness() > slownessLimit)
-                slownessLimit = father.waitingInfo->getMaximumSlowness();
-            LogMsg("Dsp.MS", DEBUG) << "The slowest machine in this branch would provide a slowness of " << father.waitingInfo->getSlowestMachine();
-            if (father.waitingInfo->getSlowestMachine() > slownessLimit)
-                slownessLimit = father.waitingInfo->getSlowestMachine();
+        if (zoneInfo.get()) {
+            LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << zoneInfo->getMaximumSlowness();
+            if (zoneInfo->getMaximumSlowness() > slownessLimit)
+                slownessLimit = zoneInfo->getMaximumSlowness();
+            LogMsg("Dsp.MS", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
+            if (zoneInfo->getSlowestMachine() > slownessLimit)
+                slownessLimit = zoneInfo->getSlowestMachine();
         }
         if (minSlowness > slownessLimit) {
             LogMsg("Dsp.MS", INFO) << "Not enough information to route this request, sending to the father.";

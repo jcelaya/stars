@@ -347,7 +347,7 @@ class siteLevel : public SimulationCase {
             }
         }
 
-        Time getWakeTime(Time now) const {
+        Duration getWakeTime(Time now) const {
             // Return the time at which this user should wake if it goes to sleep now.
             // Calculate the time for today or tomorrow
             Duration wake = (daytime ? morning : night) + wDelta;
@@ -371,7 +371,7 @@ class siteLevel : public SimulationCase {
                 }
             }
 
-            return now - nowDelta + wake + Duration(daysDelta * 86400.0);
+            return wake + Duration(daysDelta * 86400.0) - nowDelta;
         }
     };
 
@@ -399,15 +399,15 @@ class siteLevel : public SimulationCase {
             tt = Duration(breakTimeCDF.inverse(Simulator::uniform01()));
             LogMsg("Sim.Site", INFO) << "User " << u << " breaks for " << tt << " seconds";
         }
-        Simulator::getInstance().setTimer(u, Simulator::getInstance().getCurrentTime() + tt, timer);
+        Simulator::getInstance().injectMessage(u, u, timer, tt);
         users[u].state = User::WAIT_TT;
     }
 
     void sleep(uint32_t u) {
         users[u].state = User::SLEEPING;
         Simulator & sim = Simulator::getInstance();
-        Time wakeTime = users[u].getWakeTime(sim.getCurrentTime());
-        sim.setTimer(u, wakeTime, timer);
+        Duration wakeTime = users[u].getWakeTime(sim.getCurrentTime());
+        sim.injectMessage(u, u, timer, wakeTime);
         LogMsg("Sim.Site", INFO) << "User " << u << " sleeps until " << wakeTime;
     }
 
@@ -492,7 +492,7 @@ public:
             if (ref > max) ref = max;
             Time deadline = now + Duration(ref);
             if (!u.isWtime(deadline))
-                deadline = u.getWakeTime(deadline);
+                deadline = now + u.getWakeTime(deadline);
             dcm->setDeadline(deadline);
             sim.injectMessage(dst, dst, dcm);
             u.repeat--;

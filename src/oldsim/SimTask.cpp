@@ -47,7 +47,7 @@ int SimTask::getStatus() const {
 
 void SimTask::run() {
     if (timer == -1) {
-        TaskStateChgMsg * tfm = new TaskStateChgMsg;
+        boost::shared_ptr<TaskStateChgMsg> tfm(new TaskStateChgMsg);
         tfm->setTaskId(taskId);
         tfm->setOldState(Running);
         tfm->setNewState(Finished);
