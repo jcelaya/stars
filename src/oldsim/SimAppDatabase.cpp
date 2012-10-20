@@ -191,7 +191,7 @@ void TaskBagAppDatabase::acceptedTasks(const CommAddress & src, long int rid, un
         }
         it->second.acceptedTasks++;
         it->second.tasks[t]->state = SimAppDatabase::AppInstance::Task::EXECUTING;
-        it->second.tasks[t]->atime = Time::getCurrentTime();
+        //it->second.tasks[t]->atime = Time::getCurrentTime();
         it->second.tasks[t]->host = src;
     }
     LogMsg("Database.Sim", DEBUG) << "Done: " << it->second;
@@ -233,7 +233,7 @@ bool TaskBagAppDatabase::finishedTask(const CommAddress & src, long int rid, uns
         return false;
     } else {
         it->second.tasks[rtid]->state = SimAppDatabase::AppInstance::Task::FINISHED;
-        it->second.tasks[rtid]->ftime = Time::getCurrentTime();
+        //it->second.tasks[rtid]->ftime = Time::getCurrentTime();
         it->second.tasks[rtid] = NULL;
         return true;
     }

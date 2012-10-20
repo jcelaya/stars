@@ -57,8 +57,6 @@ void AvailabilityStatistics::changeUpwards(uint32_t src, uint32_t dst, Time c) {
     if (thisChange.valid) {
         double t = thisChange.duration();
         int l = node.getS().getLevel();
-        updateTimes.addValue(t);
-        reachedLevel.addValue(l);
         os << t << ',' << l << std::endl;
         LogMsg("Sim.Stat.Avail", DEBUG) << src << " -> " << dst << ": " << "A change from " << t << " seconds ago at level " << l;
     }
@@ -83,17 +81,8 @@ void AvailabilityStatistics::finishAvailabilityStatistics() {
         if (activeChanges[i].valid) {
             double t = activeChanges[i].duration();
             int l = sim.getNode(i).getS().getLevel();
-            updateTimes.addValue(t);
-            reachedLevel.addValue(l);
             os << t << ',' << l << std::endl;
         }
     }
-
-    // End this index
-    os << std::endl << std::endl;
-    os << "# Update time CDF" << std::endl << CDF(updateTimes);
-    // End this index
-    os << std::endl << std::endl;
-    os << "# Reached level CDF" << std::endl << CDF(reachedLevel) << std::endl << std::endl;
     os.close();
 }

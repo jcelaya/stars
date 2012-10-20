@@ -19,6 +19,11 @@
  */
 
 #include "SimulationCase.hpp"
+#include "Simulator.hpp"
+
+void SimulationCase::finishedApp(long int appId) {
+    Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
+}
 
 
 boost::shared_ptr<SimulationCase> CaseFactory::createCase(const std::string & name, const Properties & p) {

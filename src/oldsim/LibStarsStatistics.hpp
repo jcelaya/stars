@@ -25,7 +25,6 @@
 #include <utility>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/thread/mutex.hpp>
-#include "Distributions.hpp"
 #include "Time.hpp"
 class StarsNode;
 class Task;
@@ -79,13 +78,6 @@ private:
     boost::filesystem::ofstream appos;
     boost::filesystem::ofstream reqos;
     boost::filesystem::ofstream slowos;
-    Histogram numNodesHist;
-    Histogram finishedHist;
-    Histogram searchHist;
-    Histogram jttHist;
-    Histogram seqHist;
-    Histogram spupHist;
-    Histogram slownessHist;
     unsigned int unfinishedApps;
     unsigned int totalApps;
     std::list<std::pair<Time, double> > lastSlowness;

@@ -139,7 +139,6 @@ void SubmissionNode::finishedApp(long int appId) {
     Simulator & sim = Simulator::getInstance();
     sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, Time::getCurrentTime(), 0);
     sim.getCase().finishedApp(appId);
-    sim.getCurrentNode().getDatabase().appInstanceFinished(appId);
 }
 
 

@@ -101,35 +101,36 @@ unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
 }
 
 
+// Time
+Time Time::getCurrentTime() {
+    return Simulator::getInstance().getCurrentTime();
+}
+
+
 int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
+    Timer t(time, msg);
+    t.id <<= 1;
     // Set a new timer if this timer is the first or comes before the first
     if (timerList.empty() || time < timerList.front().timeout) {
         Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(),
-            timerMsg, time - Time::getCurrentTime());
-        ++static_cast<StarsNode *>(this)->numProgTimers;
+            timerMsg, time - Simulator::getInstance().getCurrentTime());
+        ++t.id;
     }
     // Add a task to the timer structure
-    Timer t(time, msg);
     timerList.push_front(t);
     timerList.sort();
-    return t.id;
+    return t.id >> 1;
 }
 
 
 void CommLayer::cancelTimer(int timerId) {
     // Erase timer in list
     for (std::list<Timer>::iterator it = timerList.begin(); it != timerList.end(); it++) {
-        if (it->id == timerId) {
+        if (it->id >> 1 == timerId) {
             timerList.erase(it);
             break;
         }
     }
-}
-
-
-// Time
-Time Time::getCurrentTime() {
-    return Simulator::getInstance().getCurrentTime();
 }
 
 
@@ -206,6 +207,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setSlownessRatio(property("stretch_ratio", 2.0));
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
+    ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
     unsigned int clustersBase = property("avail_clusters_base", 3U);
     if (clustersBase) {
         BasicAvailabilityInfo::setNumClusters(clustersBase * clustersBase);
@@ -243,17 +245,19 @@ void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
     // Check if it is the timer
     if (msg == timerMsg) {
         Time ct = Time::getCurrentTime();
-        --numProgTimers;
         while (!timerList.empty()) {
             if (timerList.front().timeout <= ct) {
+                if (timerList.front().timeout < ct)
+                    LogMsg("Sim.Progress", WARN) << "Timer arriving " << (ct - timerList.front().timeout).seconds() << " seconds late: "
+                    << *timerList.front().msg;
                 Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
                 timerList.pop_front();
             } else {
-                if (!numProgTimers){
+                if (!(timerList.front().id & 1)) {
                     // Program next timer
                     Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerMsg,
                             timerList.front().timeout - ct);
-                    ++numProgTimers;
+                    ++timerList.front().id;
                 }
                 break;
             }

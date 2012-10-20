@@ -129,6 +129,7 @@ public:
     }
 
     virtual void finishedApp(long int appId) {
+        Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
         percent = (remainingApps++) * 100.0 / numInstances;
     }
 
@@ -271,6 +272,7 @@ public:
     }
 
     virtual void finishedApp(long int appId) {
+        Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
         percent = (finishedApps++) * 100.0 / numSearches;
     }
 
@@ -514,7 +516,7 @@ public:
         uint32_t dst = sim.getCurrentNode().getLocalAddress().getIPNum();
         User & u = users[dst];
         SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
-        Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).rtime;
+        Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).ctime;
         u.perceivedSpeed *= 0.8;
         u.perceivedSpeed += 0.2 * sdb.getAppInstance(appId).req.getAppLength() / rt.seconds();
         if (--u.batchSize == 0) {
@@ -525,6 +527,7 @@ public:
                 sleep(dst);
             }
         }
+        sdb.appInstanceFinished(appId);
     }
 
 //    bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {

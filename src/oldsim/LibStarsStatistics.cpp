@@ -27,8 +27,7 @@
 
 
 LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
-        partialComputation(0), totalComputation(0), numNodesHist(1.0), finishedHist(0.1), searchHist(100U),
-        jttHist(100U), seqHist(100U), spupHist(0.1), slownessHist(100U), unfinishedApps(0), totalApps(0) {}
+        partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0) {}
 
 
 void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir) {
@@ -131,15 +130,6 @@ void LibStarsStatistics::saveCPUStatistics() {
         os << CommAddress(addr, port) << ',' << executedTasks << std::endl;
         if (executedTasks > maxTasks) maxTasks = executedTasks;
     }
-    // End this index
-    os << std::endl << std::endl;
-
-    // Next blocks are CDFs
-    Histogram executedTasks(maxTasks);
-    for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
-        executedTasks.addValue(sim.getNode(addr).getScheduler().getExecutedTasks());
-    }
-    os << "# CDF of num of executed tasks" << std::endl << CDF(executedTasks) << std::endl << std::endl;
 }
 
 
@@ -157,16 +147,8 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
     double slowness = 0.0;
     for (std::vector<SimAppDatabase::AppInstance::Task>::const_iterator it = app.tasks.begin(); it != app.tasks.end(); it++)
         if (it->state == Task::Finished) finishedTasks++;
-    finishedHist.addValue((finishedTasks * 100.0) / app.req.getNumTasks());
-    if (finishedTasks > 0) {
-        // Only count jobs with at least one finished task
-        jttHist.addValue(jtt);
-        seqHist.addValue(sequential);
-        double speedup = sequential * finishedTasks / app.req.getNumTasks() / jtt;
-        spupHist.addValue(speedup);
-        slowness = jtt / app.req.getLength();
-        slownessHist.addValue(slowness);
-    } else unfinishedApps++;
+    if (finishedTasks == 0)
+        unfinishedApps++;
     appos << appId << ',' << node.getLocalAddress() << ','
         << app.req.getNumTasks() << ',' << app.req.getLength() << ','
         << app.req.getMaxMemory() << ',' << app.req.getMaxDisk() << ','
@@ -179,9 +161,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, long int appId, Time end,
     bool valid = false;
     std::map<long int, SimAppDatabase::Request>::const_iterator it;
     while ((valid = sdb.getNextAppRequest(appId, it, valid))) {
-        numNodesHist.addValue(it->second.numNodes);
         double search = (it->second.stime - it->second.rtime).seconds();
-        searchHist.addValue(search);
         reqos << it->first << ',' << appId << ','
             << it->second.tasks.size() << ',' << it->second.numNodes << ',' << it->second.acceptedTasks << ','
             << std::setprecision(3) << std::fixed << (it->second.rtime.getRawDate() / 1000000.0) << ','
@@ -288,23 +268,9 @@ void LibStarsStatistics::finishAppStatistics() {
         finishedApp(sim.getNode(it->node), it->appid, it->end, it->finishedTasks);
     }
 
-    // Finish this index
-    appos << std::endl << std::endl;
     // Finished percentages
-    appos << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
-        << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl << std::endl << std::endl;
-    appos.precision(8);
-    appos << "# Finished % CDF" << std::endl << CDF(finishedHist) << std::endl << std::endl;
-    appos << "# JTT CDF" << std::endl << CDF(jttHist) << std::endl << std::endl;
-    appos << "# Sequential time in src CDF" << std::endl << CDF(seqHist) << std::endl << std::endl;
-    appos << "# Speedup CDF" << std::endl << CDF(spupHist) << std::endl << std::endl;
-    appos << "# Slowness CDF" << std::endl << CDF(slownessHist) << std::endl << std::endl;
-
-    // Finish this index
-    reqos << std::endl << std::endl;
-    reqos.precision(8);
-    reqos << "# Number of nodes CDF" << std::endl << CDF(numNodesHist) << std::endl << std::endl;
-    reqos << "# Search time CDF" << std::endl << CDF(searchHist) << std::endl << std::endl;
+    appos << "# " << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
+        << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl;
 
     // Write the slowness data of the last apps
     while (!lastSlowness.empty()) {

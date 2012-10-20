@@ -29,7 +29,6 @@ namespace fs = boost::filesystem;
 #include "Scheduler.hpp"
 #include "Task.hpp"
 #include "TaskDescription.hpp"
-#include "Distributions.hpp"
 #include "Simulator.hpp"
 using namespace std;
 using namespace boost::posix_time;
@@ -138,8 +137,8 @@ void TrafficStatistics::saveTotalStatistics() {
     fs::ofstream os(sim.getResultDir() / fs::path("traffic.stat"));
     os << setprecision(6) << fixed;
 
-    double maxSent = 0.0, maxOut1s = 0.0, maxOut10s = 0.0, maxRecv = 0.0, maxIn1s = 0.0, maxIn10s = 0.0;
-    unsigned int maxLevel = 0;
+    //double maxSent = 0.0, maxOut1s = 0.0, maxOut10s = 0.0, maxRecv = 0.0, maxIn1s = 0.0, maxIn10s = 0.0;
+    //unsigned int maxLevel = 0;
     unsigned int addr = 0;
     double totalTime = sim.getCurrentTime().getRawDate() / 1000000.0;
     os << "#Node, Level, Bytes sent, fr. of max, Max1sec, fr. of max1sec, Max10sec, fr. of max10sec, Bytes recv, fr. of max, Max1sec, fr. of max1sec, Max10sec, fr. of max10sec, data bytes sent, data bytes recv" << endl;
@@ -147,7 +146,7 @@ void TrafficStatistics::saveTotalStatistics() {
         double inBW = sim.getNetInterface(addr).inBW;
         double outBW = sim.getNetInterface(addr).outBW;
         unsigned int level = sim.getNode(addr).getSNLevel();
-        if (level > maxLevel) maxLevel = level;
+        //if (level > maxLevel) maxLevel = level;
         os << CommAddress(addr, ConfigurationManager::getInstance().getPort()) << ',' << level << ','
             << i->bytesSent << ',' << ((i->bytesSent / totalTime) / outBW) << ','
             << i->maxBytesOut1sec << ',' << (i->maxBytesOut1sec / outBW) << ','
@@ -157,67 +156,67 @@ void TrafficStatistics::saveTotalStatistics() {
             << (i->maxBytesIn10sec / 10) << ',' << ((i->maxBytesIn10sec / 10.0) / inBW) << ','
             << i->dataBytesSent << ',' << i->dataBytesRecv
             << endl;
-        if ((i->bytesSent / totalTime) / outBW > maxSent) maxSent = (i->bytesSent / totalTime) / outBW;
-        if (i->maxBytesOut1sec / outBW > maxOut1s) maxOut1s = i->maxBytesOut1sec / outBW;
-        if ((i->maxBytesOut10sec / 10.0) / outBW > maxOut10s) maxOut10s = (i->maxBytesOut10sec / 10.0) / outBW;
-        if ((i->bytesReceived / totalTime) / inBW > maxRecv) maxRecv = (i->bytesReceived / totalTime) / inBW;
-        if (i->maxBytesIn1sec / inBW > maxIn1s) maxIn1s = i->maxBytesIn1sec / inBW;
-        if ((i->maxBytesIn10sec / 10.0) / inBW > maxIn10s) maxIn10s = (i->maxBytesIn10sec / 10.0) / inBW;
+//        if ((i->bytesSent / totalTime) / outBW > maxSent) maxSent = (i->bytesSent / totalTime) / outBW;
+//        if (i->maxBytesOut1sec / outBW > maxOut1s) maxOut1s = i->maxBytesOut1sec / outBW;
+//        if ((i->maxBytesOut10sec / 10.0) / outBW > maxOut10s) maxOut10s = (i->maxBytesOut10sec / 10.0) / outBW;
+//        if ((i->bytesReceived / totalTime) / inBW > maxRecv) maxRecv = (i->bytesReceived / totalTime) / inBW;
+//        if (i->maxBytesIn1sec / inBW > maxIn1s) maxIn1s = i->maxBytesIn1sec / inBW;
+//        if ((i->maxBytesIn10sec / 10.0) / inBW > maxIn10s) maxIn10s = (i->maxBytesIn10sec / 10.0) / inBW;
     }
     // End this index
     os << endl << endl;
 
     // Next blocks are CDF of each fraction value, and every level
-    vector<Histogram> sentFraction(maxLevel + 1, Histogram(maxSent / 100.0)),
-        maxOut1sFraction(maxLevel + 1, Histogram(maxOut1s / 100.0)),
-        maxOut10sFraction(maxLevel + 1, Histogram(maxOut10s / 100.0)),
-        recvFraction(maxLevel + 1, Histogram(maxRecv / 100.0)),
-        maxIn1sFraction(maxLevel + 1, Histogram(maxIn1s / 100.0)),
-        maxIn10sFraction(maxLevel + 1, Histogram(maxIn10s / 100.0));
-    addr = 0;
-    for (vector<NodeTraffic>::const_iterator i = nodeStatistics.begin(); i != nodeStatistics.end(); i++, addr++) {
-        double inBW = sim.getNetInterface(addr).inBW;
-        double outBW = sim.getNetInterface(addr).outBW;
-        unsigned int level = sim.getNode(addr).getSNLevel();
-        sentFraction[maxLevel].addValue((i->bytesSent / totalTime) / outBW);
-        maxOut1sFraction[maxLevel].addValue(i->maxBytesOut1sec / outBW);
-        maxOut10sFraction[maxLevel].addValue((i->maxBytesOut10sec / 10.0) / outBW);
-        recvFraction[maxLevel].addValue((i->bytesReceived / totalTime) / inBW);
-        maxIn1sFraction[maxLevel].addValue(i->maxBytesIn1sec / inBW);
-        maxIn10sFraction[maxLevel].addValue((i->maxBytesIn10sec / 10.0) / inBW);
-        if (level != maxLevel) {
-            sentFraction[level].addValue((i->bytesSent / totalTime) / outBW);
-            maxOut1sFraction[level].addValue(i->maxBytesOut1sec / outBW);
-            maxOut10sFraction[level].addValue((i->maxBytesOut10sec / 10.0) / outBW);
-            recvFraction[level].addValue((i->bytesReceived / totalTime) / inBW);
-            maxIn1sFraction[level].addValue(i->maxBytesIn1sec / inBW);
-            maxIn10sFraction[level].addValue((i->maxBytesIn10sec / 10.0) / inBW);
-        }
-    }
-    os << "# Fraction of total outgoing bandwidth per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(sentFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(sentFraction[maxLevel]) << endl << endl;
-    os << "# Fraction of outgoing bandwidth in 1sec interval per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(maxOut1sFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(maxOut1sFraction[maxLevel]) << endl << endl;
-    os << "# Fraction of outgoing bandwidth in 10sec interval per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(maxOut10sFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(maxOut1sFraction[maxLevel]) << endl << endl;
-    os << "# Fraction of total incoming bandwidth per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(recvFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(recvFraction[maxLevel]) << endl << endl;
-    os << "# Fraction of incoming bandwidth in 1sec interval per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(maxIn1sFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(maxIn1sFraction[maxLevel]) << endl << endl;
-    os << "# Fraction of incoming bandwidth in 10sec interval per level" << endl;
-    for (unsigned int j = 0; j < maxLevel; j++)
-        os << "# Level " << j << endl << CDF(maxIn10sFraction[j]) << endl << endl;
-    os << "# All nodes" << endl << CDF(maxIn10sFraction[maxLevel]) << endl << endl;
+//    vector<Histogram> sentFraction(maxLevel + 1, Histogram(maxSent / 100.0)),
+//        maxOut1sFraction(maxLevel + 1, Histogram(maxOut1s / 100.0)),
+//        maxOut10sFraction(maxLevel + 1, Histogram(maxOut10s / 100.0)),
+//        recvFraction(maxLevel + 1, Histogram(maxRecv / 100.0)),
+//        maxIn1sFraction(maxLevel + 1, Histogram(maxIn1s / 100.0)),
+//        maxIn10sFraction(maxLevel + 1, Histogram(maxIn10s / 100.0));
+//    addr = 0;
+//    for (vector<NodeTraffic>::const_iterator i = nodeStatistics.begin(); i != nodeStatistics.end(); i++, addr++) {
+//        double inBW = sim.getNetInterface(addr).inBW;
+//        double outBW = sim.getNetInterface(addr).outBW;
+//        unsigned int level = sim.getNode(addr).getSNLevel();
+//        sentFraction[maxLevel].addValue((i->bytesSent / totalTime) / outBW);
+//        maxOut1sFraction[maxLevel].addValue(i->maxBytesOut1sec / outBW);
+//        maxOut10sFraction[maxLevel].addValue((i->maxBytesOut10sec / 10.0) / outBW);
+//        recvFraction[maxLevel].addValue((i->bytesReceived / totalTime) / inBW);
+//        maxIn1sFraction[maxLevel].addValue(i->maxBytesIn1sec / inBW);
+//        maxIn10sFraction[maxLevel].addValue((i->maxBytesIn10sec / 10.0) / inBW);
+//        if (level != maxLevel) {
+//            sentFraction[level].addValue((i->bytesSent / totalTime) / outBW);
+//            maxOut1sFraction[level].addValue(i->maxBytesOut1sec / outBW);
+//            maxOut10sFraction[level].addValue((i->maxBytesOut10sec / 10.0) / outBW);
+//            recvFraction[level].addValue((i->bytesReceived / totalTime) / inBW);
+//            maxIn1sFraction[level].addValue(i->maxBytesIn1sec / inBW);
+//            maxIn10sFraction[level].addValue((i->maxBytesIn10sec / 10.0) / inBW);
+//        }
+//    }
+//    os << "# Fraction of total outgoing bandwidth per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(sentFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(sentFraction[maxLevel]) << endl << endl;
+//    os << "# Fraction of outgoing bandwidth in 1sec interval per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(maxOut1sFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(maxOut1sFraction[maxLevel]) << endl << endl;
+//    os << "# Fraction of outgoing bandwidth in 10sec interval per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(maxOut10sFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(maxOut1sFraction[maxLevel]) << endl << endl;
+//    os << "# Fraction of total incoming bandwidth per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(recvFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(recvFraction[maxLevel]) << endl << endl;
+//    os << "# Fraction of incoming bandwidth in 1sec interval per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(maxIn1sFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(maxIn1sFraction[maxLevel]) << endl << endl;
+//    os << "# Fraction of incoming bandwidth in 10sec interval per level" << endl;
+//    for (unsigned int j = 0; j < maxLevel; j++)
+//        os << "# Level " << j << endl << CDF(maxIn10sFraction[j]) << endl << endl;
+//    os << "# All nodes" << endl << CDF(maxIn10sFraction[maxLevel]) << endl << endl;
 
     os << "# Statistics by message type and level" << endl;
     os << "# Level, msg name, sent msgs, sent bytes, min sent size, max sent size, recv msgs, recv bytes, min recv size, max recv size" << endl;

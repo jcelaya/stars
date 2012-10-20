@@ -5,6 +5,7 @@ include_directories(../../include)
 include_directories(.)
 
 add_subdirectory(cases)
+add_subdirectory(tools)
 
 # Sources
 set(oldsim_sources

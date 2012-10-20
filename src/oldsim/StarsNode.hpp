@@ -64,7 +64,7 @@ public:
 
     static void libStarsConfigure(const Properties & property);
 
-    StarsNode() : numProgTimers(0) {}
+    StarsNode() {}
     StarsNode(const StarsNode & copy) {}
     StarsNode & operator=(const StarsNode & copy) { return *this; }
     void setup(unsigned int addr);
@@ -123,7 +123,6 @@ private:
     double power;
     unsigned long int mem;
     unsigned long int disk;
-    unsigned int numProgTimers;
 };
 
 #endif /*PEERCOMPNODE_H_*/

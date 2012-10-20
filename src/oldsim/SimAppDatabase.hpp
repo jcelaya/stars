@@ -38,7 +38,7 @@ public:
                 EXECUTING,
                 FINISHED
             } state;
-            Time atime, ftime;
+            //Time atime, ftime;
             CommAddress host;
             Task() : state(READY) {}
         };

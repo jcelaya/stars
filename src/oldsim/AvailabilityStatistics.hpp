@@ -26,7 +26,6 @@
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
 #include "AvailabilityInformation.hpp"
-#include "Distributions.hpp"
 #include "Time.hpp"
 
 class AvailabilityStatistics {
@@ -44,13 +43,9 @@ class AvailabilityStatistics {
 
     /// Last changes arrived at every node.
     std::vector<Change> activeChanges;
-    Histogram updateTimes;
-    Histogram reachedLevel;
-
     fs::ofstream os;
 
 public:
-    AvailabilityStatistics() : updateTimes(0.01), reachedLevel(1.0) {}
     ~AvailabilityStatistics();
 
     void setNumNodes(unsigned int n) { activeChanges.resize(n); }

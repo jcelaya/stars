@@ -263,6 +263,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const HeartbeatT
         remainingTasks[it->first] -= it->second;
         sendRequest(it->first, 0);
     }
+    remoteTasks.erase(msg.getExecutionNode());
 }
 
 
