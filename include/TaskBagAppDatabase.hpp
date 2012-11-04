@@ -22,12 +22,13 @@
 #define TASKBAGAPPDATABASE_H_
 
 #include <string>
-#include "Database.hpp"
+//#include "Database.hpp"
 #include "TaskDescription.hpp"
 #include "Time.hpp"
 #include "CommAddress.hpp"
 #include "ConfigurationManager.hpp"
 #include "TaskBagMsg.hpp"
+class Database;
 
 
 /**
@@ -37,7 +38,7 @@
  * application descriptions, instances and task and request monitoring.
  **/
 class TaskBagAppDatabase {
-    Database db;
+    Database * db;
 
     void createTables();
 
@@ -45,7 +46,7 @@ public:
     TaskBagAppDatabase();
 
     Database & getDatabase() {
-        return db;
+        return *db;
     }
 
     /**
@@ -57,52 +58,48 @@ public:
      * Create a new application instance
      * @returns Instance ID
      */
-    long int createAppInstance(const std::string & name, Time deadline);
+    int64_t createAppInstance(const std::string & name, Time deadline);
 
     /**
      * Prepares a request for all the tasks in ready state
      */
-    void requestFromReadyTasks(long int appId, TaskBagMsg & msg);
+    void requestFromReadyTasks(int64_t appId, TaskBagMsg & msg);
 
     /**
      * Returns the application instance id for a certain request id
      */
-    long int getInstanceId(long int rid);
+    int64_t getInstanceId(int64_t rid);
 
     /**
      * Sets the search state to all the tasks in a request and sets the timeout of the request
      */
-    bool startSearch(long int rid, Time timeout);
+    bool startSearch(int64_t rid, Time timeout);
 
     /**
      * Cancels the search for tasks that are not yet allocated in a request. They are removed from
      * that request, so the request is considered allocated.
      */
-    unsigned int cancelSearch(long int rid);
+    unsigned int cancelSearch(int64_t rid);
 
     /**
      * Sets the state of the accepted tasks to executing, and records the execution node address
      */
-    void acceptedTasks(const CommAddress & src, long int rid, unsigned int firstRtid, unsigned int lastRtid);
+    void acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid);
 
     /**
      * Checks that a task belongs to a request
      */
-    bool taskInRequest(unsigned int tid, long int rid);
-
-    unsigned int getNumTasksInNode(const CommAddress & node);
-
-    void getAppsInNode(const CommAddress & node, std::list<long int> & apps);
+    bool taskInRequest(unsigned int tid, int64_t rid);
 
     /**
      * Sets the state of a task to FINISHED, checking source address, and returns whether it succeeded or not
      */
-    bool finishedTask(const CommAddress & src, long int rid, unsigned int tid);
+    bool finishedTask(const CommAddress & src, int64_t rid, unsigned int tid);
 
     /**
      * Sets the state of a task to FINISHED, checking source address, and returns whether it succeeded or not
      */
-    bool abortedTask(const CommAddress & src, long int rid, unsigned int tid);
+    bool abortedTask(const CommAddress & src, int64_t rid, unsigned int tid);
 
     /**
      * Marks all the tasks that where being executed by a node as READY so that they can be resent
@@ -112,32 +109,32 @@ public:
     /**
      * Returns the number of finished tasks of an application
      */
-    unsigned long int getNumFinished(long int appId);
+    unsigned long int getNumFinished(int64_t appId);
 
     /**
      * Returns the number of ready tasks of an application
      */
-    unsigned long int getNumReady(long int appId);
+    unsigned long int getNumReady(int64_t appId);
 
     /**
      * Returns the number of executing tasks of an application
      */
-    unsigned long int getNumExecuting(long int appId);
+    unsigned long int getNumExecuting(int64_t appId);
 
     /**
      * Returns the number of tasks of an application in execution or search state
      */
-    unsigned long int getNumInProcess(long int appId);
+    unsigned long int getNumInProcess(int64_t appId);
 
     /**
      * Returns whether an application instance is finished
      */
-    bool isFinished(long int appId);
+    bool isFinished(int64_t appId);
 
     /**
      * Return the release time of an application instance
      */
-    Time getReleaseTime(long int appId);
+    Time getReleaseTime(int64_t appId);
 };
 
 #endif /*TASKBAGAPPDATABASE_H_*/

@@ -89,11 +89,10 @@ void Simulator::progressLog(const string & msg) {
 }
 
 
-void SubmissionNode::finishedApp(long int appId) {
+void SubmissionNode::finishedApp(int64_t appId) {
     Simulator & sim = Simulator::getInstance();
     sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
     sim.getSimulationCase()->finishedApp(appId);
-    sim.getCurrentNode().getDatabase().appInstanceFinished(appId);
 }
 
 
@@ -153,8 +152,6 @@ int main(int argc, char * argv[]) {
             HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
         sim.run();
         sim.showStatistics();
-        StarsNode::showTree(log4cpp::Priority::INFO);
-        StarsNode::checkTree();
         sim.getSimulationCase()->postEnd();
         sim.finish();
         ptime end = microsec_clock::local_time();

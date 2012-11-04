@@ -55,8 +55,12 @@ double QueueBalancingInfo::MDPTCluster::distance(const MDPTCluster & r, MDPTClus
                 loss += 100.0;
             result += loss;
         }
-        if (uint64_t timeRange = (reference->maxT - reference->minT).microseconds()) {
-            double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
+        if (int64_t timeRange = (reference->maxT - reference->minT).microseconds()) {
+            //double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
+            Time minT = maxT < r.maxT ? maxT : r.maxT;
+            double timeScale = (minT - reference->minT).seconds() + 1.0;
+            double totalLoss = sum.accumT.seconds() / timeScale;
+            double loss = sum.accumT.seconds() / timeScale / sum.value;
             if (((maxT - reference->minT).microseconds() * numIntervals / timeRange) != ((r.maxT - reference->minT).microseconds() * numIntervals / timeRange))
                 loss += 100.0;
             result += loss;
@@ -142,22 +146,12 @@ void QueueBalancingInfo::MDPTCluster::aggregate(const MDPTCluster & r) {
 }
 
 
-void QueueBalancingInfo::addQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end) {
-    if (summary.isEmpty()) {
-        minM = maxM = mem;
-        minD = maxD = disk;
-        minP = maxP = power;
-        minT = maxT = end;
-    } else {
-        if (minM > mem) minM = mem;
-        if (maxM < mem) maxM = mem;
-        if (minD > disk) minD = disk;
-        if (maxD < disk) maxD = disk;
-        if (minP > power) minP = power;
-        if (maxP < power) maxP = power;
-        if (minT > end) minT = end;
-        if (maxT < end) maxT = end;
-    }
+void QueueBalancingInfo::setQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end) {
+    summary.clear();
+    minM = maxM = mem;
+    minD = maxD = disk;
+    minP = maxP = power;
+    minT = maxT = minQueue = maxQueue = end;
     summary.pushBack(MDPTCluster(this, mem, disk, power, end));
 }
 
@@ -168,6 +162,9 @@ void QueueBalancingInfo::join(const QueueBalancingInfo & r) {
         // Aggregate min queue time
         if (r.minQueue < minQueue)
             minQueue = r.minQueue;
+
+        if (r.maxQueue > maxQueue)
+            maxQueue = r.maxQueue;
 
         if (summary.isEmpty()) {
             minM = r.minM;
@@ -217,10 +214,6 @@ void QueueBalancingInfo::join(const QueueBalancingInfo & r) {
 
 Time QueueBalancingInfo::getAvailability(list<MDPTCluster *> & clusters,
         unsigned int numTasks, const TaskDescription & req) {
-    // First, check that at least one cluster fullfils memory and disk requirements
-    bool fulfills = false;
-    for (unsigned int i = 0; i < summary.getSize() && !fulfills; i++) fulfills = summary[i].fulfills(req);
-    if (!fulfills) return Time();
     TaskDescription tmp(req);
     Time max = Time::getCurrentTime(), min;
     int64_t d = 300000000;
@@ -275,4 +268,6 @@ void QueueBalancingInfo::updateAvailability(const TaskDescription & req) {
     getAvailability(clusters, req);
     for (list<MDPTCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++)
         (*it)->maxT = req.getDeadline();
+    if (!clusters.empty() && maxT < req.getDeadline())
+        maxT = req.getDeadline();
 }

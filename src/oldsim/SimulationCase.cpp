@@ -21,7 +21,7 @@
 #include "SimulationCase.hpp"
 #include "Simulator.hpp"
 
-void SimulationCase::finishedApp(long int appId) {
+void SimulationCase::finishedApp(int64_t appId) {
     Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
 }
 

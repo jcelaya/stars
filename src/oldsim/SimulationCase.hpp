@@ -46,7 +46,7 @@ public:
     virtual void afterEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {}
     double getCompletedPercent() const { return percent; }
     // Some common events
-    virtual void finishedApp(long int appId);
+    virtual void finishedApp(int64_t appId);
     const Properties & getProperties() const { return property; }
 };
 

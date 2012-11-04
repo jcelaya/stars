@@ -89,7 +89,7 @@ void MinSlownessDispatcher::handle(const CommAddress & src, const TaskBagMsg & m
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
     }
-    boost::shared_ptr<SlownessInformation> zoneInfo = father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
+    boost::shared_ptr<SlownessInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
     if (!zoneInfo.get()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but no information!";
         return;

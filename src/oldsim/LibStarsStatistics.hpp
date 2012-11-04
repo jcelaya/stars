@@ -45,7 +45,7 @@ public:
     }
 
     // Public statistics handlers
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+    void queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd);
 
     void finishedApp(StarsNode & node, long int appId, Time end, int finishedTasks);
 

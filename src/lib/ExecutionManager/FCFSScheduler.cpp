@@ -55,7 +55,7 @@ void FCFSScheduler::reschedule() {
         if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
     }
 
-    info.addQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
+    info.setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
                      backend.impl->getAveragePower(), estimatedFinish);
     LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Resulting info is " << info;
 }

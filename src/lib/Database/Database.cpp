@@ -44,11 +44,11 @@ void Database::close() {
 }
 
 
-Database::Query::Query(Database & d, const std::string & sql) : db(d), nextCol(0), nextPar(1) {
+Database::Query::Query(Database & d, const std::string & sql) : nextCol(0), nextPar(1) {
     map<std::string, sqlite3_stmt *>::iterator it = d.queryCache.find(sql);
     if (it == d.queryCache.end()) {
         const char * tmp;
-        if (!sqlite3_prepare_v2(db.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
+        if (!sqlite3_prepare_v2(d.getDatabase(), sql.c_str(), -1, &statement, &tmp)) {
             d.queryCache[sql] = statement;
         }
     } else
@@ -66,11 +66,34 @@ void Database::rollbackTransaction() {
 }
 
 
-long int Database::getLastRowid() {
+int64_t Database::getLastRowid() {
     return sqlite3_last_insert_rowid(db);
 }
 
 
 int Database::getChangedRows() {
     return sqlite3_changes(db);
+}
+
+
+int Database::save(const boost::filesystem::path & dbFile) {
+    sqlite3 * pFile;           // Database connection opened on zFilename
+    sqlite3_backup * pBackup;  // Backup object used to copy data
+
+    // Open the database file identified by zFilename. Exit early if this fails
+    // for any reason.
+    int rc = sqlite3_open(dbFile.string().c_str(), &pFile);
+    if (rc == SQLITE_OK) {
+        pBackup = sqlite3_backup_init(pFile, "main", db, "main");
+        if (pBackup){
+            sqlite3_backup_step(pBackup, -1);
+            sqlite3_backup_finish(pBackup);
+        }
+        rc = sqlite3_errcode(pFile);
+    }
+
+    // Close the database connection opened on database file zFilename
+    // and return the result of this function.
+    sqlite3_close(pFile);
+    return rc;
 }

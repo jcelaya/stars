@@ -18,29 +18,26 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMTASK_H_
-#define SIMTASK_H_
-
-#include "Task.hpp"
-class TaskDescription;
+#include <unistd.h>
+#include "SimulationCase.hpp"
 
 
-class SimTask : public Task {
-    int timer;
-    Duration taskDuration;
-    Time finishTime;
+class noop : public SimulationCase {
 
 public:
-    SimTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d);
-    ~SimTask();
+    noop(const Properties & p) : SimulationCase(p) {
+        // Prepare the properties
+    }
 
-    int getStatus() const;
+    static const std::string getName() { return std::string("noop"); }
 
-    void run();
+    void preStart() {
+        int w = property("wait", 5);
+        sleep(w);
+    }
 
-    void abort();
-
-    Duration getEstimatedDuration() const;
+    bool doContinue() const {
+        return false;
+    }
 };
-
-#endif /*SIMTASK_H_*/
+REGISTER_SIMULATION_CASE(noop);

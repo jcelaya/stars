@@ -25,6 +25,9 @@
 using boost::shared_ptr;
 
 
+double QueueBalancingDispatcher::beta = 1.0;
+
+
 void QueueBalancingDispatcher::recomputeInfo() {
     LogMsg("Dsp.QB", DEBUG) << "Recomputing the branch information";
     // Only recalculate info for the father
@@ -45,17 +48,24 @@ void QueueBalancingDispatcher::recomputeInfo() {
             LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for child " << i;
             // TODO: send full information, based on configuration switch
             std::list<Time> queueLengths;
-            if (structureNode.getFather() != CommAddress() && father.availInfo.get())
+            if (structureNode.getFather() != CommAddress() && father.availInfo.get()) {
                 queueLengths.push_back(father.availInfo->getMinQueueLength());
+                queueLengths.push_back(father.availInfo->getMaxQueueLength());
+            }
             for (unsigned int j = 0; j < children.size(); j++)
-                if (j != i && children[j].availInfo.get())
+                if (j != i && children[j].availInfo.get()) {
                     queueLengths.push_back(children[j].availInfo->getMinQueueLength());
+                    queueLengths.push_back(children[j].availInfo->getMaxQueueLength());
+                }
             if (!queueLengths.empty()) {
-                Time minQueue = queueLengths.front();
-                for (std::list<Time>::iterator it = queueLengths.begin(); it != queueLengths.end(); it++)
+                Time minQueue = queueLengths.front(), maxQueue = queueLengths.front();
+                for (std::list<Time>::iterator it = queueLengths.begin(); it != queueLengths.end(); it++) {
                     if (minQueue > *it) minQueue = *it;
+                    if (maxQueue < *it) maxQueue = *it;
+                }
                 children[i].waitingInfo.reset(new QueueBalancingInfo);
                 children[i].waitingInfo->setMinQueueLength(minQueue);
+                children[i].waitingInfo->setMaxQueueLength(maxQueue);
             }
         }
     }
@@ -78,8 +88,11 @@ struct QueueBalancingDispatcher::DecissionInfo {
 
     DecissionInfo(QueueBalancingInfo::MDPTCluster * c, const TaskDescription & req, unsigned int b, double d)
             : cluster(c), numBranch(b), distance(d) {
-        availability = ALPHA_MEM * c->getLostMemory(req) + ALPHA_DISK * c->getLostDisk(req) + ALPHA_TIME / (req.getDeadline() - c->maxT).seconds();//c->getLostTime(req);
-        numTasks = c->value * ((req.getDeadline() - c->maxT).seconds() * c->minP) / (double)req.getLength();
+        double oneTaskTime = req.getLength() / (double)c->minP;
+        availability = ALPHA_MEM * c->getLostMemory(req)
+                + ALPHA_DISK * c->getLostDisk(req)
+                + ALPHA_TIME / ((req.getDeadline() - c->maxT).seconds() + oneTaskTime);
+        numTasks = c->value * ((req.getDeadline() - c->maxT).seconds() / oneTaskTime);
     }
 
     bool operator<(const DecissionInfo & r) {
@@ -95,7 +108,7 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
         LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but not in network";
         return;
     }
-    boost::shared_ptr<QueueBalancingInfo> zoneInfo = father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
+    boost::shared_ptr<QueueBalancingInfo> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
     if (!zoneInfo.get()) {
         LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but no information!";
         return;
@@ -107,11 +120,17 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
     LogMsg("Dsp.QB", INFO) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
     LogMsg("Dsp.QB", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
     LogMsg("Dsp.QB", INFO) << "Length: " << req.getLength();
-    Time fatherInfo = father.availInfo.get() ? father.availInfo->getMinQueueLength() : Time::getCurrentTime();
 
     std::list<QueueBalancingInfo::MDPTCluster *> nodeGroups;
     if (structureNode.getFather() != CommAddress()) {
         // Count number of tasks before the minimum length in the rest of the tree
+        Time now = Time::getCurrentTime();
+        //Time fatherInfo = father.availInfo.get() && (father.availInfo->getMinQueueLength() > now) ? father.availInfo->getMinQueueLength() : now;
+        Time fatherInfo = father.availInfo.get() && (father.availInfo->getMaxQueueLength() > now) ? father.availInfo->getMaxQueueLength() : now;
+        // Adjust the minimum length by beta
+        //Duration oneTaskSlowTime(req.getLength() / zoneInfo->getMinPower());
+        //fatherInfo += oneTaskSlowTime * beta;
+        fatherInfo = now + Duration(fatherInfo - now) * beta;
         req.setDeadline(fatherInfo);
         unsigned int tasks = zoneInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.QB", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
@@ -133,9 +152,8 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
         return;
     }
     req.setDeadline(balancedQueue);
-    zoneInfo->updateAvailability(req);
-    father.waitingInfo = zoneInfo;
-    father.notifiedInfo.reset();
+    father.waitingInfo.reset(zoneInfo->clone());
+    father.waitingInfo->updateAvailability(req);
     LogMsg("Dsp.QB", DEBUG) << "The calculated queue length is " << balancedQueue;
 
     // Calculate distances
@@ -161,7 +179,7 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
         LogMsg("Dsp.QB", DEBUG) << "Checking zone " << numZone;
         // Ignore zones without information
         if (!child.availInfo.get()) {
-            LogMsg("Dsp.QB", DEBUG) << "This zone has no information, skiping";
+            LogMsg("Dsp.QB", DEBUG) << "This zone has no information, skipping";
             continue;
         }
         nodeGroups.clear();
@@ -193,6 +211,7 @@ void QueueBalancingDispatcher::handle(const CommAddress & src, const TaskBagMsg 
     // Now create and send the messages
     for (unsigned int numZone = 0; numZone < children.size(); numZone++) {
         if (numTasks[numZone] > 0) {
+            children[numZone].availInfo->updateMaxT(balancedQueue);
             LogMsg("Dsp.QB", INFO) << "Sending " << numTasks[numZone] << " tasks to @" << children[numZone].addr;
             // Create the message
             TaskBagMsg * tbm = msg.clone();

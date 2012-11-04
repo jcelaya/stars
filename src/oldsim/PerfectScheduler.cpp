@@ -84,6 +84,9 @@ bool PerfectScheduler::blockEvent(const Simulator::Event & ev) {
 
         // When a task finishes, send a new one
         unsigned int n = ev.from;
+        size_t queuesCount = queues[n].size();
+        bool correct = queuesCount && queues[n].front().tid == static_cast<TaskMonitorMsg &>(*ev.msg).getTaskId(0);
+        unsigned int nt = static_cast<TaskMonitorMsg &>(*ev.msg).getNumTasks();
         taskFinished(n);
     }
     return false;
@@ -92,21 +95,27 @@ bool PerfectScheduler::blockEvent(const Simulator::Event & ev) {
 
 void PerfectScheduler::sendOneTask(unsigned int to) {
     // Pre: !queues[to].empty()
-    shared_ptr<TaskBagMsg> tbm(queues[to].front().msg->clone());
+    TaskDesc & task = queues[to].front();
+    shared_ptr<TaskBagMsg> tbm(task.msg->clone());
     tbm->setFromEN(false);
     tbm->setForEN(true);
-    tbm->setFirstTask(queues[to].front().tid);
-    tbm->setLastTask(queues[to].front().tid);
-    queues[to].front().running = true;
+    tbm->setFirstTask(task.tid);
+    tbm->setLastTask(task.tid);
+    task.running = true;
     LogMsg("Dsp.Perf", INFO) << "Finally sending a task of request" << tbm->getRequestId() << " to " << AddrIO(to) << ": " << *tbm;
     sim.sendMessage(sim.getNode(to).getE().getFather().getIPNum(), to, tbm);
 }
 
 
 void PerfectScheduler::taskFinished(unsigned int node) {
-    queues[node].pop_front();
-    if (!queues[node].empty())
-        sendOneTask(node);
+    LogMsg("Dsp.Perf", INFO) << "Finished a task in node " << AddrIO(node);
+    if (!queues[node].empty()) {
+        queues[node].pop_front();
+        if (!queues[node].empty())
+            sendOneTask(node);
+    } else {
+        LogMsg("Dsp.Perf", ERROR) << "Error: task finished not in the queue of " << AddrIO(node);
+    }
 }
 
 
@@ -143,64 +152,62 @@ PerfectScheduler::~PerfectScheduler() {
 }
 
 
-class CentralizedRandom : public PerfectScheduler {
-    void newApp(shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = sim.getNumNodes();
-        unsigned long a = msg->getMinRequirements().getLength();
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-
-        TaskDesc task(msg);
-        for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
-            // Send each task to a random node
-            unsigned int n = Simulator::uniform(0, numNodes - 1);
-            if (queues[n].empty()) {
-                StarsNode & node = sim.getNode(n);
-                LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << n;
-                task.a = Duration(a / node.getAveragePower());
-                addToQueue(task, n);
-                sendOneTask(n);
-            }
-        }
-    }
-};
-
-
 class CentralizedRandomSimple : public PerfectScheduler {
+public:
+    CentralizedRandomSimple(bool b) : PerfectScheduler(), blind(b) {}
+
+private:
+    bool blind;
+
     void newApp(shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        //unsigned int mem = apps[appNum].req->getMaxMemory();
-        //unsigned int disk = apps[appNum].req->getMaxDisk();
+        unsigned int mem = msg->getMinRequirements().getMaxMemory();
+        unsigned int disk = msg->getMinRequirements().getMaxDisk();
         // Get the nodes that can execute this app and shuffle them
         vector<unsigned int> usableNodes;
-        usableNodes.reserve(numNodes);
-        for (unsigned int n = 0; n < numNodes; n++) {
-            //StarsNode & node = sim.getNode(n);
-            //if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk && queues[n].empty()) {
-            if (queues[n].empty()) {
-                usableNodes.push_back(n);
-                // Exchange with an element at random (maybe itself too)
-                unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
-                usableNodes.back() = usableNodes[pos];
-                usableNodes[pos] = n;
+        if (!blind) {
+            usableNodes.reserve(numNodes);
+            for (unsigned int n = 0; n < numNodes; n++) {
+                StarsNode & node = sim.getNode(n);
+                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk && queues[n].empty()) {
+                    usableNodes.push_back(n);
+                    // Exchange with an element at random (maybe itself too)
+                    unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
+                    usableNodes.back() = usableNodes[pos];
+                    usableNodes[pos] = n;
+                }
             }
-        }
+        } else usableNodes.resize(numTasks);
+
         TaskDesc task(msg);
         for (task.tid = 1; task.tid <= numTasks && task.tid <= usableNodes.size(); task.tid++) {
             LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
             // Send each task to a random node which can execute it
-            unsigned int node = usableNodes[task.tid - 1];
-            LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << node;
-            task.a = Duration(a / sim.getNode(node).getAveragePower());
-            addToQueue(task, node);
+            unsigned int n;
+            if (blind) {
+                n = Simulator::uniform(0, numNodes - 1);
+                StarsNode & node = sim.getNode(n);
+                if (node.getAvailableMemory() < mem || node.getAvailableDisk() < disk || !queues[n].empty())
+                    continue;
+            }
+            else n = usableNodes[task.tid - 1];
+            LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << n;
+            task.a = Duration(a / sim.getNode(n).getAveragePower());
+            addToQueue(task, n);
         }
     }
 };
 
 
 class CentralizedRandomFCFS : public PerfectScheduler {
+public:
+    CentralizedRandomFCFS(bool b) : PerfectScheduler(), blind(b) {}
+
+private:
+    bool blind;
+
     void newApp(shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
@@ -210,34 +217,49 @@ class CentralizedRandomFCFS : public PerfectScheduler {
 
         // Get the nodes that can execute this app
         vector<unsigned int> usableNodes;
-        usableNodes.reserve(numNodes);
-        for (unsigned int n = 0; n < numNodes; n++) {
-            StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-                usableNodes.push_back(n);
-                // Exchange with an element at random to shuffle the list (maybe itself too)
-                unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
-                usableNodes.back() = usableNodes[pos];
-                usableNodes[pos] = n;
+        if (!blind) {
+            usableNodes.reserve(numNodes);
+            for (unsigned int n = 0; n < numNodes; n++) {
+                StarsNode & node = sim.getNode(n);
+                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
+                    usableNodes.push_back(n);
+                    // Exchange with an element at random to shuffle the list (maybe itself too)
+                    unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
+                    usableNodes.back() = usableNodes[pos];
+                    usableNodes[pos] = n;
+                }
             }
-        }
 
-        if(usableNodes.empty()) return;
+            if(usableNodes.empty()) return;
+        }
 
         TaskDesc task(msg);
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
             LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
             // Send each task to a random node which can execute it
-            unsigned int node = usableNodes[task.tid % usableNodes.size()];
-            LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << node;
-            task.a = Duration(a / sim.getNode(node).getAveragePower());
-            addToQueue(task, node);
+            unsigned int n;
+            if (blind) {
+                n = Simulator::uniform(0, numNodes - 1);
+                StarsNode & node = sim.getNode(n);
+                if (node.getAvailableMemory() < mem || node.getAvailableDisk() < disk)
+                    continue;
+            }
+            else n = usableNodes[task.tid % usableNodes.size()];
+            LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << n;
+            task.a = Duration(a / sim.getNode(n).getAveragePower());
+            addToQueue(task, n);
         }
     }
 };
 
 
 class CentralizedRandomDeadlines : public PerfectScheduler {
+public:
+    CentralizedRandomDeadlines(bool b) : PerfectScheduler(), blind(b) {}
+
+private:
+    bool blind;
+
     void newApp(shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
@@ -248,50 +270,55 @@ class CentralizedRandomDeadlines : public PerfectScheduler {
 
         // Get the nodes that can execute this app
         vector<unsigned int> usableNodes;
-        usableNodes.reserve(numNodes);
-        for (unsigned int n = 0; n < numNodes; n++) {
-            StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-                usableNodes.push_back(n);
+        if (blind) {
+            usableNodes.reserve(numNodes);
+            for (unsigned int n = 0; n < numNodes; n++) {
+                StarsNode & node = sim.getNode(n);
+                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
+                    usableNodes.push_back(n);
+                }
             }
-        }
 
-        if(usableNodes.empty()) return;
+            if(usableNodes.empty()) return;
+        }
 
         TaskDesc task(msg);
         task.d = deadline;
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
             //LogMsg("Dsp.Perf", DEBUG) << "Allocating task " << task.tid;
             // Send each task to a random node which can execute it
-            unsigned int n = usableNodes[Simulator::uniform(0, usableNodes.size() - 1)];
-            // Calculate ent time for all the tasks
+            unsigned int n = blind ? Simulator::uniform(0, numNodes - 1) : usableNodes[Simulator::uniform(0, usableNodes.size() - 1)];
             StarsNode & node = sim.getNode(n);
-            task.a = Duration(a / node.getAveragePower());
-            list<TaskDesc> & queue = queues[n];
-            Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
-            bool meets = true;
-            if (!queue.empty()) {
-                list<TaskDesc>::iterator it = queue.begin();
-                if (node.getScheduler().getTasks().empty())
-                    start += it->a;
-                else
-                    start += node.getScheduler().getTasks().front()->getEstimatedDuration();
-                for (it++; it != queue.end() && it->d <= deadline; it++) {
-                    start += it->a;
+            // If the allocation is blind, check memory and disk here
+            if (!blind || (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk)) {
+                task.a = Duration(a / node.getAveragePower());
+                list<TaskDesc> & queue = queues[n];
+                // Calculate ent time for all the tasks
+                Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
+                bool meets = true;
+                if (!queue.empty()) {
+                    list<TaskDesc>::iterator it = queue.begin();
+                    if (node.getScheduler().getTasks().empty())
+                        start += it->a;
+                    else
+                        start += node.getScheduler().getTasks().front()->getEstimatedDuration();
+                    for (it++; it != queue.end() && it->d <= deadline; it++) {
+                        start += it->a;
+                    }
+                    start += task.a;
+                    meets = start <= deadline;
+                    for (; meets && it != queue.end(); it++) {
+                        start += it->a;
+                        meets = start <= it->d;
+                    }
+                } else {
+                    meets = start + task.a < deadline;
                 }
-                start += task.a;
-                meets = start <= deadline;
-                for (; meets && it != queue.end(); it++) {
-                    start += it->a;
-                    meets = start <= it->d;
+                if (meets) {
+                    //LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << n;
+                    addToQueue(task, n);
+                    queue.sort();
                 }
-            } else {
-                meets = start + task.a < deadline;
-            }
-            if (meets) {
-                //LogMsg("Dsp.Perf", DEBUG) << "Task allocated to node " << n;
-                addToQueue(task, n);
-                queue.sort();
             }
             // If this node does not meet deadlines, drop the task
         }
@@ -798,14 +825,18 @@ public:
 
 
 shared_ptr<PerfectScheduler> PerfectScheduler::createScheduler(const string & type) {
-    if (type == "Random")
-        return shared_ptr<PerfectScheduler>(new CentralizedRandom());
-    else if (type == "SSrandom")
-        return shared_ptr<PerfectScheduler>(new CentralizedRandomSimple());
+    if (type == "SSrandom")
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomSimple(false));
     else if (type == "FCFSrandom")
-        return shared_ptr<PerfectScheduler>(new CentralizedRandomFCFS());
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomFCFS(false));
     else if (type == "DSrandom")
-        return shared_ptr<PerfectScheduler>(new CentralizedRandomDeadlines());
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomDeadlines(false));
+    else if (type == "SSrandom_blind")
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomSimple(true));
+    else if (type == "FCFSrandom_blind")
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomFCFS(true));
+    else if (type == "DSrandom_blind")
+        return shared_ptr<PerfectScheduler>(new CentralizedRandomDeadlines(true));
     else if (type == "SScent")
         return shared_ptr<PerfectScheduler>(new CentralizedSimple());
     else if (type == "FCFScent")

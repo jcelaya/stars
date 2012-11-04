@@ -45,7 +45,7 @@ public:
     /**
      * This is described in Scheduler::ExecutionEnvironment
      */
-    boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const;
+    boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const;
 };
 
 #endif /* UNIXEXECUTIONENVIRONMENT_H_ */

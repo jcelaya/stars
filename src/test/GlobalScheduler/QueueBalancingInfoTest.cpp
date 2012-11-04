@@ -60,8 +60,8 @@ template<> shared_ptr<QueueBalancingInfo> AggregationTest<QueueBalancingInfo>::c
     static const int step_time = 1;
     shared_ptr<QueueBalancingInfo> result(new QueueBalancingInfo);
     Duration q((double)uniform(min_time, max_time, step_time));
-    result->addQueueEnd(n.mem, n.disk, n.power, reference + q);
-    totalInfo->addQueueEnd(n.mem, n.disk, n.power, reference + q);
+    result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
+    totalInfo->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;
     privateData.totalQueue += q;

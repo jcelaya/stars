@@ -63,7 +63,6 @@ protected:
     virtual void newApp(boost::shared_ptr<TaskBagMsg> msg) = 0;
     virtual void taskFinished(unsigned int node);
     void sendOneTask(unsigned int to);
-    void acceptTasks(unsigned int node, uint32_t rid, uint32_t tid, unsigned int num = 1);
     void addToQueue(const TaskDesc & task, unsigned int node);
 
     PerfectScheduler();

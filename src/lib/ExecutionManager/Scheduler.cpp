@@ -36,7 +36,7 @@ using boost::shared_ptr;
 
 Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new UnixExecutionEnvironment) {}
 
-void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {}
+void Scheduler::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {}
 
 
 // Timers

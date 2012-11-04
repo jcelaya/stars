@@ -48,7 +48,7 @@ public:
      * @param ctId The ID of this task relative to its request.
      * @param d TaskDescription with the task requirements.
      */
-    UnixProcess(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
+    UnixProcess(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) :
             Task(o, reqId, ctid, d), pid(0), runlock(m), status(Inactive) {
         // Launch a thread to prepare task while waiting to be run
         try {
@@ -188,6 +188,6 @@ unsigned long int UnixExecutionEnvironment::getAvailableDisk() const {
 }
 
 
-shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
+shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
     return shared_ptr<Task>(new UnixProcess(o, reqId, ctid, d));
 }

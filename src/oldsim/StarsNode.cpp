@@ -74,7 +74,7 @@ public:
 
     unsigned long int getAvailableDisk() const { return node.getAvailableDisk(); }
 
-    shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
+    shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
         return shared_ptr<Task>(new SimTask(o, reqId, ctid, d));
     }
 };
@@ -219,6 +219,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     QueueBalancingInfo::setMethod(property("aggregation_method", (int)QueueBalancingInfo::MINIMUM));
     TimeConstraintInfo::setNumRefPoints(property("tci_ref_points", 8U));
     SlownessInformation::setNumPieces(property("si_pieces", 64U));
+    QueueBalancingDispatcher::setBeta(property("mmp_beta", 0.5));
     SimAppDatabase::reset();
     StarsNodeConfiguration::getInstance().setup(property);
 }
@@ -250,7 +251,7 @@ void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
                 if (timerList.front().timeout < ct)
                     LogMsg("Sim.Progress", WARN) << "Timer arriving " << (ct - timerList.front().timeout).seconds() << " seconds late: "
                     << *timerList.front().msg;
-                Simulator::getInstance().injectMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
+                Simulator::getInstance().sendMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
                 timerList.pop_front();
             } else {
                 if (!(timerList.front().id & 1)) {

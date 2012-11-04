@@ -51,10 +51,10 @@ public:
 };
 
 
-void SubmissionNode::finishedApp(long int appId) {}
+void SubmissionNode::finishedApp(int64_t appId) {}
 
 
-void SubmissionNode::sendRequest(long int appInstance, int prevRetries) {
+void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
     if (!inChange) {
         // Prepare request message with all ready tasks
         TaskBagMsg * tbm = new TaskBagMsg;
@@ -64,12 +64,12 @@ void SubmissionNode::sendRequest(long int appInstance, int prevRetries) {
             LogMsg("Sb", INFO) << "No more ready tasks for app instance " << appInstance;
             return;
         }
-        long int reqId = tbm->getRequestId();
+        int64_t reqId = tbm->getRequestId();
         tbm->setRequester(CommLayer::getInstance().getLocalAddress());
         tbm->setForEN(false);
         tbm->setFromEN(true);
         retries[reqId] = prevRetries + 1;
-        remainingTasks[appInstance] += tbm->getLastTask() - tbm->getFirstTask() + 1;
+        remainingTasks[appInstance] = tbm->getLastTask() - tbm->getFirstTask() + 1;
 
         // Set a request timeout of 30 seconds
         Time timeout = Time::getCurrentTime() + Duration(30.0);
@@ -105,7 +105,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCo
         return;
     }
 
-    long int appId = db.createAppInstance(msg.getAppName(), msg.getDeadline());
+    int64_t appId = db.createAppInstance(msg.getAppName(), msg.getDeadline());
     if (appId != -1)
         sendRequest(appId, 0);
     else
@@ -148,7 +148,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
 
     // Accept the rest
     if (numTasks < msg.getLastTask() - msg.getFirstTask() + 1) {
-        long int appId = db.getInstanceId(msg.getRequestId());
+        int64_t appId = db.getInstanceId(msg.getRequestId());
         if (appId != -1) {
             db.acceptedTasks(src, msg.getRequestId(), msg.getFirstTask(), msg.getLastTask());
             // Reset the number of retries for this instance
@@ -179,12 +179,12 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
     int prevRetries = retries[msg.getRequestId()];
     retries.erase(msg.getRequestId());
 
-    long int appId = db.getInstanceId(msg.getRequestId());
+    int64_t appId = db.getInstanceId(msg.getRequestId());
 
     // Ignore a non-existent request
     if (appId != -1) {
         // Change all SEARCHING tasks to READY
-        map<long int, unsigned int>::iterator it = remainingTasks.find(appId);
+        map<int64_t, unsigned int>::iterator it = remainingTasks.find(appId);
         it->second -= db.cancelSearch(msg.getRequestId());
         if (db.getNumReady(appId) > 0
                 && prevRetries < ConfigurationManager::getInstance().getSubmitRetries()) {
@@ -207,13 +207,13 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
         // Cancel the heartbeat timeout
         CommLayer::getInstance().cancelTimer(tout->second);
         // Change state for finished tasks
-        map<long int, unsigned int> & tasksPerApp = remoteTasks[src];
+        map<int64_t, unsigned int> & tasksPerApp = remoteTasks[src];
         for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
             LogMsg("Sb", INFO) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " is in state " << msg.getTaskState(i);
             if (msg.getTaskState(i) == Task::Finished) {
-                long int appId = db.getInstanceId(msg.getRequestId(i));
+                int64_t appId = db.getInstanceId(msg.getRequestId(i));
                 if (db.finishedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
-                    map<long int, unsigned int>::iterator it = tasksPerApp.find(appId);
+                    map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
                     if (it != tasksPerApp.end()) {
                         if (--(it->second) == 0) {
                             tasksPerApp.erase(it);
@@ -227,10 +227,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                         LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
                 }
             } else if (msg.getTaskState(i) == Task::Aborted) {
-                long int appId = db.getInstanceId(msg.getRequestId(i));
+                int64_t appId = db.getInstanceId(msg.getRequestId(i));
                 if (db.abortedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
                     remainingTasks[appId]--;
-                    map<long int, unsigned int>::iterator it = tasksPerApp.find(appId);
+                    map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
                     if (it != tasksPerApp.end()) {
                         if (--(it->second) == 0) tasksPerApp.erase(it);
                         // Try to relaunch application
@@ -258,8 +258,8 @@ template<> void SubmissionNode::handle(const CommAddress & src, const HeartbeatT
     // Set all the tasks being executed in that node to READY
     db.deadNode(msg.getExecutionNode());
     // Launch a new request for every failed application
-    map<long int, unsigned int> & tasksPerApp = remoteTasks[msg.getExecutionNode()];
-    for (map<long int, unsigned int>::iterator it = tasksPerApp.begin(); it != tasksPerApp.end(); it++) {
+    map<int64_t, unsigned int> & tasksPerApp = remoteTasks[msg.getExecutionNode()];
+    for (map<int64_t, unsigned int>::iterator it = tasksPerApp.begin(); it != tasksPerApp.end(); it++) {
         remainingTasks[it->first] -= it->second;
         sendRequest(it->first, 0);
     }

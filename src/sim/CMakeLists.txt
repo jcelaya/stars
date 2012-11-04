@@ -2,7 +2,6 @@ find_package(SimGrid)
 
 if(SIMGRID_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-    include_directories(${SQLITE3_INCLUDE_DIR})
     include_directories(${LOG4CPP_INCLUDE_DIR})
     include_directories(../../include)
     include_directories(.)
@@ -28,5 +27,10 @@ if(SIMGRID_FOUND)
 
     # add the executable
     add_executable(stars-simgrid${BIN_SUFFIX} ${starssim_sources})
-    target_link_libraries(stars-simgrid${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${SIMGRID_LIBRARIES} ${MSGPACK_LIBRARIES} ${Wt_LIBRARIES})
+    target_link_libraries(stars-simgrid${BIN_SUFFIX}
+        ${STARS_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${LOG4CPP_LIBRARIES}
+        ${SIMGRID_LIBRARIES}
+        ${MSGPACK_LIBRARIES})
 endif(SIMGRID_FOUND)

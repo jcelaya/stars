@@ -14,9 +14,17 @@ add_subdirectory(StructureManager)
 #add_subdirectory(SubmissionManager)
 
 set(STARS_LIBRARIES stars${BIN_SUFFIX})
+set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
 
 # add the executable
 add_executable(stars-test${BIN_SUFFIX} TestSuite.cpp ${starstest_sources})
-target_link_libraries(stars-test${BIN_SUFFIX} ${STARS_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} ${Wt_LIBRARIES})
+target_link_libraries(stars-test${BIN_SUFFIX}
+    ${STARS_LIBRARIES}
+    ${STARS_DB_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${SQLITE3_LIBRARIES}
+    ${LOG4CPP_LIBRARIES}
+    ${MSGPACK_LIBRARIES}
+    ${Wt_LIBRARIES})
 
 add_test(test-all ${CMAKE_CURRENT_BINARY_DIR}/stars-test${BIN_SUFFIX} --log_level=test_suite --run_test=Cor)

@@ -206,16 +206,6 @@ bool TaskBagAppDatabase::taskInRequest(unsigned int tid, long int rid) {
 }
 
 
-unsigned int TaskBagAppDatabase::getNumTasksInNode(const CommAddress & node) {
-    return 0;
-}
-
-
-void TaskBagAppDatabase::getAppsInNode(const CommAddress & node, std::list<long int> & apps) {
-
-}
-
-
 bool TaskBagAppDatabase::finishedTask(const CommAddress & src, long int rid, unsigned int rtid) {
     rtid--;
     SimAppDatabase & sdb = Simulator::getInstance().getCurrentNode().getDatabase();

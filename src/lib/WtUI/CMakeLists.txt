@@ -1,3 +1,3 @@
-set(stars_sources ${stars_sources}
+set(stars_ui_sources
     WtUI/WtUI.cpp
     PARENT_SCOPE)

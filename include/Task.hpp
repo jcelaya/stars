@@ -88,7 +88,7 @@ public:
      * Returns the ID of the request which this task came in.
      * @return Request ID relative to the client.
      */
-    long int getClientRequestId() const {
+    int64_t getClientRequestId() const {
         return clientRequestId;
     }
 
@@ -127,14 +127,14 @@ protected:
      * @param ctId The ID of this task relative to its request.
      * @param d TaskDescription with the task requirements.
      */
-    Task(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
+    Task(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) :
             taskId(nextId++), owner(o), clientRequestId(reqId), clientTaskId(ctid), description(d),
             creationTime(Time::getCurrentTime()) {}
 
     unsigned int taskId;           ///< Task ID relative to the Scheduler.
     static unsigned int nextId;    ///< ID counter
     CommAddress owner;             ///< Owner node address
-    long int clientRequestId;      ///< Request ID relative to the client node.
+    int64_t clientRequestId;       ///< Request ID relative to the client node.
     unsigned int clientTaskId;     ///< Task ID relative to the client node.
     TaskDescription description;   ///< Task description.
     Time creationTime;             ///< Creation time.

@@ -78,7 +78,7 @@ void CommLayer::processNextMessage() {
         isHandled |= (*it)->receiveMessage(src, *msg);
     }
 
-    if (!isHandled) {
+    if (!isHandled && src != localAddress) {
         // It's not critical to receive a message with no handler
         LogMsg("Comm", WARN) << "No handler for message of type " << msg->getName();
     }

@@ -306,6 +306,11 @@ public:
         // Prevent any timer from running the simulation
         Simulator::getInstance().stop();
     }
+
+    void postEnd() {
+        StarsNode::showTree(log4cpp::Priority::INFO);
+        StarsNode::checkTree();
+    }
 };
 REGISTER_SIMULATION_CASE(networkCheck);
 
@@ -474,6 +479,11 @@ public:
 
         // Prevent any timer from running the simulation
         sim.stop();
+    }
+
+    void postEnd() {
+        StarsNode::showTree(log4cpp::Priority::INFO);
+        StarsNode::checkTree();
     }
 };
 REGISTER_SIMULATION_CASE(createTree);

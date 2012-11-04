@@ -20,7 +20,6 @@
 
 #include <vector>
 #include <list>
-#include <sqlite3.h>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include "Logger.hpp"
 #include "SimulationCase.hpp"
@@ -39,42 +38,6 @@ using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-
-
-int saveDb(sqlite3 *pInMemory, const char *zFilename){
-    int rc;                   /* Function return code */
-    sqlite3 *pFile;           /* Database connection opened on zFilename */
-    sqlite3_backup *pBackup;  /* Backup object used to copy data */
-
-    /* Open the database file identified by zFilename. Exit early if this fails
-     * for any reason. */
-    rc = sqlite3_open(zFilename, &pFile);
-    if (rc == SQLITE_OK) {
-        /* Set up the backup procedure to copy from the "main" database of
-        ** connection pFile to the main database of connection pInMemory.
-        ** If something goes wrong, pBackup will be set to NULL and an error
-        ** code and  message left in connection pTo.
-        **
-        ** If the backup object is successfully created, call backup_step()
-        ** to copy data from pFile to pInMemory. Then call backup_finish()
-        ** to release resources associated with the pBackup object.  If an
-        ** error occurred, then  an error code and message will be left in
-        ** connection pTo. If no error occurred, then the error code belonging
-        ** to pTo is set to SQLITE_OK.
-        */
-        pBackup = sqlite3_backup_init(pFile, "main", pInMemory, "main");
-        if( pBackup ){
-            (void)sqlite3_backup_step(pBackup, -1);
-            (void)sqlite3_backup_finish(pBackup);
-        }
-        rc = sqlite3_errcode(pFile);
-    }
-
-    /* Close the database connection opened on database file zFilename
-    ** and return the result of this function. */
-    (void)sqlite3_close(pFile);
-    return rc;
-}
 
 
 class HeartbeatTimeout;
@@ -128,7 +91,7 @@ public:
         }
     }
 
-    virtual void finishedApp(long int appId) {
+    virtual void finishedApp(int64_t appId) {
         Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
         percent = (remainingApps++) * 100.0 / numInstances;
     }
@@ -148,12 +111,11 @@ REGISTER_SIMULATION_CASE(poissonProcess);
 
 class repeat : public SimulationCase {
     struct AppInstance {
-        unsigned int appNum;
         uint32_t client;
         Time release;
         Time deadline;
         TaskDescription minReq;
-        bool operator<(const AppInstance & r) const { return appNum < r.appNum; }
+        bool operator<(const AppInstance & r) const { return release < r.release; }
     };
 
     unsigned int numSearches, finishedApps;
@@ -189,8 +151,7 @@ public:
                 if (nextLine[0] == '#') continue;
                 // Else process this line
                 size_t firstpos = 0, lastpos = nextLine.find_first_of(',');
-                // Get instance number
-                istringstream(nextLine.substr(firstpos, lastpos - firstpos)) >> r.appNum;
+                // Ignore instance number
                 firstpos = lastpos + 1;
                 lastpos = nextLine.find_first_of(',', firstpos);
                 // Get requester
@@ -271,7 +232,7 @@ public:
         }
     }
 
-    virtual void finishedApp(long int appId) {
+    virtual void finishedApp(int64_t appId) {
         Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
         percent = (finishedApps++) * 100.0 / numSearches;
     }
@@ -511,14 +472,14 @@ public:
         }
     }
 
-    virtual void finishedApp(long int appId) {
+    virtual void finishedApp(int64_t appId) {
         Simulator & sim = Simulator::getInstance();
         uint32_t dst = sim.getCurrentNode().getLocalAddress().getIPNum();
         User & u = users[dst];
         SimAppDatabase & sdb = sim.getCurrentNode().getDatabase();
-        Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId).ctime;
+        Duration rt = sim.getCurrentTime() - sdb.getAppInstance(appId)->ctime;
         u.perceivedSpeed *= 0.8;
-        u.perceivedSpeed += 0.2 * sdb.getAppInstance(appId).req.getAppLength() / rt.seconds();
+        u.perceivedSpeed += 0.2 * sdb.getAppInstance(appId)->req.getAppLength() / rt.seconds();
         if (--u.batchSize == 0) {
             // Batch is finished
             if (u.isWtime(sim.getCurrentTime())) {

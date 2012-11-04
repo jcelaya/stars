@@ -76,7 +76,7 @@ public:
          * @param ctId The ID of this task relative to its request.
          * @param d TaskDescription with the task requirements.
          */
-        virtual boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const = 0;
+        virtual boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };
 
     Scheduler(ResourceNode & rn) : ResourceNodeObserver(rn), seqNum(0),
@@ -176,7 +176,7 @@ private:
     int monitorTimer;      ///< Timer to send monitoring info
 
     // Statistics
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+    void queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd);
     unsigned long int tasksExecuted;   ///< Number of executed tasks since the peer started
     Duration timeRunning;              ///< Amount of time not idle
 

@@ -75,37 +75,49 @@ void getHistograms(double samples, int numHists, const vector<double> values[], 
 
 
 void readAppsFile(fs::path resultDir, double samples) {
-    // We use fields 2, 8, 9, 10 and 11
-    int fields[5] = { 2, 8, 9, 10, 11 };
-    // Reserve an extra vector for speedup values
-    vector<double> values[6];
-    readFile(resultDir / fs::path("apps.stat"), samples, 5, fields, values);
+    // We use fields 2, 3, 8, 9, 10 and 11
+    int fields[6] = { 2, 3, 8, 9, 10, 11 };
+    // Reserve an extra vector for speedup values,
+    vector<double> values[7];
+    readFile(resultDir / fs::path("apps.stat"), samples, 6, fields, values);
     if (!values[0].empty()) {
+        // Calculate accepted and rejected task length histograms first
+        Histogram acceptedLength(getResolution(values[1], samples));
+        for (size_t j = 0; j < values[1].size(); ++j)
+            for (size_t i = 0; i < values[2][j]; ++i)
+                acceptedLength.addValue(values[1][j]);
+        Histogram rejectedLength(getResolution(values[1], samples));
+        for (size_t j = 0; j < values[1].size(); ++j)
+            for (size_t i = 0; i < (values[0][j] - values[2][j]); ++i)
+                rejectedLength.addValue(values[1][j]);
+
         // Calculate speedup
-        values[5].resize(values[0].size());
+        values[6].resize(values[0].size());
         for (size_t i = 0; i < values[0].size(); ++i)
-            values[5][i] = values[3][i] * values[1][i] / values[0][i] / values[2][i];
+            values[6][i] = values[4][i] * values[2][i] / values[0][i] / values[3][i];
         // Calculate % of finished tasks
         for (size_t i = 0; i < values[0].size(); ++i)
-            values[1][i] *= 100.0 / values[0][i];
+            values[2][i] *= 100.0 / values[0][i];
 
-        Histogram hists[6];
-        getHistograms(samples, 6, values, hists);
+        Histogram hists[7];
+        getHistograms(samples, 7, values, hists);
 
         fs::ofstream ofs(resultDir / "apps_cdf.stat");
         ofs.precision(8);
-        ofs << "# Finished % CDF" << std::endl << CDF(hists[1]) << std::endl << std::endl;
-        ofs << "# JTT CDF" << std::endl << CDF(hists[2]) << std::endl << std::endl;
-        ofs << "# Sequential time in src CDF" << std::endl << CDF(hists[3]) << std::endl << std::endl;
-        ofs << "# Speedup CDF" << std::endl << CDF(hists[5]) << std::endl << std::endl;
-        ofs << "# Slowness CDF" << std::endl << CDF(hists[4]);
+        ofs << "# Finished % CDF" << std::endl << CDF(hists[2]) << std::endl << std::endl;
+        ofs << "# Accepted task lengths CDF" << std::endl << CDF(acceptedLength) << std::endl << std::endl;
+        ofs << "# Rejected task lengths CDF" << std::endl << CDF(rejectedLength) << std::endl << std::endl;
+        ofs << "# JTT CDF" << std::endl << CDF(hists[3]) << std::endl << std::endl;
+        ofs << "# Sequential time in src CDF" << std::endl << CDF(hists[4]) << std::endl << std::endl;
+        ofs << "# Speedup CDF" << std::endl << CDF(hists[6]) << std::endl << std::endl;
+        ofs << "# Slowness CDF" << std::endl << CDF(hists[5]);
     }
 }
 
 
 void readRequestsFile(fs::path resultDir, double samples) {
-    // We use fields 3 and 6
-    int fields[2] = { 3, 6 };
+    // We use fields 4 and 7
+    int fields[2] = { 4, 7 };
     vector<double> values[2];
     readFile(resultDir / fs::path("requests.stat"), samples, 2, fields, values);
     if (!values[0].empty()) {

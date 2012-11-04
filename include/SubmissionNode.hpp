@@ -37,14 +37,14 @@
  */
 class SubmissionNode : public Service, public ResourceNodeObserver {
     bool inChange;   ///< Whether the father of the ResourceNode is changing
-    std::list<std::pair<long int, int> > delayedInstances;
+    std::list<std::pair<int64_t, int> > delayedInstances;
 
-    //std::map<long int, int> timeouts;        ///< Association between requests and timeout timers.
-    std::map<long int, unsigned int> remainingTasks;   ///< Remaining tasks per app
-    std::map<long int, int> retries;          ///< Number of retries of a request
+    //std::map<int64_t, int> timeouts;        ///< Association between requests and timeout timers.
+    std::map<int64_t, unsigned int> remainingTasks;   ///< Remaining tasks per app
+    std::map<int64_t, int> retries;          ///< Number of retries of a request
     std::map<CommAddress, int> heartbeats;    ///< Heartbeat timeouts for each execution node
     /// Number of tasks of each application in each execution node
-    std::map<CommAddress, std::map<long int, unsigned int> > remoteTasks;
+    std::map<CommAddress, std::map<int64_t, unsigned int> > remoteTasks;
 
     TaskBagAppDatabase db;   /// Application database
 
@@ -61,9 +61,9 @@ class SubmissionNode : public Service, public ResourceNodeObserver {
     // This is documented in ResourceNodeObserver
     void fatherChanged(bool changed);
 
-    void sendRequest(long int appInstance, int prevRetries);
+    void sendRequest(int64_t appInstance, int prevRetries);
 
-    void finishedApp(long int appId);
+    void finishedApp(int64_t appId);
 
 public:
     /**

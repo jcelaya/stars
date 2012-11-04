@@ -55,12 +55,12 @@ void LibStarsStatistics::openStatsFiles() {
 
 
 // Queue statistics
-void Scheduler::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
+void Scheduler::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
     Simulator::getInstance().getStarsStatistics().queueChangedStatistics(rid, numAccepted, queueEnd);
 }
 
 
-void LibStarsStatistics::queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd) {
+void LibStarsStatistics::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
     boost::mutex::scoped_lock lock(m);
     Time now = Time::getCurrentTime();
     if (maxQueue < queueEnd) {
@@ -139,6 +139,7 @@ void SubmissionNode::finishedApp(long int appId) {
     Simulator & sim = Simulator::getInstance();
     sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, Time::getCurrentTime(), 0);
     sim.getCase().finishedApp(appId);
+    sim.getCurrentNode().getDatabase().appInstanceFinished(appId);
 }
 
 

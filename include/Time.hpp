@@ -66,10 +66,10 @@ public:
         d -= r.d;
         return *this;
     }
-    Duration operator*(long int m) const {
-        return Duration(d * m);
+    Duration operator*(double m) const {
+        return Duration((int64_t)(d * m));
     }
-    Duration & operator*=(long int m) {
+    Duration & operator*=(double m) {
         d *= m;
         return *this;
     }

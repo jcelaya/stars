@@ -1,5 +1,4 @@
 include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${SQLITE3_INCLUDE_DIR})
 include_directories(${LOG4CPP_INCLUDE_DIR})
 include_directories(../../include)
 include_directories(.)
@@ -32,8 +31,6 @@ add_executable(stars-oldsim${BIN_SUFFIX} ${oldsim_sources})
 target_link_libraries(stars-oldsim${BIN_SUFFIX}
     ${STARS_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${SQLITE3_LIBRARIES}
     ${LOG4CPP_LIBRARIES}
     ${MSGPACK_LIBRARIES}
-    ${Wt_LIBRARIES}
     tcmalloc)

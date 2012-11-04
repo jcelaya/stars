@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <boost/filesystem.hpp>
+#include <boost/cstdint.hpp>
 
 
 /**
@@ -47,13 +48,12 @@ public:
      * This class provides an obejct-oriented proxy for persistent statements on an SQLite3 database.
      */
     class Query {
-        const Database & db;
         sqlite3_stmt * statement;
         unsigned int nextCol;
         unsigned int nextPar;
 
         // Disable copy
-        Query(const Query & copy) : db(copy.db) {}
+        Query(const Query & copy) {}
 
     public:
         Query(Database & d, const std::string & sql);
@@ -65,7 +65,7 @@ public:
 
         // Set parameters, only works if query is reset
 
-        Query & par(long int i) {
+        Query & par(int64_t i) {
             sqlite3_bind_int64(statement, nextPar++, i);
             return *this;
         }
@@ -90,7 +90,7 @@ public:
             return !bad;
         }
 
-        sqlite3_int64 getInt() {
+        int64_t getInt() {
             return sqlite3_column_int64(statement, nextCol++);
         }
 
@@ -112,6 +112,7 @@ public:
 
     bool open(const boost::filesystem::path & dbFile);
     void close();
+    int save(const boost::filesystem::path & dbFile);
 
     bool isOpen() const { return db != NULL; }
 
@@ -139,7 +140,7 @@ public:
     // A failing rollback is no-op
     void rollbackTransaction();
 
-    long int getLastRowid();
+    int64_t getLastRowid();
 
     int getChangedRows();
 };

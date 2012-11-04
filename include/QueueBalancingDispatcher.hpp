@@ -43,7 +43,11 @@ public:
     // This is documented in Dispatcher.
     virtual void recomputeInfo();
 
+    static void setBeta(double b) { beta = b; }
+
 private:
+    static double beta;
+
     struct DecissionInfo;
 
     // This is documented in Dispatcher.
