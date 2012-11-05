@@ -370,6 +370,10 @@ void Simulator::stepForward() {
 void Simulator::run() {
     start = microsec_clock::local_time();
     ptime realStart = start;
+    time_facet * f = new time_facet();
+    f->time_duration_format("%O:%M:%S");
+    stringstream realTimeText;
+    realTimeText.imbue(locale(locale::classic(), f));
     while (!events.empty() && !doStop && simCase->doContinue()) {
         if (maxEvents && numEvents >= maxEvents) {
             LogMsg("Sim.Progress", 0) << "Maximum number of events limit reached: " << maxEvents;
@@ -388,10 +392,12 @@ void Simulator::run() {
         if (numEvents % showStep == 0) {
             end = microsec_clock::local_time();
             real_time += end - start;
+            realTimeText.str("");
+            realTimeText << real_time;
             double real_duration = (end - start).total_microseconds() / 1000000.0;
             start = end;
             // Show statistics
-            LogMsg("Sim.Progress", 0) << real_time << " (" << time << ")   "
+            LogMsg("Sim.Progress", 0) << realTimeText.str() << " (" << time << ")   "
                 << numEvents << " ev (" << (showStep / real_duration) << " ev/s)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
                 << simCase->getCompletedPercent() << "%   "

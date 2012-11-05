@@ -398,6 +398,8 @@ double TimeConstraintInfo::ATFunction::reduceMin(unsigned int v, ATFunction & c,
                 prev = cur;
                 cur = next++;
             }
+            // TODO: why this happens...
+            if (candidates.empty()) return 0;
         }
         transfer(candidates.front().result);
         return candidates.front().cost;
