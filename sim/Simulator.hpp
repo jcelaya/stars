@@ -77,7 +77,7 @@ public:
      * which in practice is the same as the number of hosts.
      */
     unsigned long int getNumNodes() const {
-        return MSG_get_host_number();
+        return xbt_dynar_length(MSG_hosts_as_dynar());
     }
     
     StarsNode & getNode(unsigned int i) {

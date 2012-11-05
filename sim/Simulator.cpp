@@ -189,15 +189,16 @@ bool Simulator::run(const std::string & confFile) {
     // Platform setup
     // Platform file relative to configuration file directory
     MSG_create_environment((fs::absolute(confFile).parent_path() / property("platform_file", std::string())).native().c_str());
-    m_host_t * hosts = MSG_get_host_table();
-    unsigned int numNodes = MSG_get_host_number();
+    xbt_dynar_t hosts = MSG_hosts_as_dynar();
+    unsigned int numNodes = xbt_dynar_length(hosts);
     pstats.resizeNumNodes(numNodes);
     routingTable.reset(new StarsNode[numNodes]);
     // For every host in the platform, set StarsNode::processFunction as the process function
     for (currentNode = 0; currentNode < numNodes; ++currentNode) {
-        MSG_host_set_data(hosts[currentNode], &routingTable[currentNode]);
-        routingTable[currentNode].setup(currentNode, hosts[currentNode]);
-        MSG_process_create(NULL, StarsNode::processFunction, NULL, hosts[currentNode]);
+        m_host_t host = xbt_dynar_get_as(hosts, currentNode, m_host_t);
+        MSG_host_set_data(host, &routingTable[currentNode]);
+        routingTable[currentNode].setup(currentNode, host);
+        MSG_process_create(NULL, StarsNode::processFunction, NULL, host);
     }
     
     simCase->preStart();
