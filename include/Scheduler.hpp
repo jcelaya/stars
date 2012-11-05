@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef SCHEDULER_H_
@@ -71,14 +69,14 @@ public:
         virtual unsigned long int getAvailableDisk() const = 0;
 
         /**
-         * Creates an implementation dependent Task object
+         * Creates an implementation dependent Task object.
+         * On failure, the new task starts with state Aborted.
          * @param o The address of the task owner node.
          * @param reqId The ID of the request which this task arrived in.
          * @param ctId The ID of this task relative to its request.
          * @param d TaskDescription with the task requirements.
-         * @throws runtime_error When the task cannot be created.
          */
-        virtual boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const = 0;
+        virtual boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };
 
     Scheduler(ResourceNode & rn) : ResourceNodeObserver(rn), seqNum(0),
@@ -127,12 +125,6 @@ public:
         return tasksExecuted;
     }
 
-    /**
-     * Programs a new reschedule timer, canceling the previous one.
-     * @param r The new reschedule time.
-     */
-    void rescheduleAt(Time r);
-
 protected:
     class ExecutionEnvironmentImpl {
     public:
@@ -144,6 +136,12 @@ protected:
     uint32_t seqNum;                   ///< Sequence number for the AvailabilityInformation message
     /// Hidden implementation of the execution environment
     ExecutionEnvironmentImpl backend;
+
+    /**
+     * Programs a new reschedule timer, canceling the previous one.
+     * @param r The new reschedule time.
+     */
+    void rescheduleAt(Time r);
 
     void setMonitorTimer();
 
@@ -178,7 +176,7 @@ private:
     int monitorTimer;      ///< Timer to send monitoring info
 
     // Statistics
-    void queueChangedStatistics(unsigned int rid, unsigned int numAccepted, Time queueEnd);
+    void queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd);
     unsigned long int tasksExecuted;   ///< Number of executed tasks since the peer started
     Duration timeRunning;              ///< Amount of time not idle
 

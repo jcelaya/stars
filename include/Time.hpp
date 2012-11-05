@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TIME_H_
@@ -68,10 +66,10 @@ public:
         d -= r.d;
         return *this;
     }
-    Duration operator*(long int m) const {
-        return Duration(d * m);
+    Duration operator*(double m) const {
+        return Duration((int64_t)(d * m));
     }
-    Duration & operator*=(long int m) {
+    Duration & operator*=(double m) {
         d *= m;
         return *this;
     }
@@ -85,7 +83,7 @@ public:
         return d < 0;
     }
     friend std::ostream & operator<<(std::ostream & os, const Duration & r);
-    
+
     MSGPACK_DEFINE(d);
 private:
     int64_t d;
@@ -147,7 +145,7 @@ public:
      * @return The current time.
      */
     static Time getCurrentTime();
-    
+
     MSGPACK_DEFINE(t);
 private:
     int64_t t;

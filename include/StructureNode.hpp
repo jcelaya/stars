@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya, Victor Catalan
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef STRUCTURENODE_H_
@@ -157,7 +155,7 @@ public:
      * @param u UpdateMsg object with the zone information.
      */
     void setZoneFrom(const CommAddress & src, const boost::shared_ptr<ZoneDescription> & i);
-    
+
     template<class Archive> void serializeState(Archive & ar) {
         // Serialization only works if not in a transaction
         ar & actualLink & actualZone & seq;
@@ -170,7 +168,7 @@ private:
     CommAddress newLink;                      ///< The new address of the responsible node
     boost::shared_ptr<ZoneDescription> actualZone;   ///< The description of the zone covered by this branch
     boost::shared_ptr<ZoneDescription> newZone;      ///< The description of the zone covered by this branch
-    
+
     friend std::ostream & operator<<(std::ostream& os, const TransactionalZoneDescription & s);
 };
 
@@ -204,7 +202,7 @@ protected:
 /**
  * \brief A Structure node service.
  *
- * This class defines the service of PeerComp which manages the connection and integrity of the network.
+ * This class defines the service of STaRS which manages the connection and integrity of the network.
  * Its main goals are:
  *
  * <ul>

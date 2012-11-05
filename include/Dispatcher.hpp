@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2009 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef DISPATCHER_H_
@@ -64,7 +62,15 @@ public:
      * @param sn The StructureNode of this branch.
      */
     Dispatcher(StructureNode & sn) :
-            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {}
+            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {
+        // See if sn is already in the network
+        if (sn.inNetwork()) {
+            father.addr = sn.getFather();
+            children.resize(sn.getNumChildren());
+            for (size_t i = 0; i < children.size(); ++i)
+                children[i].addr = sn.getSubZone(i)->getLink();
+        }
+    }
 
     virtual ~Dispatcher() {}
 
@@ -84,7 +90,7 @@ public:
 
     // This is documented in DispatcherInterface.
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const {
-        return father.waitingInfo;
+        return father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
     }
 
     /**
@@ -107,8 +113,9 @@ public:
         size_t s = children.size();
         ar & s;
         children.resize(s);
-        for (size_t i = 0; i < s; ++i)
+        for (size_t i = 0; i < s; ++i) {
             children[i].serializeState(ar);
+        }
     }
 
     struct Link {
@@ -225,11 +232,12 @@ protected:
      * if the bandwidth limit is going to be overcome.
      */
     void notify() {
+        static boost::shared_ptr<UpdateTimer> upMsg(new UpdateTimer);
         if (nextUpdate > Time::getCurrentTime() || updateTimer != 0) {
             LogMsg("Dsp", DEBUG) << "Wait a bit...";
             if (updateTimer == 0) {
                 // Program the update timer
-                updateTimer = CommLayer::getInstance().setTimer(nextUpdate, new UpdateTimer);
+                updateTimer = CommLayer::getInstance().setTimer(nextUpdate, upMsg);
             }
         } else {
             // No update timer, we can send update messages
@@ -237,8 +245,9 @@ protected:
             if (!inChange && father.addr != CommAddress() && father.waitingInfo.get() &&
                     !(father.notifiedInfo.get() && *father.notifiedInfo == *father.waitingInfo)) {
                 LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
-                uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 0;
-                father.notifiedInfo.reset(father.waitingInfo->clone());
+                uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 1;
+                father.notifiedInfo = father.waitingInfo;
+                father.waitingInfo.reset();
                 father.notifiedInfo->setSeq(seq);
                 father.notifiedInfo->setFromSch(false);
                 T * sendMsg = father.notifiedInfo->clone();
@@ -251,8 +260,9 @@ protected:
                     if (children[i].waitingInfo.get() &&
                             !(children[i].notifiedInfo.get() && *children[i].notifiedInfo == *children[i].waitingInfo)) {
                         LogMsg("Dsp", DEBUG) << "There were changes with children " << i << ", sending update";
-                        uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 0;
-                        children[i].notifiedInfo.reset(children[i].waitingInfo->clone());
+                        uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 1;
+                        children[i].notifiedInfo = children[i].waitingInfo;
+                        children[i].waitingInfo.reset();
                         children[i].notifiedInfo->setSeq(seq);
                         children[i].notifiedInfo->setFromSch(false);
                         T * sendMsg = children[i].notifiedInfo->clone();

@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef COMMLAYER_H_
@@ -45,7 +43,6 @@ class CommLayer;
  */
 class Service {
 public:
-    Service();
     virtual ~Service() {}
 
 protected:
@@ -72,8 +69,15 @@ public:
      */
     static CommLayer & getInstance();
 
+    virtual ~CommLayer() {
+        for (std::vector<Service *>::iterator i = services.begin(); i != services.end(); i++)
+            delete *i;
+        services.clear();
+    }
+
     /**
      * Register a service with the communication layer, so that it can receive messages.
+     * It takes ownership of the service
      * @param c The newly registered service.
      */
     void registerService(Service * c) {
@@ -87,6 +91,7 @@ public:
     void unregisterService(Service * c) {
         for (std::vector<Service *>::iterator i = services.begin(); i != services.end(); i++)
             if (*i == c) {
+                delete c;
                 services.erase(i);
                 break;
             }
@@ -152,9 +157,8 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Time time, BasicMsg * msg) {
-        boost::shared_ptr<BasicMsg> tmp(msg);
-        if (time > Time::getCurrentTime()) return setTimerImpl(time, tmp);
+    int setTimer(Time time, boost::shared_ptr<BasicMsg> msg) {
+        if (time > Time::getCurrentTime()) return setTimerImpl(time, msg);
         else return 0;
     }
 
@@ -165,9 +169,8 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Duration delay, BasicMsg * msg) {
-        boost::shared_ptr<BasicMsg> tmp(msg);
-        if (!delay.is_negative()) return setTimerImpl(Time::getCurrentTime() + delay, tmp);
+    int setTimer(Duration delay, boost::shared_ptr<BasicMsg> msg) {
+        if (!delay.is_negative()) return setTimerImpl(Time::getCurrentTime() + delay, msg);
         else return 0;
     }
 
@@ -242,10 +245,5 @@ private:
     CommLayer(const CommLayer &);
     CommLayer & operator=(const CommLayer &);
 };
-
-
-inline Service::Service() {
-    CommLayer::getInstance().registerService(this);
-}
 
 #endif /*COMMLAYER_H_*/

@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TASK_H_
@@ -90,7 +88,7 @@ public:
      * Returns the ID of the request which this task came in.
      * @return Request ID relative to the client.
      */
-    long int getClientRequestId() const {
+    int64_t getClientRequestId() const {
         return clientRequestId;
     }
 
@@ -128,16 +126,15 @@ protected:
      * @param reqId The ID of the request which this task arrived in.
      * @param ctId The ID of this task relative to its request.
      * @param d TaskDescription with the task requirements.
-     * @throws runtime_error When the task cannot be created.
      */
-    Task(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
+    Task(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) :
             taskId(nextId++), owner(o), clientRequestId(reqId), clientTaskId(ctid), description(d),
             creationTime(Time::getCurrentTime()) {}
 
     unsigned int taskId;           ///< Task ID relative to the Scheduler.
     static unsigned int nextId;    ///< ID counter
     CommAddress owner;             ///< Owner node address
-    long int clientRequestId;      ///< Request ID relative to the client node.
+    int64_t clientRequestId;       ///< Request ID relative to the client node.
     unsigned int clientTaskId;     ///< Task ID relative to the client node.
     TaskDescription description;   ///< Task description.
     Time creationTime;             ///< Creation time.

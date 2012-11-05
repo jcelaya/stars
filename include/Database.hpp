@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2008 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya, María Ángeles Giménez
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef DATABASE_H_
@@ -28,6 +26,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <boost/filesystem.hpp>
+#include <boost/cstdint.hpp>
 
 
 /**
@@ -44,57 +43,17 @@ class Database {
 public:
 
     /**
-     * \brief Failed database access exception.
-     *
-     * This exception is thrown when a database access is not correctly performed
-     */
-    class Exception : public std::exception {
-        std::ostringstream msg;
-
-    public:
-        /// Default constructor, copies SQLite error msg.
-        Exception(const Database & db) throw() {
-            msg << sqlite3_errmsg(db.getDatabase()) << ". ";
-        }
-        /// Copy constructor, just copies msg.
-        Exception(const Exception & copy) throw() {
-            msg << copy.msg.str();
-        }
-        /// Destructor, does nothing.
-        ~Exception() throw() {}
-
-        /**
-         * Returns the message of this exception.
-         * @return The message stored in msg.
-         */
-        const char * what() const throw() {
-            return msg.str().c_str();
-        }
-
-        /**
-         * Adds information to the message of the exception.
-         * @param o New information to be appended to the message.
-         * @return Reference to this object, to concatenate many calls to operator<<.
-         */
-        template<class T> Exception & operator<<(const T & o) {
-            msg << o;
-            return *this;
-        }
-    };
-
-    /**
      * \brief A query interface for SQLite3.
      *
      * This class provides an obejct-oriented proxy for persistent statements on an SQLite3 database.
      */
     class Query {
-        const Database & db;
         sqlite3_stmt * statement;
         unsigned int nextCol;
         unsigned int nextPar;
 
         // Disable copy
-        Query(const Query & copy) : db(copy.db) {}
+        Query(const Query & copy) {}
 
     public:
         Query(Database & d, const std::string & sql);
@@ -106,7 +65,7 @@ public:
 
         // Set parameters, only works if query is reset
 
-        Query & par(long int i) {
+        Query & par(int64_t i) {
             sqlite3_bind_int64(statement, nextPar++, i);
             return *this;
         }
@@ -125,13 +84,13 @@ public:
             return result;
         }
 
-        void execute() {
+        bool execute() {
             bool bad = sqlite3_step(statement) != SQLITE_DONE;
             reset();
-            if (bad) throw Database::Exception(db) << "Failed executing " << sqlite3_sql(statement);
+            return !bad;
         }
 
-        sqlite3_int64 getInt() {
+        int64_t getInt() {
             return sqlite3_column_int64(statement, nextCol++);
         }
 
@@ -146,11 +105,16 @@ public:
         }
     };
 
-    Database(const boost::filesystem::path & dbFile);
-
-    ~Database() throw() {
-        sqlite3_close(db);
+    Database() : db(NULL) {}
+    ~Database() {
+        close();
     }
+
+    bool open(const boost::filesystem::path & dbFile);
+    void close();
+    int save(const boost::filesystem::path & dbFile);
+
+    bool isOpen() const { return db != NULL; }
 
     sqlite3 * getDatabase() const {
         return db;
@@ -160,9 +124,8 @@ public:
      * Easy interface to execute an SQL query.
      * @param sql Query definition.
      */
-    void execute(std::string sql) {
-        if (!db || sqlite3_exec(db, sql.c_str(), NULL, NULL, NULL))
-            throw Exception(*this) << "Failed executing " << sql;
+    bool execute(std::string sql) {
+        return db && !sqlite3_exec(db, sql.c_str(), NULL, NULL, NULL);
     }
 
     void beginTransaction() {
@@ -174,10 +137,10 @@ public:
         execute("COMMIT");
     }
 
-    // A failing rollback is no-op, so no exception is thrown
+    // A failing rollback is no-op
     void rollbackTransaction();
 
-    long int getLastRowid();
+    int64_t getLastRowid();
 
     int getChangedRows();
 };

@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef SUBMISSIONNODE_H_
@@ -39,14 +37,14 @@
  */
 class SubmissionNode : public Service, public ResourceNodeObserver {
     bool inChange;   ///< Whether the father of the ResourceNode is changing
-    std::list<std::pair<long int, int> > delayedInstances;
+    std::list<std::pair<int64_t, int> > delayedInstances;
 
-    //std::map<long int, int> timeouts;        ///< Association between requests and timeout timers.
-    std::map<long int, unsigned int> remainingTasks;   ///< Remaining tasks per app
-    std::map<long int, int> retries;          ///< Number of retries of a request
+    //std::map<int64_t, int> timeouts;        ///< Association between requests and timeout timers.
+    std::map<int64_t, unsigned int> remainingTasks;   ///< Remaining tasks per app
+    std::map<int64_t, int> retries;          ///< Number of retries of a request
     std::map<CommAddress, int> heartbeats;    ///< Heartbeat timeouts for each execution node
     /// Number of tasks of each application in each execution node
-    std::map<CommAddress, std::map<long int, unsigned int> > remoteTasks;
+    std::map<CommAddress, std::map<int64_t, unsigned int> > remoteTasks;
 
     TaskBagAppDatabase db;   /// Application database
 
@@ -63,10 +61,10 @@ class SubmissionNode : public Service, public ResourceNodeObserver {
     // This is documented in ResourceNodeObserver
     void fatherChanged(bool changed);
 
-    void sendRequest(long int appInstance, int prevRetries);
+    void sendRequest(int64_t appInstance, int prevRetries);
 
-    void finishedApp(long int appId);
-    
+    void finishedApp(int64_t appId);
+
 public:
     /**
      * Constructor, with the ResourceNode to observe.

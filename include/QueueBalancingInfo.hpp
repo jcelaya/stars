@@ -1,23 +1,21 @@
 /*
- *  PeerComp - Highly Scalable Distributed Computing Architecture
- *  Copyright (C) 2007 Javier Celaya
+ *  STaRS, Scalable Task Routing approach to distributed Scheduling
+ *  Copyright (C) 2012 Javier Celaya
  *
- *  This file is part of PeerComp.
+ *  This file is part of STaRS.
  *
- *  PeerComp is free software; you can redistribute it and/or modify
+ *  STaRS is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
+ *  the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  PeerComp is distributed in the hope that it will be useful,
+ *  STaRS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with PeerComp; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef QUEUEBALANCINGINFO_H_
@@ -41,7 +39,7 @@ public:
     class MDPTCluster {
     public:
         MSGPACK_DEFINE(value, minM, minD, minP, accumM, accumD, accumP, maxT, accumT);
-        
+
         uint32_t value;
         uint32_t minM, minD, minP;
         uint64_t accumM, accumD, accumP;
@@ -104,16 +102,26 @@ public:
         QueueBalancingInfo * reference;
     };
 
+    enum {
+        MINIMUM = 0,
+        MEAN_QUEUE,
+        MEAN_FULL,
+    };
+
     MESSAGE_SUBCLASS(QueueBalancingInfo);
-    
+
     QueueBalancingInfo() {
         reset();
     }
-    QueueBalancingInfo(const QueueBalancingInfo & copy) : AvailabilityInformation(copy), minQueue(copy.minQueue), summary(copy.summary), minM(copy.minM),
+    QueueBalancingInfo(const QueueBalancingInfo & copy) : AvailabilityInformation(copy), minQueue(copy.minQueue), maxQueue(copy.maxQueue), summary(copy.summary), minM(copy.minM),
             maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minP(copy.minP), maxP(copy.maxP), minT(copy.minT), maxT(copy.maxT) {
         unsigned int size = summary.getSize();
         for (unsigned int i = 0; i < size; i++)
             summary[i].setReference(this);
+    }
+
+    static void setMethod(int method) {
+        aggrMethod = method;
     }
 
     static void setNumClusters(unsigned int c) {
@@ -125,15 +133,15 @@ public:
         minQueue = Time::getCurrentTime();
         summary.clear();
         minM = maxM = minD = maxD = minP = maxP = 0;
-        minT = maxT = minQueue;
+        minT = maxT = maxQueue = minQueue;
     }
 
     /**
-     * Add a cluster to the list
+     * Set first cluster of the list
      * @param mem Available memory.
      * @param disk Available disk space.
      */
-    void addQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end);
+    void setQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end);
 
     void setMinQueueLength(Time q) {
         minQueue = q;
@@ -143,13 +151,23 @@ public:
         return minQueue;
     }
 
+    void setMaxQueueLength(Time q) {
+        maxQueue = q;
+    }
+
+    Time getMaxQueueLength() const {
+        return maxQueue;
+    }
+
+    double getMinPower() const { return minP; }
+
     /**
      * Aggregates an TimeConstraintInfo to this object.
      * @param o The other instance to be aggregated.
      */
     void join(const QueueBalancingInfo & o);
 
-    void reduce() {
+    virtual void reduce() {
         for (unsigned int i = 0; i < summary.getSize(); i++)
             summary[i].setReference(this);
         summary.clusterize(numClusters);
@@ -157,7 +175,7 @@ public:
 
     // This is documented in AvailabilityInformation.h
     bool operator==(const QueueBalancingInfo & r) const {
-        return minQueue == r.minQueue && summary == r.summary;
+        return minQueue == r.minQueue && maxQueue == r.maxQueue && summary == r.summary;
     }
 
     /**
@@ -173,16 +191,19 @@ public:
 
     void updateAvailability(const TaskDescription & req);
 
+    void updateMaxT(Time m) { if (maxT < m) maxT = m; }
+
     // This is documented in BasicMsg
     void output(std::ostream & os) const {
         os << minQueue << ',' << summary;
     }
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, minQueue, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, minQueue/*, maxQueue*/, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    Time minQueue;
+    static int aggrMethod;
+    Time minQueue, maxQueue;
     ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
     uint32_t minM, maxM, minD, maxD, minP, maxP;
     Time minT, maxT;
