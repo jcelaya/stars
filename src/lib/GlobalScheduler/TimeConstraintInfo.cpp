@@ -35,9 +35,7 @@ unsigned int TimeConstraintInfo::numRefPoints = 8;
 
 
 TimeConstraintInfo::ATFunction::ATFunction(double power, const list<Time> & p) : slope(power) {
-	if (p.empty())
-		points.push_back(make_pair(Time::getCurrentTime(), 0));
-	else {
+	if (!p.empty()) {
 		// For each point, calculate its availability
 		// Must have odd number of points!!
 		uint64_t avail = 0;
@@ -691,10 +689,13 @@ void TimeConstraintInfo::reduce() {
 
 void TimeConstraintInfo::getAvailability(list<AssignmentInfo> & ai, const TaskDescription & desc) const {
     LogMsg("Ex.RI.Comp", DEBUG) << "Looking on " << *this;
-    if (desc.getDeadline() > Time::getCurrentTime()) {
+    Time now = Time::getCurrentTime();
+    if (desc.getDeadline() > now) {
         // Make a list of suitable cells
         for (size_t i = 0; i < summary.getSize(); i++) {
             unsigned long int avail = summary[i].minA.getAvailabilityBefore(desc.getDeadline());
+            unsigned int availNow = summary[i].minA.getAvailabilityBefore(now);
+            avail = avail > availNow ? avail - availNow : 0;
             if (summary[i].value > 0 && avail >= desc.getLength() && summary[i].minM >= desc.getMaxMemory() && summary[i].minD >= desc.getMaxDisk()) {
                 unsigned int numTasks = avail / desc.getLength();
                 unsigned long int restAvail = avail % desc.getLength();

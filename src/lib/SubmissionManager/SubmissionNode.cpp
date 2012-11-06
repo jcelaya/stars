@@ -69,7 +69,7 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         tbm->setForEN(false);
         tbm->setFromEN(true);
         retries[reqId] = prevRetries + 1;
-        remainingTasks[appInstance] = tbm->getLastTask() - tbm->getFirstTask() + 1;
+        remainingTasks[appInstance] += tbm->getLastTask() - tbm->getFirstTask() + 1;
 
         // Set a request timeout of 30 seconds
         Time timeout = Time::getCurrentTime() + Duration(30.0);
@@ -106,9 +106,10 @@ template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCo
     }
 
     int64_t appId = db.createAppInstance(msg.getAppName(), msg.getDeadline());
-    if (appId != -1)
+    if (appId != -1) {
+    	remainingTasks[appId] = 0;
         sendRequest(appId, 0);
-    else
+    } else
         LogMsg("Sb", ERROR) << "Application " << msg.getAppName() << " does not exist in database.";
 }
 
