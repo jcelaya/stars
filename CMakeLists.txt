@@ -32,7 +32,7 @@ include_directories("${PROJECT_BINARY_DIR}")
 message(STATUS "Building STaRS version " ${STaRS_VERSION_MAJOR} "." ${STaRS_VERSION_MINOR} " build " ${CMAKE_BUILD_TYPE})
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL Release)
-    set(BIN_SUFFIX -${CMAKE_BUILD_TYPE})
+    set (BIN_SUFFIX -${CMAKE_BUILD_TYPE})
 endif (NOT CMAKE_BUILD_TYPE STREQUAL Release)
 
 add_subdirectory(src)

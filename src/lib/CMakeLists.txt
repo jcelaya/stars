@@ -15,6 +15,7 @@ add_subdirectory(SubmissionManager)
 # add the libraries
 set(STARS_LIBRARIES stars${BIN_SUFFIX})
 add_library(${STARS_LIBRARIES} SHARED ${stars_sources})
+add_library(${STARS_LIBRARIES}_static STATIC ${stars_sources})
 set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
 add_library(${STARS_DB_LIBRARIES} SHARED ${stars_db_sources})
 
@@ -22,8 +23,8 @@ add_library(${STARS_DB_LIBRARIES} SHARED ${stars_db_sources})
 if (Wt_FOUND)
     include_directories(${Wt_INCLUDE_DIR})
     add_subdirectory(WtUI)
-	set(STARS_UI_LIBRARIES stars_ui${BIN_SUFFIX})
-	add_library(${STARS_UI_LIBRARIES} SHARED ${stars_ui_sources})
+    set (STARS_UI_LIBRARIES stars_ui${BIN_SUFFIX})
+    add_library(${STARS_UI_LIBRARIES} SHARED ${stars_ui_sources})
 endif (Wt_FOUND)
 
 # add the executable

@@ -1,6 +1,7 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem.hpp>
 #include <sstream>
+#include <iostream>
 #include <vector>
 #include "Distributions.hpp"
 namespace fs = boost::filesystem;
