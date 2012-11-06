@@ -76,19 +76,15 @@ void EDFScheduler::reschedule() {
 void EDFScheduler::calculateAvailability() {
     list<Time> points;
     Time now = Time::getCurrentTime();
-    Time horizon = now + Duration(3600.0);
 
     if (tasks.size() == 1) {
         points.push_back(now + tasks.front()->getEstimatedDuration());
-        points.push_back(horizon);
     } else if (tasks.size() > 1) {
-        Time nextStart = tasks.back()->getDescription().getDeadline() - tasks.back()->getEstimatedDuration();
-        if (tasks.back()->getDescription().getDeadline() < horizon) {
-            points.push_front(horizon);
-            points.push_front(tasks.back()->getDescription().getDeadline());
-        }
+        Time nextStart = tasks.back()->getDescription().getDeadline();
+        points.push_back(nextStart);
         // Calculate the estimated ending time for each scheduled task
-        for (list<boost::shared_ptr<Task> >::reverse_iterator i = ++tasks.rbegin(); (*i)->getTaskId() != tasks.front()->getTaskId(); i++) {
+        list<boost::shared_ptr<Task> >::reverse_iterator firstTask = --tasks.rend();
+        for (list<boost::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != firstTask; ++i) {
             // If there is time between tasks, add a new hole
             if ((*i)->getDescription().getDeadline() < nextStart) {
                 points.push_front(nextStart);
@@ -120,7 +116,8 @@ unsigned long int EDFScheduler::getAvailabilityBefore(Time d) {
             estimatedStart += (*t)->getEstimatedDuration();
         if (t != tasks.end()) {
             Time limit = tasks.back()->getDescription().getDeadline();
-            for (list<boost::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != tasks.rend() && (*i)->getDescription().getDeadline() > d; i++) {
+            list<boost::shared_ptr<Task> >::reverse_iterator firstTask = --tasks.rend();
+            for (list<boost::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != firstTask && (*i)->getDescription().getDeadline() > d; i++) {
                 if (limit > (*i)->getDescription().getDeadline())
                     limit = (*i)->getDescription().getDeadline();
                 limit -= (*i)->getEstimatedDuration();
@@ -141,7 +138,16 @@ unsigned int EDFScheduler::acceptable(const TaskBagMsg & msg) {
     unsigned int numSlots = available / msg.getMinRequirements().getLength();
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
     if (numSlots < numAccepted) {
-        LogMsg("Ex.Sch.EDF", INFO) << "Rejecting " << (numAccepted - numSlots) << " tasks from " << msg.getRequester();
+        LogMsg("Ex.Sch.EDF", INFO) << "Rejecting " << (numAccepted - numSlots) << " tasks from " << msg.getRequester() << ", reason:";
+        LogMsg("Ex.Sch.EDF", DEBUG) << "Deadline: " << msg.getMinRequirements().getDeadline()
+        		<< "   Lenght: " << msg.getMinRequirements().getLength()
+        		<< " (" << Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()) << ')';
+        LogMsg("Ex.Sch.EDF", DEBUG) << "Available: " << available << ", " << numSlots << " slots";
+        LogMsg("Ex.Sch.EDF", DEBUG) << "Info: " << info;
+        LogMsg("Ex.Sch.EDF", DEBUG) << "Task queue:";
+        for (list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); ++t)
+        	LogMsg("Ex.Sch.EDF", DEBUG) << "   " << (*t)->getEstimatedDuration() << " l" << (*t)->getDescription().getLength() << " d" << (*t)->getDescription().getDeadline();
+        unsigned int available = getAvailabilityBefore(msg.getMinRequirements().getDeadline());
         numAccepted = numSlots;
     }
     LogMsg("Ex.Sch.EDF", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();

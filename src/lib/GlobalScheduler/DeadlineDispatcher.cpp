@@ -143,7 +143,7 @@ void DeadlineDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg)
         LogMsg("Dsp.Dl", DEBUG) << "Obtained " << ai.size() << " groups with enough availability";
         for (list<TimeConstraintInfo::AssignmentInfo>::iterator git = ai.begin();
                 git != ai.end(); git++) {
-            LogMsg("Dsp.Dl", DEBUG) << git->numTasks << " numTasks with availability " << git->remngAvail;
+            LogMsg("Dsp.Dl", DEBUG) << git->numTasks << " tasks with remaining availability " << git->remngAvail;
             groups.push_back(DecissionInfo(*git, numZone, distance));
         }
     }

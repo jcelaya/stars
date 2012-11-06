@@ -270,7 +270,7 @@ private:
 
         // Get the nodes that can execute this app
         vector<unsigned int> usableNodes;
-        if (blind) {
+        if (!blind) {
             usableNodes.reserve(numNodes);
             for (unsigned int n = 0; n < numNodes; n++) {
                 StarsNode & node = sim.getNode(n);

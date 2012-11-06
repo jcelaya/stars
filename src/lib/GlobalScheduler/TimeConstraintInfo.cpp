@@ -35,15 +35,22 @@ unsigned int TimeConstraintInfo::numRefPoints = 8;
 
 
 TimeConstraintInfo::ATFunction::ATFunction(double power, const list<Time> & p) : slope(power) {
-    // For each point, calculate its availability
-    uint64_t avail = 0;
-    for (list<Time>::const_iterator B = p.begin(), A = B++; A != p.end(); B++, A = B++) {
-        points.push_back(make_pair(*A, avail));
-        LogMsg("Ex.RI.Aggr", DEBUG) << "At " << *A << ", availability " << avail;
-        avail += (*B - *A).seconds() * power;
-        points.push_back(make_pair(*B, avail));
-        LogMsg("Ex.RI.Aggr", DEBUG) << "At " << *B << ", availability " << avail;
-    }
+	if (p.empty())
+		points.push_back(make_pair(Time::getCurrentTime(), 0));
+	else {
+		// For each point, calculate its availability
+		// Must have odd number of points!!
+		uint64_t avail = 0;
+		for (list<Time>::const_iterator B = p.begin(), A = B++; B != p.end(); B++, A = B++) {
+			points.push_back(make_pair(*A, avail));
+			LogMsg("Ex.RI.Aggr", DEBUG) << "At " << *A << ", availability " << avail;
+			avail += (*B - *A).seconds() * power;
+			points.push_back(make_pair(*B, avail));
+			LogMsg("Ex.RI.Aggr", DEBUG) << "At " << *B << ", availability " << avail;
+		}
+		points.push_back(make_pair(p.back(), avail));
+		LogMsg("Ex.RI.Aggr", DEBUG) << "At " << p.back() << ", availability " << avail;
+	}
 }
 
 
@@ -465,7 +472,7 @@ double TimeConstraintInfo::ATFunction::reduceMax(const Time & ref, const Time & 
 uint64_t TimeConstraintInfo::ATFunction::getAvailabilityBefore(Time d) const {
     Time ct = Time::getCurrentTime();
     if (points.empty() && d > ct) {
-        return slope * (d - ct).seconds();
+        return slope * ((d - ct).seconds() - 1.0);
     } else if (d <= ct || d < points.front().first) {
         return 0;
     } else {
