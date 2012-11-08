@@ -130,18 +130,19 @@ void Simulations::waitProcesses() {
             }
         }
         pid_t pid = wait(NULL);
-        cout << "Process " << pid << " ended." << endl;
-        this_thread::interruption_point();
-        for (list<pair<pid_t, unsigned long int> >::iterator it = processes.begin(); it != processes.end(); it++)
-            if (it->first == pid) {
-                {
-                    mutex::scoped_lock lock(m);
-                    availableMemory += it->second;
-                    processes.erase(it);
+        if (pid != -1) {
+            cout << "Process " << pid << " ended." << endl;
+            for (list<pair<pid_t, unsigned long int> >::iterator it = processes.begin(); it != processes.end(); it++)
+                if (it->first == pid) {
+                    {
+                        mutex::scoped_lock lock(m);
+                        availableMemory += it->second;
+                        processes.erase(it);
+                    }
+                    reschedule.notify_all();
+                    break;
                 }
-                reschedule.notify_all();
-                break;
-            }
+        }
     }
 }
 
@@ -149,27 +150,23 @@ void Simulations::waitProcesses() {
 int Simulations::run(int argc, char * argv[]) {
     signal(SIGTERM, finish);
     signal(SIGINT, finish);
+
     parseCmdLine(argc, argv);
     if (simExec == "") {
         cerr << "Usage: " << argv[0] << " -e sim_program [-f pipe_name] [-p num_processes] [-m max_memory]" << endl;
         return 1;
     }
+
     mknod(pipeName.c_str(), S_IFIFO | 0600, 0);
     cout << "Using " << numProcesses << " processors and " << availableMemory << " megabytes of memory." << endl;
     cout << "Listening on " << pipeName << endl;
+
     pipeThread = thread(bind(&Simulations::getNewCases, this));
     waitThread = thread(bind(&Simulations::waitProcesses, this));
 
     while (!end) {
         // Wait for cases or processes
         mutex::scoped_lock lock(m);
-        // Wait until there are messages in the queue
-        while (processes.size() == numProcesses || caseInstances.empty()){
-            if (processes.empty())
-                cout << "Waiting for tests..." << endl;
-            reschedule.wait(lock);
-            if (end) break;
-        }
 
         // Schedule as many cases as possible until memory is full
         list<map<string, string> >::iterator instance = caseInstances.begin();
@@ -218,10 +215,15 @@ int Simulations::run(int argc, char * argv[]) {
             // Remove from list and continue with next instance
             instance = caseInstances.erase(instance);
         }
+
+        // Wait until there are messages in the queue
+        if (processes.empty())
+            cout << "Waiting for tests..." << endl;
+        reschedule.wait(lock);
     }
-    // Wait for all the processes to finish
-    for (unsigned int i = 0; i < processes.size(); i++)
-        wait(NULL);
+
+    pipeThread.join();
+    waitThread.join();
     return 0;
 }
 
@@ -230,8 +232,10 @@ void Simulations::stop() {
     end = true;
     pipeThread.interrupt();
     waitThread.interrupt();
-    cout << "Stopping due to user signal" << endl;
+    cout << "Stopping current processes." << endl;
     for (list<pair<pid_t, unsigned long int> >::iterator it = processes.begin(); it != processes.end(); it++)
         kill(it->first, SIGTERM);
+    // Signal end of file in the pipe
+    ofstream(pipeName.c_str()).close();
     reschedule.notify_all();
 }

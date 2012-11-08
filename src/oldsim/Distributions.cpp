@@ -91,7 +91,8 @@ void CDF::loadFrom(const boost::filesystem::path & file) {
         if (!(std::istringstream(nextLine) >> bin >> delim >> freq).fail())
             cdf.push_back(std::make_pair(bin, freq));
     }
-    optimize();
+    if (!cdf.empty())
+        optimize();
 }
 
 

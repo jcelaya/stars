@@ -107,14 +107,12 @@ struct Section {
 void getPropertiesList(const string & fileName, std::list<std::map<std::string, std::string> > & combinations) {
     ifstream ifs(fileName.c_str());
     string nextLine;
-    unsigned int sectionNumber = 1;
 
     // Skip until start of section or end of file
-    while (ifs.good()) {
+    while (ifs.good() && (nextLine.empty() || nextLine[0] != '['))
         getline(ifs, nextLine);
-        if (nextLine[0] == '[') break;
-    }
 
+    unsigned int sectionNumber = 1;
     map<string, Section> sections;
     list<string> sectionOrder;
 
