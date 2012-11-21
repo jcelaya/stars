@@ -43,7 +43,7 @@
 #include "FailureGenerator.hpp"
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
-class PerfectScheduler;
+class CentralizedScheduler;
 
 
 struct AddrIO {
@@ -121,7 +121,7 @@ public:
     const fs::path & getResultDir() const { return resultDir; }
     PerformanceStatistics & getPerfStats() { return pstats; }
     LibStarsStatistics & getStarsStatistics() { return sstats; }
-    const boost::shared_ptr<PerfectScheduler> & getPerfectScheduler() { return ps; }
+    const boost::shared_ptr<CentralizedScheduler> & getCentralizedScheduler() { return cs; }
     const boost::shared_ptr<SimulationCase> & getSimulationCase() { return simCase; }
 
     // Network methods
@@ -205,7 +205,7 @@ private:
     fs::path resultDir;
     fs::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
-    boost::shared_ptr<PerfectScheduler> ps;
+    boost::shared_ptr<CentralizedScheduler> cs;
     FailureGenerator fg;
 
     // Simulation global statistics

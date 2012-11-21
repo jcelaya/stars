@@ -23,6 +23,11 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <log4cpp/Priority.hh>
+#include <boost/filesystem/fstream.hpp>
+namespace fs = boost::filesystem;
+#include <boost/iostreams/stream_buffer.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+namespace iost = boost::iostreams;
 #include "CommLayer.hpp"
 #include "Logger.hpp"
 #include "Properties.hpp"
@@ -32,7 +37,7 @@
 #include "ResourceNode.hpp"
 #include "Scheduler.hpp"
 #include "Dispatcher.hpp"
-#include "MinSlownessDispatcher.hpp"
+#include "MSPDispatcher.hpp"
 #include "AvailabilityInformation.hpp"
 class Simulator;
 
@@ -46,20 +51,41 @@ class Simulator;
  */
 class StarsNode : public CommLayer {
 public:
+    class Configuration {
+        int minCPU;
+        int maxCPU;
+        int stepCPU;
+        int minMem;
+        int maxMem;
+        int stepMem;
+        int minDisk;
+        int maxDisk;
+        int stepDisk;
+        int policy;
+        std::string inFileName;
+        fs::ifstream inFile;
+        iost::filtering_streambuf<iost::input> in;
+        std::string outFileName;
+        fs::ofstream outFile;
+        iost::filtering_streambuf<iost::output> out;
+        friend class StarsNode;
 
-    enum {
-        SimpleSchedulerClass = 0,
-        FCFSSchedulerClass = 1,
-        EDFSchedulerClass = 2,
-        MSSchedulerClass = 3,
-    };
+    public:
+        enum {
+            IBPolicy = 0,
+            MMPolicy = 1,
+            DPolicy = 2,
+            MSPolicy = 3,
+        };
 
-    enum {
-        SN = 0,
-        RN,
-        Sub,
-        Sch,
-        Disp,
+        static Configuration & getInstance() {
+            static Configuration instance;
+            return instance;
+        }
+
+        void setup(const Properties & property);
+
+        int getPolicy() const { return policy; }
     };
 
     static void libStarsConfigure(const Properties & property);
@@ -90,7 +116,6 @@ public:
     double getAveragePower() const { return power; }
     unsigned long int getAvailableMemory() const { return mem; }
     unsigned long int getAvailableDisk() const { return disk; }
-    int getSchedulerType() const { return schedulerType; }
 
     boost::shared_ptr<AvailabilityInformation> getBranchInfo() const;
     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
@@ -115,10 +140,17 @@ public:
     }
 
 private:
+    enum {
+        SN = 0,
+        RN,
+        Sub,
+        Sch,
+        Disp,
+    };
+
     friend class CommLayer;
     void createServices();
 
-    int schedulerType;
     SimAppDatabase db;
     double power;
     unsigned long int mem;

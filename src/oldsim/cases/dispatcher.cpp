@@ -32,7 +32,7 @@
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
 #include "RequestTimeout.hpp"
-#include "TimeConstraintInfo.hpp"
+#include "DPAvailabilityInformation.hpp"
 #include "../sim/Distributions.hpp"
 using namespace std;
 using namespace boost;
@@ -393,7 +393,7 @@ public:
         Simulator & sim = Simulator::getInstance();
         // Before running simulation
         // Data distributions
-        fs::path cdfpath(property("traces_path", string("share/oldsim/traces")));
+        fs::path cdfpath(property("traces_path", string("traces")));
         thinkTimeCDF.loadFrom(cdfpath / fs::path(property("think_time_distribution", string("thinktime.cdf"))));
         breakTimeCDF.loadFrom(cdfpath / fs::path(property("break_time_distribution", string("breaktime.cdf"))));
         repeatCDF.loadFrom(cdfpath / fs::path(property("job_repeat_distribution", string("jobrepeat.cdf"))));

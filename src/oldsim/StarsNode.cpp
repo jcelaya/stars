@@ -20,25 +20,20 @@
 
 #include <sstream>
 #include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/filesystem/fstream.hpp>
-namespace fs = boost::filesystem;
-#include <boost/iostreams/stream_buffer.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
-namespace iost = boost::iostreams;
 #include <log4cpp/Category.hh>
 #include "StarsNode.hpp"
 #include "ResourceNode.hpp"
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
-#include "EDFScheduler.hpp"
-#include "DeadlineDispatcher.hpp"
-#include "FCFSScheduler.hpp"
-#include "QueueBalancingDispatcher.hpp"
-#include "SimpleScheduler.hpp"
-#include "SimpleDispatcher.hpp"
-#include "MinSlownessScheduler.hpp"
-#include "MinSlownessDispatcher.hpp"
+#include "DPScheduler.hpp"
+#include "DPDispatcher.hpp"
+#include "MMPScheduler.hpp"
+#include "MMPDispatcher.hpp"
+#include "IBPScheduler.hpp"
+#include "IBPDispatcher.hpp"
+#include "MSPScheduler.hpp"
+#include "MSPDispatcher.hpp"
 #include "Simulator.hpp"
 #include "Time.hpp"
 #include "SimTask.hpp"
@@ -140,66 +135,42 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 
 
 // Configuration object
-struct StarsNodeConfiguration {
-    int minCPU;
-    int maxCPU;
-    int stepCPU;
-    int minMem;
-    int maxMem;
-    int stepMem;
-    int minDisk;
-    int maxDisk;
-    int stepDisk;
-    int sched;
-    std::string inFileName;
-    fs::ifstream inFile;
-    iost::filtering_streambuf<iost::input> in;
-    std::string outFileName;
-    fs::ofstream outFile;
-    iost::filtering_streambuf<iost::output> out;
-
-    static StarsNodeConfiguration & getInstance() {
-        static StarsNodeConfiguration instance;
-        return instance;
+void StarsNode::Configuration::setup(const Properties & property) {
+    minCPU = property("min_cpu", 1000.0);
+    maxCPU = property("max_cpu", 3000.0);
+    stepCPU = property("step_cpu", 200.0);
+    minMem = property("min_mem", 256);
+    maxMem = property("max_mem", 4096);
+    stepMem = property("step_mem", 256);
+    minDisk = property("min_disk", 64);
+    maxDisk = property("max_disk", 1000);
+    stepDisk = property("step_disk", 100);
+    inFileName = property("in_file", string(""));
+    outFileName = property("out_file", string(""));
+    string s = property("policy", string(""));
+    if (s == "DP") policy = DPolicy;
+    else if (s == "MSP") policy = MSPolicy;
+    else if (s == "MMP") policy = MMPolicy;
+    else policy = IBPolicy;
+    if (inFileName != "") {
+        inFile.exceptions(ios_base::failbit | ios_base::badbit);
+        inFile.open(inFileName, ios_base::binary);
+        if (inFileName.substr(inFileName.length() - 3) == ".gz")
+            in.push(iost::gzip_decompressor());
+        in.push(inFile);
     }
-
-    void setup(const Properties & property) {
-        minCPU = property("min_cpu", 1000.0);
-        maxCPU = property("max_cpu", 3000.0);
-        stepCPU = property("step_cpu", 200.0);
-        minMem = property("min_mem", 256);
-        maxMem = property("max_mem", 4096);
-        stepMem = property("step_mem", 256);
-        minDisk = property("min_disk", 64);
-        maxDisk = property("max_disk", 1000);
-        stepDisk = property("step_disk", 100);
-        inFileName = property("in_file", string(""));
-        outFileName = property("out_file", string(""));
-        string s = property("scheduler", string(""));
-        if (s == "DS") sched = StarsNode::EDFSchedulerClass;
-        else if (s == "MS") sched = StarsNode::MSSchedulerClass;
-        else if (s == "FCFS") sched = StarsNode::FCFSSchedulerClass;
-        else sched = StarsNode::SimpleSchedulerClass;
-        if (inFileName != "") {
-            inFile.exceptions(ios_base::failbit | ios_base::badbit);
-            inFile.open(inFileName, ios_base::binary);
-            if (inFileName.substr(inFileName.length() - 3) == ".gz")
-                in.push(iost::gzip_decompressor());
-            in.push(inFile);
-        }
-        if (outFileName != "") {
-            // Create directories if needed
-            fs::path parentDir = fs::absolute(outFileName).parent_path();
-            if (!fs::exists(parentDir))
-                 fs::create_directories(parentDir);
-            outFile.exceptions(ios_base::failbit | ios_base::badbit);
-            outFile.open(outFileName, ios_base::binary);
-            if (outFileName.substr(outFileName.length() - 3) == ".gz")
-                out.push(iost::gzip_compressor());
-            out.push(outFile);
-        }
+    if (outFileName != "") {
+        // Create directories if needed
+        fs::path parentDir = fs::absolute(outFileName).parent_path();
+        if (!fs::exists(parentDir))
+             fs::create_directories(parentDir);
+        outFile.exceptions(ios_base::failbit | ios_base::badbit);
+        outFile.open(outFileName, ios_base::binary);
+        if (outFileName.substr(outFileName.length() - 3) == ".gz")
+            out.push(iost::gzip_compressor());
+        out.push(outFile);
     }
-};
+}
 
 
 void StarsNode::libStarsConfigure(const Properties & property) {
@@ -210,29 +181,28 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
     unsigned int clustersBase = property("avail_clusters_base", 3U);
     if (clustersBase) {
-        BasicAvailabilityInfo::setNumClusters(clustersBase * clustersBase);
-        QueueBalancingInfo::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
-        TimeConstraintInfo::setNumClusters(clustersBase * clustersBase * clustersBase);
-        SlownessInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+        IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
+        MMPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
+        DPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+        MSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
     }
-    BasicAvailabilityInfo::setMethod(property("aggregation_method", (int)BasicAvailabilityInfo::MINIMUM));
-    QueueBalancingInfo::setMethod(property("aggregation_method", (int)QueueBalancingInfo::MINIMUM));
-    TimeConstraintInfo::setNumRefPoints(property("tci_ref_points", 8U));
-    SlownessInformation::setNumPieces(property("si_pieces", 64U));
-    QueueBalancingDispatcher::setBeta(property("mmp_beta", 0.5));
+    IBPAvailabilityInformation::setMethod(property("aggregation_method", (int)IBPAvailabilityInformation::MINIMUM));
+    MMPAvailabilityInformation::setMethod(property("aggregation_method", (int)MMPAvailabilityInformation::MINIMUM));
+    DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
+    MSPAvailabilityInformation::setNumPieces(property("si_pieces", 64U));
+    MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     SimAppDatabase::reset();
-    StarsNodeConfiguration::getInstance().setup(property);
+    StarsNode::Configuration::getInstance().setup(property);
 }
 
 
 void StarsNode::setup(unsigned int addr) {
     localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
-    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    Configuration & cfg = Configuration::getInstance();
     // Execution power follows discretized pareto distribution, with k=1
     power = Simulator::discretePareto(cfg.minCPU, cfg.maxCPU, cfg.stepCPU, 1.0);
     mem = Simulator::uniform(cfg.minMem, cfg.maxMem, cfg.stepMem);
     disk = Simulator::uniform(cfg.minDisk, cfg.maxDisk, cfg.stepDisk);
-    schedulerType = cfg.sched;
 
     createServices();
     // Load service state if needed
@@ -271,7 +241,7 @@ void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
 
 
 void StarsNode::finish() {
-    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    Configuration & cfg = Configuration::getInstance();
     if (cfg.outFile.is_open()) {
         packState(cfg.out);
     }
@@ -298,22 +268,22 @@ void StarsNode::fail() {
     // Reset submission node, scheduler and dispatcher
     delete services[Disp];
     delete services[Sch];
-    switch (schedulerType) {
-        case StarsNode::FCFSSchedulerClass:
-            services[Sch] = new FCFSScheduler(getE());
-            services[Disp] = new QueueBalancingDispatcher(getS());
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::MMPolicy:
+            services[Sch] = new MMPScheduler(getE());
+            services[Disp] = new MMPDispatcher(getS());
             break;
-        case StarsNode::EDFSchedulerClass:
-            services[Sch] = new EDFScheduler(getE());
-            services[Disp] = new DeadlineDispatcher(getS());
+        case Configuration::DPolicy:
+            services[Sch] = new DPScheduler(getE());
+            services[Disp] = new DPDispatcher(getS());
             break;
-        case StarsNode::MSSchedulerClass:
-            services[Sch] = new MinSlownessScheduler(getE());
-            services[Disp] = new MinSlownessDispatcher(getS());
+        case Configuration::MSPolicy:
+            services[Sch] = new MSPScheduler(getE());
+            services[Disp] = new MSPDispatcher(getS());
             break;
         default:
-            services[Sch] = new SimpleScheduler(getE());
-            services[Disp] = new SimpleDispatcher(getS());
+            services[Sch] = new IBPScheduler(getE());
+            services[Disp] = new IBPDispatcher(getS());
             break;
     }
 }
@@ -323,22 +293,22 @@ void StarsNode::createServices() {
     services.push_back(new StructureNode(2));
     services.push_back(new ResourceNode(getS()));
     services.push_back(new SubmissionNode(getE()));
-    switch (schedulerType) {
-        case StarsNode::FCFSSchedulerClass:
-            services.push_back(new FCFSScheduler(getE()));
-            services.push_back(new QueueBalancingDispatcher(getS()));
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::MMPolicy:
+            services.push_back(new MMPScheduler(getE()));
+            services.push_back(new MMPDispatcher(getS()));
             break;
-        case StarsNode::EDFSchedulerClass:
-            services.push_back(new EDFScheduler(getE()));
-            services.push_back(new DeadlineDispatcher(getS()));
+        case Configuration::DPolicy:
+            services.push_back(new DPScheduler(getE()));
+            services.push_back(new DPDispatcher(getS()));
             break;
-        case StarsNode::MSSchedulerClass:
-            services.push_back(new MinSlownessScheduler(getE()));
-            services.push_back(new MinSlownessDispatcher(getS()));
+        case Configuration::MSPolicy:
+            services.push_back(new MSPScheduler(getE()));
+            services.push_back(new MSPDispatcher(getS()));
             break;
         default:
-            services.push_back(new SimpleScheduler(getE()));
-            services.push_back(new SimpleDispatcher(getS()));
+            services.push_back(new IBPScheduler(getE()));
+            services.push_back(new IBPDispatcher(getS()));
             break;
     }
 }
@@ -386,18 +356,18 @@ void StarsNode::packState(std::streambuf & out) {
     ar & power & mem & disk;
     getS().serializeState(ar);
     getE().serializeState(ar);
-    switch (schedulerType) {
-        case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*services[Disp]).serializeState(ar);
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::IBPolicy:
+            static_cast<IBPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::MMPolicy:
+            static_cast<MMPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::DPolicy:
+            static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case MSSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::MSPolicy:
+            static_cast<MSPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -454,18 +424,18 @@ void StarsNode::unpackState(std::streambuf & in) {
     ar & power & mem & disk;
     getS().serializeState(ar);
     getE().serializeState(ar);
-    switch (schedulerType) {
-        case SimpleSchedulerClass:
-            static_cast<SimpleDispatcher &>(*services[Disp]).serializeState(ar);
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::IBPolicy:
+            static_cast<IBPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case FCFSSchedulerClass:
-            static_cast<QueueBalancingDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::MMPolicy:
+            static_cast<MMPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case EDFSchedulerClass:
-            static_cast<DeadlineDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::DPolicy:
+            static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case MSSchedulerClass:
-            static_cast<MinSlownessDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::MSPolicy:
+            static_cast<MSPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -678,18 +648,18 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
     getS().serializeState(ia);
 
     // Generate Dispatcher state
-    switch (schedulerType) {
-    case SimpleSchedulerClass:
-        generateDispatcher<SimpleDispatcher>(father, schild1, schild2, level);
+    switch (Configuration::getInstance().getPolicy()) {
+    case Configuration::IBPolicy:
+        generateDispatcher<IBPDispatcher>(father, schild1, schild2, level);
         break;
-    case FCFSSchedulerClass:
-        generateDispatcher<QueueBalancingDispatcher>(father, schild1, schild2, level);
+    case Configuration::MMPolicy:
+        generateDispatcher<MMPDispatcher>(father, schild1, schild2, level);
         break;
-    case EDFSchedulerClass:
-        generateDispatcher<DeadlineDispatcher>(father, schild1, schild2, level);
+    case Configuration::DPolicy:
+        generateDispatcher<DPDispatcher>(father, schild1, schild2, level);
         break;
-    case MSSchedulerClass:
-        generateDispatcher<MinSlownessDispatcher>(father, schild1, schild2, level);
+    case Configuration::MSPolicy:
+        generateDispatcher<MSPDispatcher>(father, schild1, schild2, level);
         break;
     default:
         break;
@@ -777,18 +747,18 @@ void StarsNode::generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schil
     getS().serializeState(ia);
 
     // Generate Dispatcher state
-    switch (schedulerType) {
-    case SimpleSchedulerClass:
-        generateDispatcher<SimpleDispatcher>(father, schild1, schild2, schild3, level);
+    switch (Configuration::getInstance().getPolicy()) {
+    case Configuration::IBPolicy:
+        generateDispatcher<IBPDispatcher>(father, schild1, schild2, schild3, level);
         break;
-    case FCFSSchedulerClass:
-        generateDispatcher<QueueBalancingDispatcher>(father, schild1, schild2, schild3, level);
+    case Configuration::MMPolicy:
+        generateDispatcher<MMPDispatcher>(father, schild1, schild2, schild3, level);
         break;
-    case EDFSchedulerClass:
-        generateDispatcher<DeadlineDispatcher>(father, schild1, schild2, schild3, level);
+    case Configuration::DPolicy:
+        generateDispatcher<DPDispatcher>(father, schild1, schild2, schild3, level);
         break;
-    case MSSchedulerClass:
-        generateDispatcher<MinSlownessDispatcher>(father, schild1, schild2, schild3, level);
+    case Configuration::MSPolicy:
+        generateDispatcher<MSPDispatcher>(father, schild1, schild2, schild3, level);
         break;
     default:
         break;

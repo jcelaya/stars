@@ -31,7 +31,7 @@ STaRS depends on the following software:
 
 - CMake 2.6 or higher
 - Boost libs 1.46 or higher
-- libLog4CPP
+- Log4CPP
 - MsgPack (tested with v. 0.5.7)
 
 Optionally, some parts are also compiled with the following software:
@@ -41,15 +41,7 @@ Optionally, some parts are also compiled with the following software:
 
 The build system uses a mix of GNU make and CMake. CMake should be able to
 find the required libraries if they are in common locations, like /usr or
-/usr/local. In order to build a certain CMake build type, you can type the
-usual:
-
-$ mkdir build
-$ cd build
-$ cmake .. -DCMAKE_BUILD_TYPE:STRING=type
-$ make
-
-or just use the Makefile in the main directory and issue:
+/usr/local. In order to build a certain CMake build type, issue:
 
 $ make CONFIG=type
 
@@ -60,12 +52,6 @@ $ cd build/type
 $ cmake ../.. -DCMAKE_BUILD_TYPE:STRING=type
 $ make
 
-In this way, different build types can be built at the same time.
-This Makefile has been included in order to provide compatibility with
-Eclipse CDT. Just create a Makefile project and set the correct CONFIG
-variable for each build configuration.
-
-
 Usage
 =====
 
@@ -75,17 +61,12 @@ TODO
 Simulation
 ==========
 
-Two simulators are provided, a custom sequential simulator and an experimental
-SimGrid based simulator. The later is not finished yet and lacks many
-features. The simulators substitute all the code related to networking and
+The simulator substitutes all the code related to networking and
 time management, and some other parts that are not relevant for the performance
 analysis, like database access. It also provides those parts that are not yet
-implemented or in an experimental state, like the DHT access and sandboxing.
+implemented or in an experimental state. It is invoked with the command:
 
-The custom simulator is located in the oldsim directory. It is invoked with
-the command:
-
-$ stars-oldsim config_file
+$ stars-sim config_file
 
 The config_file is a file with a set of properties in the form of key=value,
 one per line. The special key case_name defines the case to be executed. Then,
@@ -100,9 +81,9 @@ $ sweeper -c config_file [-p num_proc] [-e simulator_exe] [-m max_memory]
 The config_file file is similar to the configuration file of the simulator,
 but special notation is used to assign lists and sequences of values to a
 single key. The sweeper command generates a simulator configuration file for
-each each possible combination. The simulator_exe program is used to launch
+each possible combination. The simulator_exe program is used to launch
 the simulations; if it is missing, only the configuration files are generated.
-Finally, num_proc stablishes the number of parallel simulator processes to
+Finally, num_proc establishes the number of parallel simulator processes to
 launch at the same time, and max_memory is the maximum physical memory that
 can be used by all the processes at the same time. See the examples for
 further explanation.

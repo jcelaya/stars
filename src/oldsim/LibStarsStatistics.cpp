@@ -23,7 +23,7 @@
 #include "Simulator.hpp"
 #include "StarsNode.hpp"
 #include "Scheduler.hpp"
-#include "PerfectScheduler.hpp"
+#include "CentralizedScheduler.hpp"
 
 
 LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
@@ -207,14 +207,14 @@ void LibStarsStatistics::finishAppStatistics() {
     // Unfinished jobs
     // Calculate expected end time and remaining tasks of each application in course
     std::vector<std::map<int64_t, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
-    boost::shared_ptr<PerfectScheduler> ps = sim.getPerfectScheduler();
+    boost::shared_ptr<CentralizedScheduler> ps = sim.getCentralizedScheduler();
     if (ps.get()) {
         for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
             // Get the task queue
-            const std::list<PerfectScheduler::TaskDesc> & tasks = ps->getQueue(n);
+            const std::list<CentralizedScheduler::TaskDesc> & tasks = ps->getQueue(n);
             Time end = now;
             // For each task...
-            for (std::list<PerfectScheduler::TaskDesc>::const_iterator t = tasks.begin(); t != tasks.end(); t++) {
+            for (std::list<CentralizedScheduler::TaskDesc>::const_iterator t = tasks.begin(); t != tasks.end(); t++) {
                 // Get its app, add a finished task and check its finish time
                 end += t->a;
                 uint32_t origin = t->msg->getRequester().getIPNum();
@@ -249,7 +249,7 @@ void LibStarsStatistics::finishAppStatistics() {
             }
         }
      }
-    // Take into account perfect scheduler queues
+    // Take into account centralized scheduler queues
 
     // Reorder unfinished apps
     std::list<UnfinishedApp> sortedApps;

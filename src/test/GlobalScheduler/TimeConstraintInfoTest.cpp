@@ -24,7 +24,7 @@
 #include <fstream>
 #include "CheckMsg.hpp"
 #include "AggregationTest.hpp"
-#include "TimeConstraintInfo.hpp"
+#include "DPAvailabilityInformation.hpp"
 #include "TestHost.hpp"
 using namespace std;
 using namespace boost;
@@ -39,8 +39,8 @@ BOOST_AUTO_TEST_CASE(tciMsg) {
     TestHost::getInstance().reset();
 
     // Ctor
-    TimeConstraintInfo e;
-    shared_ptr<TimeConstraintInfo> p;
+    DPAvailabilityInformation e;
+    shared_ptr<DPAvailabilityInformation> p;
 
     // TODO: Check other things
 
@@ -52,10 +52,10 @@ BOOST_AUTO_TEST_SUITE_END()   // aiTS
 BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
-template<> struct Priv<TimeConstraintInfo> {
+template<> struct Priv<DPAvailabilityInformation> {
     Time ref;
-    TimeConstraintInfo::ATFunction totalAvail;
-    TimeConstraintInfo::ATFunction minAvail;
+    DPAvailabilityInformation::ATFunction totalAvail;
+    DPAvailabilityInformation::ATFunction minAvail;
 };
 
 
@@ -65,13 +65,13 @@ namespace {
         list<Time> result;
 
         // Add a random number of tasks, with random length
-        while(AggregationTest<TimeConstraintInfo>::uniform(1, 3) != 1) {
+        while(AggregationTest<DPAvailabilityInformation>::uniform(1, 3) != 1) {
             // Tasks of 5-60 minutes on a 1000 MIPS computer
-            unsigned long int length = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
+            unsigned long int length = AggregationTest<DPAvailabilityInformation>::uniform(300000, 3600000);
             next += Duration(length / power);
             result.push_back(next);
             // Similar time for holes
-            unsigned long int nextHole = AggregationTest<TimeConstraintInfo>::uniform(300000, 3600000);
+            unsigned long int nextHole = AggregationTest<DPAvailabilityInformation>::uniform(300000, 3600000);
             next += Duration(nextHole / power);
             result.push_back(next);
         }
@@ -84,7 +84,7 @@ namespace {
     }
 
 
-    string plot(TimeConstraintInfo::ATFunction & f) {
+    string plot(DPAvailabilityInformation::ATFunction & f) {
         ostringstream os;
         if (f.getPoints().empty()) {
             os << "0,0" << endl;
@@ -98,12 +98,12 @@ namespace {
 }
 
 
-template<> shared_ptr<TimeConstraintInfo> AggregationTest<TimeConstraintInfo>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<TimeConstraintInfo> result(new TimeConstraintInfo);
+template<> shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
     list<Time> q = createRandomLAF(n.power, privateData.ref);
     result->addNode(n.mem, n.disk, n.power, q);
     totalInfo->addNode(n.mem, n.disk, n.power, q);
-    const TimeConstraintInfo::ATFunction & minA = result->getSummary()[0].minA;
+    const DPAvailabilityInformation::ATFunction & minA = result->getSummary()[0].minA;
     if (privateData.minAvail.getSlope() == 0.0)
         privateData.minAvail = minA;
     else
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
 
     Time ct = Time::getCurrentTime();
     Time h = ct + Duration(100000.0);
-    TimeConstraintInfo::setNumRefPoints(8);
+    DPAvailabilityInformation::setNumRefPoints(8);
     list<Time> points;
     points.push_back(ct + Duration(10.0));
     points.push_back(ct + Duration(15.0));
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
     points.push_back(ct + Duration(21.8));
     points.push_back(ct + Duration(33.0));
     points.push_back(ct + Duration(34.0));
-    TimeConstraintInfo f;
+    DPAvailabilityInformation f;
     f.addNode(100, 200, 35, points);
     //TimeConstraintInfo::ATFunction f(35, points);
     LogMsg("Test.RI", INFO) << "Random Function: " << f;
@@ -142,18 +142,18 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
     for (int i = 0; i < 500; i++) {
         LogMsg("Test.RI", INFO) << "Functions " << i;
 
-        double f11power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-               f12power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-               f13power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-               f21power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200),
-               f22power = AggregationTest<TimeConstraintInfo>::uniform(1000, 3000, 200);
-               TimeConstraintInfo::ATFunction
+        double f11power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
+               f12power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
+               f13power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
+               f21power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
+               f22power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200);
+               DPAvailabilityInformation::ATFunction
                f11(f11power, createRandomLAF(f11power, ct)),
                f12(f12power, createRandomLAF(f12power, ct)),
                f13(f13power, createRandomLAF(f13power, ct)),
                f21(f21power, createRandomLAF(f21power, ct)),
                f22(f22power, createRandomLAF(f22power, ct));
-               TimeConstraintInfo::ATFunction min, max;
+               DPAvailabilityInformation::ATFunction min, max;
                min.min(f11, f12);
                min.min(min, f13);
                min.min(min, f21);
@@ -164,32 +164,32 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
                max.max(max, f22);
 
                // Join f11 with f12
-               TimeConstraintInfo::ATFunction f112;
-               double accumAsq112 = f112.minAndLoss(f11, f12, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
+               DPAvailabilityInformation::ATFunction f112;
+               double accumAsq112 = f112.minAndLoss(f11, f12, 1, 1, DPAvailabilityInformation::ATFunction(), DPAvailabilityInformation::ATFunction(), ct, h);
                BOOST_CHECK_GE(accumAsq112 * 1.0001, f112.sqdiff(f11, ct, h) + f112.sqdiff(f12, ct, h));
-               TimeConstraintInfo::ATFunction accumAln112;
+               DPAvailabilityInformation::ATFunction accumAln112;
                accumAln112.max(f11, f12);
                BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ct, h), 0.0001);
 
                // join f112 with f13, and that is f1
-               TimeConstraintInfo::ATFunction f1;
-               double accumAsq1 = f1.minAndLoss(f112, f13, 2, 1, accumAln112, TimeConstraintInfo::ATFunction(), ct, h) + accumAsq112;
+               DPAvailabilityInformation::ATFunction f1;
+               double accumAsq1 = f1.minAndLoss(f112, f13, 2, 1, accumAln112, DPAvailabilityInformation::ATFunction(), ct, h) + accumAsq112;
                BOOST_CHECK_GE(accumAsq1 * 1.0001, f1.sqdiff(f11, ct, h) + f1.sqdiff(f12, ct, h) + f1.sqdiff(f13, ct, h));
-               TimeConstraintInfo::ATFunction accumAln1;
+               DPAvailabilityInformation::ATFunction accumAln1;
                accumAln1.max(accumAln112, f13);
 
                // join f21 with f22, and that is f2
-               TimeConstraintInfo::ATFunction f2;
-               double accumAsq2 = f2.minAndLoss(f21, f22, 1, 1, TimeConstraintInfo::ATFunction(), TimeConstraintInfo::ATFunction(), ct, h);
+               DPAvailabilityInformation::ATFunction f2;
+               double accumAsq2 = f2.minAndLoss(f21, f22, 1, 1, DPAvailabilityInformation::ATFunction(), DPAvailabilityInformation::ATFunction(), ct, h);
                BOOST_CHECK_GE(accumAsq2 * 1.0001, f2.sqdiff(f21, ct, h) + f2.sqdiff(f22, ct, h));
-               TimeConstraintInfo::ATFunction accumAln2;
+               DPAvailabilityInformation::ATFunction accumAln2;
                accumAln2.max(f21, f22);
 
                // join f1 with f2, and that is f
-               TimeConstraintInfo::ATFunction f;
+               DPAvailabilityInformation::ATFunction f;
                double accumAsq = f.minAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ct, h) + accumAsq1 + accumAsq2;
                BOOST_CHECK_GE(accumAsq * 1.0001, f.sqdiff(f11, ct, h) + f.sqdiff(f12, ct, h) + f.sqdiff(f13, ct, h) + f.sqdiff(f21, ct, h) + f.sqdiff(f22, ct, h));
-               TimeConstraintInfo::ATFunction accumAln;
+               DPAvailabilityInformation::ATFunction accumAln;
                accumAln.max(accumAln1, accumAln2);
 
                // Print functions
@@ -237,33 +237,33 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
     int numClusters[] = { 8, 64, 225 };
 
     Time ct = Time::getCurrentTime();
-    ClusteringVector<TimeConstraintInfo::MDFCluster>::setDistVectorSize(20);
+    ClusteringVector<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
     unsigned int numpoints = 10;
-    TimeConstraintInfo::setNumRefPoints(numpoints);
+    DPAvailabilityInformation::setNumRefPoints(numpoints);
     ofstream off("atci_test_function.stat"), ofmd("atci_test_mem_disk.stat");
-    TimeConstraintInfo::ATFunction dummy;
+    DPAvailabilityInformation::ATFunction dummy;
 
     for (int j = 0; j < 3; j++) {
-        TimeConstraintInfo::setNumClusters(numClusters[j]);
+        DPAvailabilityInformation::setNumClusters(numClusters[j]);
         off << "# " << numClusters[j] << " clusters" << endl;
         ofmd << "# " << numClusters[j] << " clusters" << endl;
-        AggregationTest<TimeConstraintInfo> t;
+        AggregationTest<DPAvailabilityInformation> t;
         t.getPrivateData().ref = ct;
         for (int i = 0; i < 17; i++) {
-            shared_ptr<TimeConstraintInfo> result = t.test(i);
+            shared_ptr<DPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            TimeConstraintInfo::ATFunction minAvail, aggrAvail, treeAvail;
-            TimeConstraintInfo::ATFunction & totalAvail = const_cast<TimeConstraintInfo::ATFunction &>(t.getPrivateData().totalAvail);
+            DPAvailabilityInformation::ATFunction minAvail, aggrAvail, treeAvail;
+            DPAvailabilityInformation::ATFunction & totalAvail = const_cast<DPAvailabilityInformation::ATFunction &>(t.getPrivateData().totalAvail);
             minAvail.lc(t.getPrivateData().minAvail, dummy, t.getNumNodes(), 1.0);
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
-                shared_ptr<TimeConstraintInfo> totalInformation = t.getTotalInformation();
-                const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = totalInformation->getSummary();
+                shared_ptr<DPAvailabilityInformation> totalInformation = t.getTotalInformation();
+                const ClusteringVector<DPAvailabilityInformation::MDFCluster> & clusters = totalInformation->getSummary();
                 for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const TimeConstraintInfo::MDFCluster & u = clusters[j];
+                    const DPAvailabilityInformation::MDFCluster & u = clusters[j];
                     aggrMem += (unsigned long int)u.minM * u.value;
                     aggrDisk += (unsigned long int)u.minD * u.value;
                     aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
@@ -272,9 +272,9 @@ BOOST_AUTO_TEST_CASE(tciAggr) {
 
             unsigned long int treeMem = 0, treeDisk = 0;
             {
-                const ClusteringVector<TimeConstraintInfo::MDFCluster> & clusters = result->getSummary();
+                const ClusteringVector<DPAvailabilityInformation::MDFCluster> & clusters = result->getSummary();
                 for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const TimeConstraintInfo::MDFCluster & u = clusters[j];
+                    const DPAvailabilityInformation::MDFCluster & u = clusters[j];
                     BOOST_CHECK(u.minA.getPoints().size() <= numpoints);
                     BOOST_CHECK(u.accumMaxA.getPoints().size() <= numpoints);
                     treeMem += (unsigned long int)u.minM * u.value;

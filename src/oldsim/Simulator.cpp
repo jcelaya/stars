@@ -34,8 +34,9 @@
 #include "MemoryManager.hpp"
 #include "TrafficStatistics.hpp"
 #include "AvailabilityStatistics.hpp"
-#include "PerfectScheduler.hpp"
+#include "CentralizedScheduler.hpp"
 #include "FailureGenerator.hpp"
+#include "SignalException.hpp"
 using namespace log4cpp;
 using namespace std;
 using namespace boost;
@@ -127,38 +128,43 @@ int main(int argc, char * argv[]) {
     setrlimit(RLIMIT_CORE, &zeroLimit);
 #endif
 
-    ptime start = microsec_clock::local_time();
-    MemoryManager::getInstance().reset();
-    Simulator & sim = Simulator::getInstance();
+    try{
+        SignalException::Handler::getInstance().setHandler();
+        ptime start = microsec_clock::local_time();
+        MemoryManager::getInstance().reset();
+        Simulator & sim = Simulator::getInstance();
 
-    Properties property;
-    string src(argv[1]);
-    if (src == "-")
-        property.loadFrom(cin);
-    else {
-        fs::ifstream ifs(src);
-        property.loadFrom(ifs);
-    }
-    sim.setProperties(property);
-    if (sim.isPrepared()) {
-        std::signal(SIGUSR1, showInformation);
-        std::signal(SIGINT, finish);
-        std::signal(SIGTERM, finish);
-        sim.getPerfStats().startEvent("Prepare simulation case");
-        sim.getSimulationCase()->preStart();
-        sim.getPerfStats().endEvent("Prepare simulation case");
-        LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
-        if (property("profile_heap", false))
-            HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
-        sim.run();
-        sim.showStatistics();
-        sim.getSimulationCase()->postEnd();
-        sim.finish();
-        ptime end = microsec_clock::local_time();
-        size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
-        LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
-        if (property("profile_heap", false))
-            HeapProfilerStop();
+        Properties property;
+        string src(argv[1]);
+        if (src == "-")
+            property.loadFrom(cin);
+        else {
+            fs::ifstream ifs(src);
+            property.loadFrom(ifs);
+        }
+        sim.setProperties(property);
+        if (sim.isPrepared()) {
+            std::signal(SIGUSR1, showInformation);
+            std::signal(SIGINT, finish);
+            std::signal(SIGTERM, finish);
+            sim.getPerfStats().startEvent("Prepare simulation case");
+            sim.getSimulationCase()->preStart();
+            sim.getPerfStats().endEvent("Prepare simulation case");
+            LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
+            if (property("profile_heap", false))
+                HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
+            sim.run();
+            sim.showStatistics();
+            sim.getSimulationCase()->postEnd();
+            sim.finish();
+            ptime end = microsec_clock::local_time();
+            size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
+            LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
+            if (property("profile_heap", false))
+                HeapProfilerStop();
+        }
+    } catch (SignalException & e) {
+        SignalException::Handler::getInstance().printStackTrace();
     }
 
     return 0;
@@ -287,8 +293,8 @@ void Simulator::setProperties(Properties & property) {
         currentNode->setup(i);
     }
 
-    // Perfect scheduler
-    ps = PerfectScheduler::createScheduler(property("perfect_scheduler", string("")));
+    // Centralized scheduler
+    cs = CentralizedScheduler::createScheduler(property("cent_scheduler", string("")));
 
     // Failure generator
     if (property.count("median_session")) {
@@ -320,7 +326,7 @@ void Simulator::stepForward() {
         generatedEvents.clear();
 
         // See if the message is captured
-        if ((ps.get() && ps->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
+        if ((cs.get() && cs->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
             delete p;
             continue;
         }
@@ -420,7 +426,7 @@ unsigned long int Simulator::getMsgSize(shared_ptr<BasicMsg> msg) {
 
 unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<BasicMsg> msg) {
     // NOTE: msg must not be clonned, to track messages.
-    if (ps.get() && ps->blockMessage(msg)) return 0;
+    if (cs.get() && cs->blockMessage(msg)) return 0;
 
     numMsgSent++;
     // Delay follows pareto distribution of k=2

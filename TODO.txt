@@ -9,8 +9,12 @@ Sweeper:
 
 Old simulator:
 - Beware with common file paths, like siteLevel traces
+- Include full checkpointing
+- Allow to change parameters in real time, e.g. maximum memory limit
+- Kill node on trapped exception, print stack trace and maybe connect to gdb
 
 SimGrid based simulator:
+- Incorporate all the changes from the old simulator
 - Memory and disk properties are not persistent. They should be present in the platform xml, or otherwise they could be optionally saved in the network state file.
 - Add the rest of the statistics to the simulator: traffic and availability. Traffic is included in the simulation engine, I expect...
 - Add the perfect scheduler
@@ -18,3 +22,4 @@ SimGrid based simulator:
 
 All:
 - Documentation, comments and Doxygen
+

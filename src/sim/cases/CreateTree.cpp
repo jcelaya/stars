@@ -25,10 +25,10 @@
 #include "SimulationCase.hpp"
 #include "StructureNode.hpp"
 #include "ResourceNode.hpp"
-#include "SimpleDispatcher.hpp"
-#include "QueueBalancingDispatcher.hpp"
-#include "DeadlineDispatcher.hpp"
-#include "MinSlownessDispatcher.hpp"
+#include "IBPDispatcher.hpp"
+#include "MMPDispatcher.hpp"
+#include "DPDispatcher.hpp"
+#include "MSPDispatcher.hpp"
 
 
 class CreateTree : public SimulationCase {
@@ -193,18 +193,18 @@ private:
         node.getStructureNode().serializeState(ia);
 
         // Generate Dispatcher state
-        switch (node.getSchedulerType()) {
+        switch (node.getPolicyType()) {
         case StarsNode::SimpleSchedulerClass:
-            generateDispatcher<SimpleDispatcher>(node, father, schild1, schild2, level);
+            generateDispatcher<IBPDispatcher>(node, father, schild1, schild2, level);
             break;
         case StarsNode::FCFSSchedulerClass:
-            generateDispatcher<QueueBalancingDispatcher>(node, father, schild1, schild2, level);
+            generateDispatcher<MMPDispatcher>(node, father, schild1, schild2, level);
             break;
         case StarsNode::EDFSchedulerClass:
-            generateDispatcher<DeadlineDispatcher>(node, father, schild1, schild2, level);
+            generateDispatcher<DPDispatcher>(node, father, schild1, schild2, level);
             break;
         case StarsNode::MinSlownessSchedulerClass:
-            generateDispatcher<MinSlownessDispatcher>(node, father, schild1, schild2, level);
+            generateDispatcher<MSPDispatcher>(node, father, schild1, schild2, level);
             break;
         default:
             break;
@@ -292,18 +292,18 @@ private:
         node.getStructureNode().serializeState(ia);
 
         // Generate Dispatcher state
-        switch (node.getSchedulerType()) {
+        switch (node.getPolicyType()) {
         case StarsNode::SimpleSchedulerClass:
-            generateDispatcher<SimpleDispatcher>(node, father, schild1, schild2, schild3, level);
+            generateDispatcher<IBPDispatcher>(node, father, schild1, schild2, schild3, level);
             break;
         case StarsNode::FCFSSchedulerClass:
-            generateDispatcher<QueueBalancingDispatcher>(node, father, schild1, schild2, schild3, level);
+            generateDispatcher<MMPDispatcher>(node, father, schild1, schild2, schild3, level);
             break;
         case StarsNode::EDFSchedulerClass:
-            generateDispatcher<DeadlineDispatcher>(node, father, schild1, schild2, schild3, level);
+            generateDispatcher<DPDispatcher>(node, father, schild1, schild2, schild3, level);
             break;
         case StarsNode::MinSlownessSchedulerClass:
-            generateDispatcher<MinSlownessDispatcher>(node, father, schild1, schild2, schild3, level);
+            generateDispatcher<MSPDispatcher>(node, father, schild1, schild2, schild3, level);
             break;
         default:
             break;

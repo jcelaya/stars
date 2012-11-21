@@ -21,7 +21,7 @@
 #include <boost/test/unit_test.hpp>
 #include "CheckMsg.hpp"
 #include "AggregationTest.hpp"
-#include "BasicAvailabilityInfo.hpp"
+#include "IBPAvailabilityInformation.hpp"
 using namespace boost;
 
 
@@ -32,8 +32,8 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 /// TaskEventMsg
 BOOST_AUTO_TEST_CASE(baiMsg) {
     // Ctor
-    BasicAvailabilityInfo e;
-    shared_ptr<BasicAvailabilityInfo> p;
+    IBPAvailabilityInformation e;
+    shared_ptr<IBPAvailabilityInformation> p;
 
     // TODO: Check other things
 
@@ -45,11 +45,11 @@ BOOST_AUTO_TEST_SUITE_END()   // aiTS
 BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
-template<> struct Priv<BasicAvailabilityInfo> {};
+template<> struct Priv<IBPAvailabilityInformation> {};
 
 
-template<> shared_ptr<BasicAvailabilityInfo> AggregationTest<BasicAvailabilityInfo>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<BasicAvailabilityInfo> result(new BasicAvailabilityInfo);
+template<> shared_ptr<IBPAvailabilityInformation> AggregationTest<IBPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
     result->addNode(n.mem, n.disk);
     totalInfo->addNode(n.mem, n.disk);
     return result;
@@ -65,21 +65,21 @@ BOOST_AUTO_TEST_CASE(baiAggr) {
     int numClusters[] = { 9, 64, 225 };
 
     for (int j = 0; j < 3; ++j) {
-        BasicAvailabilityInfo::setNumClusters(numClusters[j]);
+        IBPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
-        AggregationTest<BasicAvailabilityInfo> t;
+        AggregationTest<IBPAvailabilityInformation> t;
         for (int i = 0; i < 17; ++i) {
-            list<BasicAvailabilityInfo::MDCluster *> clusters;
+            list<IBPAvailabilityInformation::MDCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);
             dummy.setMaxDisk(0);
-            shared_ptr<BasicAvailabilityInfo> result = t.test(i);
+            shared_ptr<IBPAvailabilityInformation> result = t.test(i);
             result->getAvailability(clusters, dummy);
             // Do not calculate total information and then aggregate, it is not very useful
             unsigned long int aggrMem = 0, aggrDisk = 0;
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            for (list<BasicAvailabilityInfo::MDCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
+            for (list<IBPAvailabilityInformation::MDCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
                 aggrMem += (unsigned long int)(*it)->minM * (*it)->value;
                 aggrDisk += (unsigned long int)(*it)->minD * (*it)->value;
             }

@@ -21,7 +21,7 @@
 #include <boost/test/unit_test.hpp>
 #include "CheckMsg.hpp"
 #include "AggregationTest.hpp"
-#include "QueueBalancingInfo.hpp"
+#include "MMPAvailabilityInformation.hpp"
 using namespace boost;
 
 
@@ -32,8 +32,8 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 /// TaskEventMsg
 BOOST_AUTO_TEST_CASE(qbiMsg) {
     // Ctor
-    QueueBalancingInfo e;
-    shared_ptr<QueueBalancingInfo> p;
+    MMPAvailabilityInformation e;
+    shared_ptr<MMPAvailabilityInformation> p;
 
     // TODO: Check other things
 
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_SUITE_END()   // aiTS
 BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
-template<> struct Priv<QueueBalancingInfo> {
+template<> struct Priv<MMPAvailabilityInformation> {
     Duration maxQueue;
     Duration totalQueue;
 };
@@ -54,11 +54,11 @@ template<> struct Priv<QueueBalancingInfo> {
 static Time reference = Time::getCurrentTime();
 
 
-template<> shared_ptr<QueueBalancingInfo> AggregationTest<QueueBalancingInfo>::createInfo(const AggregationTest::Node & n) {
+template<> shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
     static const int min_time = 0;
     static const int max_time = 2000;
     static const int step_time = 1;
-    shared_ptr<QueueBalancingInfo> result(new QueueBalancingInfo);
+    shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
     Duration q((double)uniform(min_time, max_time, step_time));
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     totalInfo->setQueueEnd(n.mem, n.disk, n.power, reference + q);
@@ -78,17 +78,17 @@ BOOST_AUTO_TEST_CASE(qbiAggr) {
     int numClusters[] = { 16, 81, 256 };
 
     for (int j = 0; j < 3; j++) {
-        QueueBalancingInfo::setNumClusters(numClusters[j]);
+        MMPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
-        AggregationTest<QueueBalancingInfo> t;
+        AggregationTest<MMPAvailabilityInformation> t;
         for (int i = 0; i < 17; i++) {
-            list<QueueBalancingInfo::MDPTCluster *> clusters;
+            list<MMPAvailabilityInformation::MDPTCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);
             dummy.setMaxDisk(0);
             dummy.setLength(1);
             dummy.setDeadline(Time::getCurrentTime() + Duration(10000.0));
-            shared_ptr<QueueBalancingInfo> result = t.test(i);
+            shared_ptr<MMPAvailabilityInformation> result = t.test(i);
             result->getAvailability(clusters, dummy);
             // Do not calculate total information and then aggregate, it is not very useful
             unsigned long int aggrMem = 0, aggrDisk = 0, aggrPower = 0;
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(qbiAggr) {
             unsigned long int minPower = t.getNumNodes() * t.min_power;
             Duration maxQueue = t.getPrivateData().maxQueue * t.getNumNodes();
             Duration totalQueue = maxQueue - t.getPrivateData().totalQueue;
-            for (list<QueueBalancingInfo::MDPTCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
+            for (list<MMPAvailabilityInformation::MDPTCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
                 aggrMem += (unsigned long int)(*it)->minM * (*it)->value;
                 aggrDisk += (unsigned long int)(*it)->minD * (*it)->value;
                 aggrPower += (unsigned long int)(*it)->minP * (*it)->value;

@@ -22,10 +22,10 @@
 #include "TestHost.hpp"
 #include "CommLayer.hpp"
 #include "Scheduler.hpp"
-//#include "SimpleScheduler.hpp"
-//#include "FCFSScheduler.hpp"
-#include "EDFScheduler.hpp"
-#include "MinSlownessScheduler.hpp"
+//#include "IBPScheduler.hpp"
+//#include "MMPScheduler.hpp"
+#include "DPScheduler.hpp"
+#include "MSPScheduler.hpp"
 #include "TaskBagMsg.hpp"
 #include "DescriptionFile.hpp"
 #include "StructureNode.hpp"
@@ -205,7 +205,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     CommLayer::getInstance().registerService(sn);
     ResourceNode * rn = new ResourceNode(*sn);
     CommLayer::getInstance().registerService(rn);
-    EDFScheduler * sched = new EDFScheduler(*rn);
+    DPScheduler * sched = new DPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
     list<shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     CommLayer::getInstance().registerService(sn);
     ResourceNode * rn = new ResourceNode(*sn);
     CommLayer::getInstance().registerService(rn);
-    MinSlownessScheduler * sched = new MinSlownessScheduler(*rn);
+    MSPScheduler * sched = new MSPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
     list<shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;

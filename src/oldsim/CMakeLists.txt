@@ -4,7 +4,6 @@ include_directories(../../include)
 include_directories(.)
 
 add_subdirectory(cases)
-add_subdirectory(tools)
 
 # Sources
 set(oldsim_sources
@@ -14,7 +13,7 @@ set(oldsim_sources
     MemoryManager.cpp
     StarsNode.cpp
     LibStarsStatistics.cpp
-    PerfectScheduler.cpp
+    CentralizedScheduler.cpp
     PerformanceStatistics.cpp
     Properties.cpp
     SimAppDatabase.cpp
@@ -22,6 +21,7 @@ set(oldsim_sources
     SimulationCase.cpp
     Simulator.cpp
     TrafficStatistics.cpp
+    SignalException.cpp
     ${cases_sources})
 
 set(STARS_LIBRARIES stars${BIN_SUFFIX})

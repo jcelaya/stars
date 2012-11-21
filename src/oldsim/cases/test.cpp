@@ -41,3 +41,25 @@ public:
     }
 };
 REGISTER_SIMULATION_CASE(noop);
+
+
+class sigsev : public SimulationCase {
+
+public:
+    sigsev(const Properties & p) : SimulationCase(p) {
+        // Prepare the properties
+    }
+
+    static const std::string getName() { return std::string("sigsev"); }
+
+    void preStart() {
+        int w = property("wait", 5);
+        sleep(w);
+        *((int *)0) = 0;
+    }
+
+    bool doContinue() const {
+        return *((int *)0) == 0;
+    }
+};
+REGISTER_SIMULATION_CASE(sigsev);

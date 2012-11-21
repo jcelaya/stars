@@ -24,19 +24,19 @@
 #include "TestHost.hpp"
 #include "AggregationTest.hpp"
 #include "../ExecutionManager/TestTask.hpp"
-#include "SlownessInformation.hpp"
-#include "MinSlownessScheduler.hpp"
+#include "MSPAvailabilityInformation.hpp"
+#include "MSPScheduler.hpp"
 using std::list;
 
 
-template<> struct Priv<SlownessInformation> {
-    SlownessInformation::LAFunction totalAvail;
-    SlownessInformation::LAFunction minAvail;
+template<> struct Priv<MSPAvailabilityInformation> {
+    MSPAvailabilityInformation::LAFunction totalAvail;
+    MSPAvailabilityInformation::LAFunction minAvail;
 };
 
 
 namespace {
-SlownessInformation::LAFunction dummy;
+MSPAvailabilityInformation::LAFunction dummy;
 
 
 void getProxys(const list<shared_ptr<Task> > & tasks, list<TaskProxy> & result, vector<double> & lBounds) {
@@ -59,16 +59,16 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
     list<shared_ptr<Task> > tasks;
 
     // Add a random number of applications, with random length and number of tasks
-    for(int appid = 0; AggregationTest<SlownessInformation>::uniform(1, 3) != 1; ++appid) {
-        double r = AggregationTest<SlownessInformation>::uniform(-1000, 0);
+    for(int appid = 0; AggregationTest<MSPAvailabilityInformation>::uniform(1, 3) != 1; ++appid) {
+        double r = AggregationTest<MSPAvailabilityInformation>::uniform(-1000, 0);
         TaskDescription desc;
         // Applications between 1-4h on a 1000 MIPS computer
-        int w = AggregationTest<SlownessInformation>::uniform(600000, 14400000);
-        desc.setNumTasks(AggregationTest<SlownessInformation>::uniform(1, 10));
+        int w = AggregationTest<MSPAvailabilityInformation>::uniform(600000, 14400000);
+        desc.setNumTasks(AggregationTest<MSPAvailabilityInformation>::uniform(1, 10));
         //desc.setNumTasks(1);
         desc.setLength(w / desc.getNumTasks());
-        desc.setMaxMemory(AggregationTest<SlownessInformation>::uniform(1, maxmem));
-        desc.setMaxDisk(AggregationTest<SlownessInformation>::uniform(1, maxdisk));
+        desc.setMaxMemory(AggregationTest<MSPAvailabilityInformation>::uniform(1, maxmem));
+        desc.setMaxDisk(AggregationTest<MSPAvailabilityInformation>::uniform(1, maxdisk));
         TestHost::getInstance().setCurrentTime(now + Duration(r));
         for (unsigned int taskid = 0; taskid < desc.getNumTasks(); ++taskid)
             tasks.push_back(shared_ptr<Task>(new TestTask(CommAddress(), appid, taskid, desc, power)));
@@ -80,7 +80,7 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
 
     getProxys(tasks, proxys, lBounds);
 
-    return MinSlownessScheduler::sortMinSlowness(proxys, lBounds, tasks);
+    return MSPScheduler::sortMinSlowness(proxys, lBounds, tasks);
 }
 
 
@@ -90,10 +90,10 @@ double createNLengthQueue(unsigned int maxmem, unsigned int maxdisk, double powe
 
     // Add n tasks with random length
     for(int appid = 0; appid < n; ++appid) {
-        double r = AggregationTest<SlownessInformation>::uniform(-1000, 0);
+        double r = AggregationTest<MSPAvailabilityInformation>::uniform(-1000, 0);
         TaskDescription desc;
         // Applications between 1-4h on a 1000 MIPS computer
-        int a = AggregationTest<SlownessInformation>::uniform(600000, 14400000);
+        int a = AggregationTest<MSPAvailabilityInformation>::uniform(600000, 14400000);
         desc.setNumTasks(1);
         desc.setLength(a);
         desc.setMaxMemory(maxmem);
@@ -108,16 +108,16 @@ double createNLengthQueue(unsigned int maxmem, unsigned int maxdisk, double powe
 
     getProxys(tasks, proxys, lBounds);
 
-    return MinSlownessScheduler::sortMinSlowness(proxys, lBounds, tasks);
+    return MSPScheduler::sortMinSlowness(proxys, lBounds, tasks);
 }
 
 
-string plot(const SlownessInformation::LAFunction & f, double ah) {
+string plot(const MSPAvailabilityInformation::LAFunction & f, double ah) {
     std::ostringstream oss;
-    oss << "plot [" << SlownessInformation::LAFunction::minTaskLength << ':' << ah << "] ";
-    const std::vector<std::pair<double, SlownessInformation::LAFunction::SubFunction> > & pieces = f.getPieces();
+    oss << "plot [" << MSPAvailabilityInformation::LAFunction::minTaskLength << ':' << ah << "] ";
+    const std::vector<std::pair<double, MSPAvailabilityInformation::LAFunction::SubFunction> > & pieces = f.getPieces();
     for (unsigned int j = 0; j < pieces.size(); ++j) {
-        const SlownessInformation::LAFunction::SubFunction & p = pieces[j].second;
+        const MSPAvailabilityInformation::LAFunction::SubFunction & p = pieces[j].second;
         if (j > 0) {
             oss << ", ";
         }
@@ -129,10 +129,10 @@ string plot(const SlownessInformation::LAFunction & f, double ah) {
     return oss.str();
 }
 
-void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double power, double ah, int n, const SlownessInformation::LAFunction & f, std::ostream & os) {
-    uint64_t astep = (ah - SlownessInformation::LAFunction::minTaskLength) / 100;
+void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double power, double ah, int n, const MSPAvailabilityInformation::LAFunction & f, std::ostream & os) {
+    uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
     Time now = Time::getCurrentTime();
-    for (uint64_t a = SlownessInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
         // Add a new task of length a
         TaskDescription desc;
         desc.setLength(a);
@@ -177,15 +177,15 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
 }
 
 
-template<> shared_ptr<SlownessInformation> AggregationTest<SlownessInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<SlownessInformation> s(new SlownessInformation);
+template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
     list<TaskProxy> proxys;
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
     totalInfo->join(*s);
-    const SlownessInformation::LAFunction & minL = s->getSummary()[0].maxL;
-    if (privateData.minAvail == SlownessInformation::LAFunction())
+    const MSPAvailabilityInformation::LAFunction & minL = s->getSummary()[0].maxL;
+    if (privateData.minAvail == MSPAvailabilityInformation::LAFunction())
         privateData.minAvail = minL;
     else {
         privateData.minAvail.min(privateData.minAvail, minL);
@@ -207,14 +207,14 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
     // Min/max and sum of several functions
     ofstream of("laf_test.ppl");
     ofstream ofs("laf_test.stat");
-    SlownessInformation::setNumPieces(3);
+    MSPAvailabilityInformation::setNumPieces(3);
     for (int i = 0; i < 100; i++) {
         LogMsg("Test.RI", INFO) << "Function " << i << ": ";
-        double f11power = AggregationTest<SlownessInformation>::uniform(1000, 3000, 200),
-                f12power = AggregationTest<SlownessInformation>::uniform(1000, 3000, 200),
-                f13power = AggregationTest<SlownessInformation>::uniform(1000, 3000, 200),
-                f21power = AggregationTest<SlownessInformation>::uniform(1000, 3000, 200),
-                f22power = AggregationTest<SlownessInformation>::uniform(1000, 3000, 200);
+        double f11power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
+                f12power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
+                f13power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
+                f21power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
+                f22power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200);
         list<TaskProxy> proxys11, proxys12, proxys13, proxys21, proxys22;
         vector<double> lBounds11, lBounds12, lBounds13, lBounds21, lBounds22;
         createRandomQueue(1024, 512, f11power, proxys11, lBounds11);
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         createRandomQueue(1024, 512, f13power, proxys13, lBounds13);
         createRandomQueue(1024, 512, f21power, proxys21, lBounds21);
         createRandomQueue(1024, 512, f22power, proxys22, lBounds22);
-        SlownessInformation::LAFunction
+        MSPAvailabilityInformation::LAFunction
                 f11(proxys11, lBounds11, f11power),
                 f12(proxys12, lBounds12, f12power),
                 f13(proxys13, lBounds13, f13power),
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
             if (tmpah > ah) ah = tmpah;
         }
         ah *= 1.2;
-        SlownessInformation::LAFunction min, max;
+        MSPAvailabilityInformation::LAFunction min, max;
         min.min(f11, f12);
         min.min(min, f13);
         min.min(min, f21);
@@ -254,8 +254,8 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         max.max(max, f22);
 
         // Check one of the functions
-        for (uint64_t a = SlownessInformation::LAFunction::minTaskLength; a < ah;
-                a += (ah - SlownessInformation::LAFunction::minTaskLength) / 100) {
+        for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah;
+                a += (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100) {
             // Check the estimation of one task
             BOOST_CHECK_CLOSE(f11.getSlowness(a), f11.estimateSlowness(a, 1), 0.01);
             // Check the minimum
@@ -273,40 +273,40 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         }
 
         // Join f11 with f12
-        SlownessInformation::LAFunction f112;
-        double accumAsq112 = f112.maxAndLoss(f11, f12, 1, 1, SlownessInformation::LAFunction(), SlownessInformation::LAFunction(), ah);
-        SlownessInformation::LAFunction accumAln112;
+        MSPAvailabilityInformation::LAFunction f112;
+        double accumAsq112 = f112.maxAndLoss(f11, f12, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
+        MSPAvailabilityInformation::LAFunction accumAln112;
         //accumAln112.max(f11, f12);
-        accumAln112.maxDiff(f11, f12, 1, 1, SlownessInformation::LAFunction(), SlownessInformation::LAFunction());
+        accumAln112.maxDiff(f11, f12, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
         BOOST_CHECK_GE(accumAsq112, 0);
         BOOST_CHECK_CLOSE(accumAsq112, f112.sqdiff(f11, ah) + f112.sqdiff(f12, ah), 0.0001);
         BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ah), 0.0001);
 
         // join f112 with f13, and that is f1
-        SlownessInformation::LAFunction f1;
-        double accumAsq1 = f1.maxAndLoss(f112, f13, 2, 1, accumAln112, SlownessInformation::LAFunction(), ah) + accumAsq112;
-        SlownessInformation::LAFunction accumAln1;
-        accumAln1.maxDiff(f112, f13, 2, 1, accumAln112, SlownessInformation::LAFunction());
+        MSPAvailabilityInformation::LAFunction f1;
+        double accumAsq1 = f1.maxAndLoss(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction(), ah) + accumAsq112;
+        MSPAvailabilityInformation::LAFunction accumAln1;
+        accumAln1.maxDiff(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction());
         BOOST_CHECK_GE(accumAsq1, 0);
         BOOST_CHECK_CLOSE(accumAsq1, f1.sqdiff(f11, ah) + f1.sqdiff(f12, ah) + f1.sqdiff(f13, ah), 0.0001);
 
         // join f21 with f22, and that is f2
-        SlownessInformation::LAFunction f2;
-        double accumAsq2 = f2.maxAndLoss(f21, f22, 1, 1, SlownessInformation::LAFunction(), SlownessInformation::LAFunction(), ah);
-        SlownessInformation::LAFunction accumAln2;
-        accumAln2.maxDiff(f21, f22, 1, 1, SlownessInformation::LAFunction(), SlownessInformation::LAFunction());
+        MSPAvailabilityInformation::LAFunction f2;
+        double accumAsq2 = f2.maxAndLoss(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
+        MSPAvailabilityInformation::LAFunction accumAln2;
+        accumAln2.maxDiff(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
         BOOST_CHECK_GE(accumAsq2, 0);
         BOOST_CHECK_CLOSE(accumAsq2, f2.sqdiff(f21, ah) + f2.sqdiff(f22, ah), 0.0001);
 
         // join f1 with f2, and that is f
-        SlownessInformation::LAFunction f;
+        MSPAvailabilityInformation::LAFunction f;
         double accumAsq = f.maxAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ah) + accumAsq1 + accumAsq2;
-        SlownessInformation::LAFunction accumAln;
+        MSPAvailabilityInformation::LAFunction accumAln;
         accumAln.maxDiff(f1, f2, 3, 2, accumAln1, accumAln2);
         BOOST_CHECK_GE(accumAsq, 0);
         BOOST_CHECK_CLOSE(accumAsq, f.sqdiff(f11, ah) + f.sqdiff(f12, ah) + f.sqdiff(f13, ah) + f.sqdiff(f21, ah) + f.sqdiff(f22, ah), 0.0001);
 
-        SlownessInformation::LAFunction fred(f);
+        MSPAvailabilityInformation::LAFunction fred(f);
         double accumAsqRed = accumAsq + 5 * fred.reduceMax(4, ah);
         BOOST_CHECK_GE(accumAsqRed, 0);
 
@@ -348,7 +348,7 @@ BOOST_AUTO_TEST_CASE(siMsg) {
     TestHost::getInstance().reset();
 
     // Ctor
-    SlownessInformation s1;
+    MSPAvailabilityInformation s1;
 
     // setMinimumStretch
     s1.setMinimumSlowness(0.5);
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE(siMsg) {
     s1.setAvailability(1024, 512, proxys, lBounds, 1000.0, 0.5);
     LogMsg("Test.RI", INFO) << s1;
 
-    shared_ptr<SlownessInformation> p;
+    shared_ptr<MSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);
 }
 
@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
             list<TaskProxy> proxys;
             vector<double> lBounds;
             createNLengthQueue(1024, 512, power, proxys, lBounds, i);
-            SlownessInformation::LAFunction f(proxys, lBounds, power);
+            MSPAvailabilityInformation::LAFunction f(proxys, lBounds, power);
             time += (microsec_clock::universal_time() - start).total_microseconds();
         }
         time /= 10000000.0;
@@ -402,31 +402,31 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
 
 BOOST_AUTO_TEST_CASE(siAggr) {
     //Time ct = reference;
-    ClusteringVector<SlownessInformation::MDLCluster>::setDistVectorSize(20);
+    ClusteringVector<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
     unsigned int numpoints = 8;
-    SlownessInformation::setNumPieces(numpoints);
+    MSPAvailabilityInformation::setNumPieces(numpoints);
     ofstream off("asi_test_function.stat");
     ofstream ofmd("asi_test_mem_disk.stat");
-    AggregationTest<SlownessInformation> t;
+    AggregationTest<MSPAvailabilityInformation> t;
     for (int i = 0; i < 10; i++) {
         for (int nc = 2; nc < 7; nc++) {
-            SlownessInformation::setNumClusters(nc * nc * nc);
+            MSPAvailabilityInformation::setNumClusters(nc * nc * nc);
             off << "# " << (nc * nc * nc) << " clusters" << endl;
             ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
-            shared_ptr<SlownessInformation> result = t.test(i);
+            shared_ptr<MSPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            SlownessInformation::LAFunction minAvail, aggrAvail, treeAvail;
-            SlownessInformation::LAFunction & totalAvail = const_cast<SlownessInformation::LAFunction &>(t.getPrivateData().totalAvail);
+            MSPAvailabilityInformation::LAFunction minAvail, aggrAvail, treeAvail;
+            MSPAvailabilityInformation::LAFunction & totalAvail = const_cast<MSPAvailabilityInformation::LAFunction &>(t.getPrivateData().totalAvail);
             minAvail.maxDiff(t.getPrivateData().minAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
-                shared_ptr<SlownessInformation> totalInformation = t.getTotalInformation();
-                const ClusteringVector<SlownessInformation::MDLCluster> & clusters = totalInformation->getSummary();
+                shared_ptr<MSPAvailabilityInformation> totalInformation = t.getTotalInformation();
+                const ClusteringVector<MSPAvailabilityInformation::MDLCluster> & clusters = totalInformation->getSummary();
                 for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const SlownessInformation::MDLCluster & u = clusters[j];
+                    const MSPAvailabilityInformation::MDLCluster & u = clusters[j];
                     aggrMem += (unsigned long int)u.minM * u.value;
                     aggrDisk += (unsigned long int)u.minD * u.value;
                     aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);
@@ -435,9 +435,9 @@ BOOST_AUTO_TEST_CASE(siAggr) {
 
             unsigned long int treeMem = 0, treeDisk = 0;
             {
-                const ClusteringVector<SlownessInformation::MDLCluster> & clusters = result->getSummary();
+                const ClusteringVector<MSPAvailabilityInformation::MDLCluster> & clusters = result->getSummary();
                 for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const SlownessInformation::MDLCluster & u = clusters[j];
+                    const MSPAvailabilityInformation::MDLCluster & u = clusters[j];
                     BOOST_CHECK(u.maxL.getPieces().size() <= numpoints);
                     BOOST_CHECK(u.accumMaxL.getPieces().size() <= numpoints);
                     treeMem += (unsigned long int)u.minM * u.value;
@@ -450,8 +450,8 @@ BOOST_AUTO_TEST_CASE(siAggr) {
 
             off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             double ah = totalAvail.getHorizon() * 1.2;
-            uint64_t astep = (ah - SlownessInformation::LAFunction::minTaskLength) / 100;
-            for (uint64_t a = SlownessInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+            uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
+            for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
                 double t = totalAvail.getSlowness(a),
                         aa = aggrAvail.getSlowness(a),
                         at = treeAvail.getSlowness(a),

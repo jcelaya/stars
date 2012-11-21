@@ -91,7 +91,8 @@ void CDF::loadFrom(const boost::filesystem::path & file) {
         if (!(std::istringstream(nextLine) >> bin >> delim >> freq).fail())
             cdf.push_back(std::make_pair(bin, freq));
     }
-    optimize();
+    if (!cdf.empty())
+        optimize();
 }
 
 
@@ -124,14 +125,18 @@ double CDF::inverse(double x) {
 
 
 void CDF::optimize() {
-    // Remove sequences of pairs with the same probability
-    double lastprob = 0.0;
-    std::vector<std::pair<double, double> > result;
-    for (std::vector<std::pair<double, double> >::iterator it = cdf.begin(); it != cdf.end(); it++) {
-        if (it->second != lastprob) {
+    // Remove sequences of more than two elements with the same probability,
+    // leaving first and last
+    bool inSequence = false;
+    std::vector<std::pair<double, double> >::iterator it = cdf.begin(), last = it;
+    std::vector<std::pair<double, double> > result(1, *it);
+    for (++it; it != cdf.end(); last = it++) {
+        if (it->second != last->second) {
+            if (inSequence)
+                result.push_back(*last);
             result.push_back(*it);
-            lastprob = it->second;
-        }
+            inSequence = false;
+        } else inSequence = true;
     }
     cdf.swap(result);
 }

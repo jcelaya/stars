@@ -101,8 +101,8 @@ public:
     unsigned long int getAvailableDisk() const {
         return disk;
     }
-    int getSchedulerType() const {
-        return schedulerType;
+    int getPolicyType() const {
+        return policy;
     }
 
     //     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
@@ -139,7 +139,7 @@ private:
 
     m_host_t simHost;
     std::string mailbox;
-    int schedulerType;
+    int policy;
     SimAppDatabase db;
     double power;
     unsigned long int mem;

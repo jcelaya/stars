@@ -39,7 +39,7 @@ class Histogram {
     unsigned long int samples;
 
 public:
-    Histogram(double res) : calibrating(false), first(0.0), resolution(res), samples(0) {}
+    Histogram(double res = 1.0) : calibrating(false), first(0.0), resolution(res), samples(0) {}
     Histogram(unsigned int l) : calibrating(true), limit(l), first(0.0), resolution(0.0), samples(0) {}
 
     bool isCalibrating() const {
