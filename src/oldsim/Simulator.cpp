@@ -128,7 +128,7 @@ int main(int argc, char * argv[]) {
     setrlimit(RLIMIT_CORE, &zeroLimit);
 #endif
 
-    try{
+    try {
         SignalException::Handler::getInstance().setHandler();
         ptime start = microsec_clock::local_time();
         MemoryManager::getInstance().reset();

@@ -22,6 +22,7 @@
 #define SIGNALEXCEPTION_HPP_
 
 #include <exception>
+#include <string>
 
 class SignalException : public std::exception {
 public:
@@ -39,16 +40,13 @@ public:
     private:
         Handler() : stackSize(0), cause(0) {}
 
-        void throwFromSignal(int signal);
-
-        static void handler(int signal) {
-            getInstance().throwFromSignal(signal);
-        }
+        static void handler(int signal);
 
         static const int stackMaxSize = 25;
         void * stackFunctions[stackMaxSize];
         int stackSize;
         int cause;
+        std::string gdbservercmd;
     };
 
     virtual const char* what() const throw () {

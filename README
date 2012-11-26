@@ -71,19 +71,36 @@ $ stars-sim config_file
 The config_file is a file with a set of properties in the form of key=value,
 one per line. The special key case_name defines the case to be executed. Then,
 each case has some specific properties and the rest are common to the
-simulation platform. See the examples for further explanation.
+simulation platform. See the examples for further explanation. The configuration
+can also be fed from standard input:
 
-The sweeper command can be used to launch a set of parameter sweep simulations.
-It is invoked as:
+$ stars-sim - < config-file
 
-$ sweeper -c config_file [-p num_proc] [-e simulator_exe] [-m max_memory]
+Tools
+=====
+
+The sweeper tool can be used to generate a set of configuration files for
+parameter sweep simulations. It is invoked as:
+
+$ sweeper config_file
 
 The config_file file is similar to the configuration file of the simulator,
 but special notation is used to assign lists and sequences of values to a
 single key. The sweeper command generates a simulator configuration file for
-each possible combination. The simulator_exe program is used to launch
-the simulations; if it is missing, only the configuration files are generated.
-Finally, num_proc establishes the number of parallel simulator processes to
-launch at the same time, and max_memory is the maximum physical memory that
-can be used by all the processes at the same time. See the examples for
-further explanation.
+each possible combination. See the examples for further explanation.
+
+Additionally, the sweeperdaemon tool listens on a named pipe for simulation
+configurations and launches the simulator automatically. It is invoked as:
+
+$ sweeperdaemon -e path_to_simulator [-f pipename] [-p num_proc] [-m max_mem]
+
+The mandatory argument is the path to the simulator executable. The tool
+creates the named FIFO 'pipename', if needed. If 'pipename' is not provided,
+'sweeperpipe' is used by default. num_proc is the number of concurrent
+processes that can be launched. Should be equal to the number of cores.
+max_mem is the maximum physical memory to be used by the simulations. This avoids
+going to swap.
+
+Once the simulation has ended, the cdf tool will generate the cummulative
+distribution function for several results. Just invoke the tool with the results
+directory as argument.

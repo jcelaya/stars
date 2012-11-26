@@ -23,18 +23,27 @@
 #include <signal.h>
 #include <malloc.h>
 #include <iostream>
+#include <sstream>
 #include <cstring>
+#include <cstdlib>
 #include "SignalException.hpp"
 
 
 void SignalException::Handler::setHandler() {
+    std::ostringstream oss;
+    // FIXME: only one debugged process at a time...
+    oss << "/usr/bin/gdbserver host:12345 --attach " << getpid();
+    getInstance().gdbservercmd = oss.str();
     signal(SIGSEGV, SignalException::Handler::handler);
 }
 
 
-void SignalException::Handler::throwFromSignal(int signal) {
-    cause = signal;
-    stackSize = backtrace(stackFunctions, stackMaxSize);
+void SignalException::Handler::handler(int signal) {
+    SignalException::Handler & h = getInstance();
+    h.cause = signal;
+    h.stackSize = backtrace(h.stackFunctions, stackMaxSize);
+    std::cerr << "Signal trapped, launching gdbserver" << std::endl;
+    system(h.gdbservercmd.c_str());
     throw SignalException();
 }
 
