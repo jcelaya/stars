@@ -235,10 +235,10 @@ shared_ptr<Task> Scheduler::getTask(unsigned int id) {
 
 void Scheduler::notifySchedule() {
     LogMsg("Ex.Sch", DEBUG) << "Setting attributes to " << getAvailability();
-    if (!inChange && resourceNode.getFather() != CommAddress()) {
+    if (!inChange && leaf.getFatherAddress() != CommAddress()) {
         AvailabilityInformation * msg = getAvailability().clone();
         msg->setSeq(++seqNum);
-        CommLayer::getInstance().sendMessage(resourceNode.getFather(), msg);
+        CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
         dirty = false;
     } else {
         LogMsg("Ex.Sch", DEBUG) << "Delayed sending info to father";

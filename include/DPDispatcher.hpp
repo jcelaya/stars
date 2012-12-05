@@ -38,7 +38,7 @@ public:
      * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
-    DPDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    DPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
     // This is documented in Dispatcher.
     virtual void recomputeInfo();

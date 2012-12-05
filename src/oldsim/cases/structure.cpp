@@ -316,166 +316,99 @@ REGISTER_SIMULATION_CASE(networkCheck);
 
 
 /// Scenario 9: Create random tree at zero
-class createTree : public SimulationCase {
-    struct snode {
-        vector<uint32_t> children;
-        uint32_t addr;
-        int level;
-        snode() { children.reserve(3); }
-    };
+class createSimTree : public SimulationCase {
 
 public:
-    createTree(const Properties & p) : SimulationCase(p) {
+    createSimTree(const Properties & p) : SimulationCase(p) {
         // Prepare the properties
     }
 
-    static const string getName() { return string("createTree"); }
+    static const string getName() { return string("createSimTree"); }
 
     void preStart() {
         Simulator & sim = Simulator::getInstance();
+        uint16_t port = ConfigurationManager::getInstance().getPort();
         uint32_t numNodes = sim.getNumNodes();
         uint32_t p2NumNodes = 1;
-        for (uint32_t i = numNodes; i > 1; i >>= 1) p2NumNodes <<= 1;
+        for (uint32_t i = numNodes; i > 1; i >>= 1)
+            p2NumNodes <<= 1;
+        uint32_t l1NumNodes = numNodes - p2NumNodes;
 
-        vector<uint32_t> treeNodes(numNodes);
-        for (uint32_t i = 0; i < numNodes; i++) treeNodes[i] = i;
-        // Shuffle
-        random_shuffle(treeNodes.begin(), treeNodes.end());
+        // Select l1NumNodes nodes that will have an additional level
+        vector<bool> additionalLevel(p2NumNodes, false);
+        for (uint32_t i = 0; i < l1NumNodes; ++i)
+            additionalLevel[i] = true;
+        random_shuffle(additionalLevel.begin(), additionalLevel.end());
 
-        list<snode> toCreate;
-
-        if (3 * p2NumNodes / 2 >= numNodes) {
-            // Ok enough nodes for 3 children in level 0
-            uint32_t threeChildren = numNodes - p2NumNodes;
-            // Generate ResourceNodes
-            // Generate groups of 3
-            unsigned int rpos = 0;
-            unsigned int toCreateSize = 0;
-            for (uint32_t spos = 0; spos < threeChildren; spos++) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (uint32_t i = 0; i < 3; rpos++, i++) {
-                    sim.getNode(rpos).generateRNode(n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
+        // Prepare first level and additional level
+        vector<uint32_t> currentLevel(p2NumNodes);
+        vector<uint32_t> availBranches(p2NumNodes);
+        for (uint32_t i = 0, j = 0; i < p2NumNodes; ++i, ++j) {
+            currentLevel[i] = j;
+            if (additionalLevel[i]) {
+                // Setup these SimOverlayLeafs
+                CommAddress father(j, port);
+                static_cast<SimOverlayLeaf &>(sim.getNode(j).getLeaf()).setFatherAddress(father);
+                static_cast<SimOverlayLeaf &>(sim.getNode(j + 1).getLeaf()).setFatherAddress(father);
+                // And the SimOverlayBranch
+                static_cast<SimOverlayBranch &>(sim.getNode(j).getBranch()).build(CommAddress(j, port), false, CommAddress(j + 1, port), false);
+                ++j;
             }
-            // Generate groups of 2
-            for (uint32_t spos = 0; spos < p2NumNodes / 2 - threeChildren; spos++) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (uint32_t i = 0; i < 2; rpos++, i++) {
-                    sim.getNode(rpos).generateRNode(n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            // Generate structure nodes
-            while (toCreateSize > 1) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                for (uint32_t i = 0; i < 2; i++) {
-                    snode c = toCreate.front();
-                    toCreate.pop_front();
-                    toCreateSize--;
-                    if (c.children.size() == 2)
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.level);
-                    else
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.children[2], c.level);
-                    n.children.push_back(c.addr);
-                    n.level = c.level + 1;
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            // Root node
-            snode root = toCreate.front();
-            sim.getNode(root.addr).generateSNode(root.addr, root.children[0], root.children[1], root.level);
-        } else {
-            // We also need some level 1 nodes with 3 children
-            uint32_t twoChildren = 0;
-            if (numNodes % 3 == 1) twoChildren = 2;
-            else if (numNodes % 3 == 2) twoChildren = 1;
-            uint32_t threeChildren = (numNodes - twoChildren * 2) / 3;
-            uint32_t level1threeChildren = threeChildren + twoChildren - p2NumNodes / 2;
-            // Generate ResourceNodes
-            // Generate groups of 3
-            unsigned int rpos = 0;
-            unsigned int toCreateSize = 0;
-            for (uint32_t spos = 0; spos < threeChildren; spos++) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (uint32_t i = 0; i < 3; rpos++, i++) {
-                    sim.getNode(rpos).generateRNode(n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            // Generate groups of 2
-            for (uint32_t spos = 0; spos < twoChildren; spos++) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (uint32_t i = 0; i < 2; rpos++, i++) {
-                    sim.getNode(rpos).generateRNode(n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            // Generate structure nodes
-            // first the level 1 nodes with 3 children
-            for (uint32_t j = 0; j < level1threeChildren; j++) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                for (uint32_t i = 0; i < 3; i++) {
-                    snode c = toCreate.front();
-                    toCreate.pop_front();
-                    toCreateSize--;
-                    if (c.children.size() == 2)
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.level);
-                    else
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.children[2], c.level);
-                    n.children.push_back(c.addr);
-                    n.level = c.level + 1;
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            while (toCreateSize > 1) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                for (uint32_t i = 0; i < 2; i++) {
-                    snode c = toCreate.front();
-                    toCreate.pop_front();
-                    toCreateSize--;
-                    if (c.children.size() == 2)
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.level);
-                    else
-                        sim.getNode(c.addr).generateSNode(n.addr, c.children[0], c.children[1], c.children[2], c.level);
-                    n.children.push_back(c.addr);
-                    n.level = c.level + 1;
-                }
-                toCreate.push_back(n);
-                toCreateSize++;
-            }
-            // Root node
-            snode root = toCreate.front();
-            sim.getNode(root.addr).generateSNode(root.addr, root.children[0], root.children[1], root.level);
+            availBranches[i] = j;
         }
+        // Shuffle branches
+        random_shuffle(availBranches.begin(), availBranches.end());
+        uint32_t nextAvail = 0;
+
+        // First level
+        for (size_t i = 0, j = 0; i < p2NumNodes; i += 2, ++j) {
+            uint32_t leftAddr = currentLevel[i], rightAddr = currentLevel[i + 1], fatherAddr = availBranches[nextAvail++];
+            currentLevel[j] = fatherAddr;
+            // Setup these SimOverlayLeafs
+            CommAddress father(fatherAddr, port);
+            if (additionalLevel[i])
+                static_cast<SimOverlayBranch &>(sim.getNode(leftAddr).getBranch()).setFatherAddress(father);
+            else {
+                static_cast<SimOverlayLeaf &>(sim.getNode(leftAddr).getLeaf()).setFatherAddress(father);
+            }
+            if (additionalLevel[i + 1])
+                static_cast<SimOverlayBranch &>(sim.getNode(rightAddr).getBranch()).setFatherAddress(father);
+            else {
+                static_cast<SimOverlayLeaf &>(sim.getNode(rightAddr).getLeaf()).setFatherAddress(father);
+            }
+            // And the SimOverlayBranch
+            static_cast<SimOverlayBranch &>(sim.getNode(fatherAddr).getBranch()).build(
+                    CommAddress(leftAddr, port), additionalLevel[i], CommAddress(rightAddr, port), additionalLevel[i + 1]);
+        }
+        p2NumNodes >>= 1;
+
+        // Next levels
+        while (p2NumNodes > 1) {
+            for (size_t i = 0, j = 0; i < p2NumNodes; ++i, ++j) {
+                uint32_t leftAddr = currentLevel[i], rightAddr = currentLevel[++i], fatherAddr = availBranches[nextAvail++];
+                currentLevel[j] = fatherAddr;
+                // Setup these SimOverlayLeafs
+                CommAddress father(fatherAddr, port);
+                static_cast<SimOverlayBranch &>(sim.getNode(leftAddr).getBranch()).setFatherAddress(father);
+                static_cast<SimOverlayBranch &>(sim.getNode(rightAddr).getBranch()).setFatherAddress(father);
+                // And the SimOverlayBranch
+                static_cast<SimOverlayBranch &>(sim.getNode(fatherAddr).getBranch()).build(
+                        CommAddress(leftAddr, port), true, CommAddress(rightAddr, port), true);
+            }
+            p2NumNodes >>= 1;
+        }
+
+        // Build Dispatchers
+        list<StarsNode *> sortedNodes;
+        sortedNodes.push_back(&sim.getNode(currentLevel[0]));
+        for (list<StarsNode *>::iterator i = sortedNodes.begin(); i != sortedNodes.end(); ++i) {
+            if (!(**i).getBranch().isLeftLeaf())
+                sortedNodes.push_back(&sim.getNode((**i).getBranch().getLeftAddress().getIPNum()));
+            if (!(**i).getBranch().isRightLeaf())
+                sortedNodes.push_back(&sim.getNode((**i).getBranch().getRightAddress().getIPNum()));
+        }
+        for (list<StarsNode *>::reverse_iterator i = sortedNodes.rbegin(); i != sortedNodes.rend(); ++i)
+            (**i).buildDispatcher();
 
         // Prevent any timer from running the simulation
         sim.stop();
@@ -486,4 +419,4 @@ public:
         StarsNode::checkTree();
     }
 };
-REGISTER_SIMULATION_CASE(createTree);
+REGISTER_SIMULATION_CASE(createSimTree);

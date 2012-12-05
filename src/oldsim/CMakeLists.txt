@@ -22,6 +22,8 @@ set(oldsim_sources
     Simulator.cpp
     TrafficStatistics.cpp
     SignalException.cpp
+    SimOverlayBranch.cpp
+    SimOverlayLeaf.cpp
     ${cases_sources})
 
 set(STARS_LIBRARIES stars${BIN_SUFFIX})

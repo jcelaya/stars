@@ -25,7 +25,7 @@
 #include "Logger.hpp"
 #include "CommLayer.hpp"
 #include "ConfigurationManager.hpp"
-#include "StructureNode.hpp"
+#include "OverlayBranch.hpp"
 #include "TaskBagMsg.hpp"
 #include "UpdateTimer.hpp"
 class AvailabilityInformation;
@@ -41,19 +41,16 @@ public:
      */
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const = 0;
 
-    /**
-     * Provides the availability information coming from a certain child, given its address.
-     * @param child The child address.
-     * @return Pointer to the information of that child.
-     */
-    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const = 0;
+    virtual boost::shared_ptr<AvailabilityInformation> getLeftChildInfo() const = 0;
+
+    virtual boost::shared_ptr<AvailabilityInformation> getRightChildInfo() const = 0;
 
     virtual bool changed() = 0;
 };
 
 
 template <class T>
-class Dispatcher : public DispatcherInterface, public StructureNodeObserver {
+class Dispatcher : public DispatcherInterface, public OverlayBranchObserver {
 public:
     typedef T availInfoType;
 
@@ -61,14 +58,14 @@ public:
      * Constructs a DeadlineDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
-    Dispatcher(StructureNode & sn) :
-            StructureNodeObserver(sn), infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {
+    Dispatcher(OverlayBranch & b) : branch(b),
+        infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {
         // See if sn is already in the network
-        if (sn.inNetwork()) {
-            father.addr = sn.getFather();
-            children.resize(sn.getNumChildren());
-            for (size_t i = 0; i < children.size(); ++i)
-                children[i].addr = sn.getSubZone(i)->getLink();
+        branch.registerObserver(this);
+        if (branch.inNetwork()) {
+            father.addr = branch.getFatherAddress();
+            leftChild.addr = branch.getLeftAddress();
+            rightChild.addr = branch.getRightAddress();
         }
     }
 
@@ -98,10 +95,12 @@ public:
      * @param child The child address.
      * @return Pointer to the information of that child.
      */
-    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const {
-        for (typename std::vector<Link>::const_iterator it = children.begin(); it != children.end(); it++)
-            if (it->addr == child) return it->availInfo;
-        return boost::shared_ptr<AvailabilityInformation>();
+    virtual boost::shared_ptr<AvailabilityInformation> getLeftChildInfo() const {
+        return leftChild.availInfo;
+    }
+
+    virtual boost::shared_ptr<AvailabilityInformation> getRightChildInfo() const {
+        return rightChild.availInfo;
     }
 
     /**
@@ -110,12 +109,8 @@ public:
     template<class Archive> void serializeState(Archive & ar) {
         // Serialization only works if not in a transaction
         father.serializeState(ar);
-        size_t s = children.size();
-        ar & s;
-        children.resize(s);
-        for (size_t i = 0; i < s; ++i) {
-            children[i].serializeState(ar);
-        }
+        leftChild.serializeState(ar);
+        rightChild.serializeState(ar);
     }
 
     struct Link {
@@ -128,6 +123,31 @@ public:
         template<class Archive> void serializeState(Archive & ar) {
             // Serialization only works if not in a transaction
             ar & addr & availInfo & waitingInfo & notifiedInfo;
+        }
+        unsigned int sendUpdate() {
+            if (waitingInfo.get() && !(notifiedInfo.get() && *notifiedInfo == *waitingInfo)) {
+                uint32_t seq = notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1;
+                notifiedInfo = waitingInfo;
+                waitingInfo.reset();
+                notifiedInfo->setSeq(seq);
+                notifiedInfo->setFromSch(false);
+                T * sendMsg = notifiedInfo->clone();
+                sendMsg->reduce();
+                return CommLayer::getInstance().sendMessage(addr, sendMsg);
+            }
+            else return 0;
+        }
+        bool update(const CommAddress & src, const T & msg) {
+            if (addr == src) {
+                if (availInfo.get() && availInfo->getSeq() >= msg.getSeq()) {
+                    LogMsg("Dsp", INFO) << "Discarding old information: " << availInfo->getSeq() << " >= " << msg.getSeq();
+                } else {
+                    // Update data
+                    availInfo.reset(msg.clone());
+                }
+                return true;
+            }
+            return false;
         }
     };
 
@@ -143,10 +163,12 @@ public:
     virtual void recomputeInfo() = 0;
 
 protected:
+    OverlayBranch & branch;
     /// Info about the rest of the tree
     Link father;
     /// Info about this branch
-    std::vector<Link> children;
+    Link leftChild;
+    Link rightChild;
     bool infoChanged;
 
     typedef std::pair<CommAddress, boost::shared_ptr<T> > AddrMsg;
@@ -173,43 +195,13 @@ protected:
             return;
         }
 
-        // Does it come from the father?
-        if (!msg.isFromSch() && father.addr == src) {
-            LogMsg("Dsp", DEBUG) << "Comes from the father";
-            if (father.availInfo.get() && father.availInfo->getSeq() >= msg.getSeq()) {
-                LogMsg("Dsp", INFO) << "Discarding old information: " << father.availInfo->getSeq() << " >= " << msg.getSeq();
-                return;
-            }
-            // Update data
-            father.availInfo.reset(msg.clone());
+        if ((!msg.isFromSch() && father.update(src, msg)) || leftChild.update(src, msg) || rightChild.update(src, msg)) {
             // Check if the resulting zone changes
             if (!delayed) {
                 recomputeInfo();
                 notify();
             }
             return;
-        }
-
-        else {
-            // Which child does it come from?
-            for (unsigned int i = 0; i < children.size(); i++) {
-                if (children[i].addr == src) {
-                    LogMsg("Dsp", DEBUG) << "Comes from child " << i;
-                    // Check sequence number, discard old information
-                    if (children[i].availInfo.get() && children[i].availInfo->getSeq() >= msg.getSeq()) {
-                        LogMsg("Dsp", INFO) << "Discarding old information: " << children[i].availInfo->getSeq() << " >= " << msg.getSeq();
-                        return;
-                    }
-                    // It comes from child i, update its data
-                    children[i].availInfo.reset(msg.clone());
-                    // Check if the resulting zone changes
-                    if (!delayed) {
-                        recomputeInfo();
-                        notify();
-                    }
-                    return;
-                }
-            }
         }
 
         LogMsg("Dsp", INFO) << "Comes from unknown node, maybe old info?";
@@ -242,33 +234,25 @@ protected:
         } else {
             // No update timer, we can send update messages
             unsigned int sentSize = 0;
-            if (!inChange && father.addr != CommAddress() && father.waitingInfo.get() &&
-                    !(father.notifiedInfo.get() && *father.notifiedInfo == *father.waitingInfo)) {
-                LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
-                uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() + 1 : 1;
-                father.notifiedInfo = father.waitingInfo;
-                father.waitingInfo.reset();
-                father.notifiedInfo->setSeq(seq);
-                father.notifiedInfo->setFromSch(false);
-                T * sendMsg = father.notifiedInfo->clone();
-                sendMsg->reduce();
-                sentSize += CommLayer::getInstance().sendMessage(father.addr, sendMsg);
-            }
-            if (!inChange && !structureNode.isRNChildren()) {
+            if (!inChange) {
+                if (father.addr != CommAddress()) {
+                    unsigned int s = father.sendUpdate();
+                    if (s > 0)
+                        LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
+                    sentSize += s;
+                }
                 // Notify the children
-                for (unsigned int i = 0; i < children.size(); i++) {
-                    if (children[i].waitingInfo.get() &&
-                            !(children[i].notifiedInfo.get() && *children[i].notifiedInfo == *children[i].waitingInfo)) {
-                        LogMsg("Dsp", DEBUG) << "There were changes with children " << i << ", sending update";
-                        uint32_t seq = children[i].notifiedInfo.get() ? children[i].notifiedInfo->getSeq() + 1 : 1;
-                        children[i].notifiedInfo = children[i].waitingInfo;
-                        children[i].waitingInfo.reset();
-                        children[i].notifiedInfo->setSeq(seq);
-                        children[i].notifiedInfo->setFromSch(false);
-                        T * sendMsg = children[i].notifiedInfo->clone();
-                        sendMsg->reduce();
-                        sentSize += CommLayer::getInstance().sendMessage(children[i].addr, sendMsg);
-                    }
+                if (!branch.isLeftLeaf()) {
+                    unsigned int s = leftChild.sendUpdate();
+                    if (s > 0)
+                        LogMsg("Dsp", DEBUG) << "There were changes for the left children, sending update";
+                    sentSize += s;
+                }
+                if (!branch.isRightLeaf()) {
+                    unsigned int s = rightChild.sendUpdate();
+                    if (s > 0)
+                        LogMsg("Dsp", DEBUG) << "There were changes for the right children, sending update";
+                    sentSize += s;
                 }
             }
             double t = (double)sentSize / ConfigurationManager::getInstance().getUpdateBandwidth();
@@ -284,6 +268,53 @@ protected:
      */
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg) = 0;
 
+    void sendTasks(const TaskBagMsg & msg, unsigned int leftTasks, unsigned int rightTasks, bool dontSendToFather) {
+        // Now create and send the messages
+        unsigned int nextTask = msg.getFirstTask();
+        if (leftTasks > 0) {
+            LogMsg("Dsp", INFO) << "Sending " << leftTasks << " tasks to the left child";
+            // Create the message
+            TaskBagMsg * tbm = msg.clone();
+            tbm->setForEN(branch.isLeftLeaf());
+            tbm->setFromEN(false);
+            tbm->setFirstTask(nextTask);
+            nextTask += leftTasks;
+            tbm->setLastTask(nextTask - 1);
+            CommLayer::getInstance().sendMessage(leftChild.addr, tbm);
+        }
+
+        if (rightTasks > 0) {
+            LogMsg("Dsp", INFO) << "Sending " << rightTasks << " tasks to the right child";
+            // Create the message
+            TaskBagMsg * tbm = msg.clone();
+            tbm->setForEN(branch.isRightLeaf());
+            tbm->setFromEN(false);
+            tbm->setFirstTask(nextTask);
+            nextTask += rightTasks;
+            tbm->setLastTask(nextTask - 1);
+            CommLayer::getInstance().sendMessage(rightChild.addr, tbm);
+        }
+
+        // If this branch cannot execute all the tasks, send the request to the father
+        if (nextTask <= msg.getLastTask()) {
+            LogMsg("Dsp", DEBUG) << "There are " << (msg.getLastTask() - (nextTask - 1)) << " remaining tasks";
+            if (branch.getFatherAddress() != CommAddress()) {
+                if (dontSendToFather) {
+                    // Just ignore them
+                    LogMsg("Dsp", DEBUG) << "But came from the father.";
+                } else {
+                    TaskBagMsg * tbm = msg.clone();
+                    tbm->setFirstTask(nextTask);
+                    tbm->setLastTask(msg.getLastTask());
+                    tbm->setFromEN(false);
+                    CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
+                }
+            } else {
+                LogMsg("Dsp", DEBUG) << "But we are the root";
+            }
+        }
+    }
+
 private:
     // This is documented in StructureNodeObserver
     virtual void availabilityChanged(bool available) {}
@@ -294,31 +325,14 @@ private:
     }
 
     // This is documented in StructureNodeObserver
-    virtual void commitChanges(bool fatherChanged, const std::list<CommAddress> & childChanges) {
+    virtual void commitChanges(bool fatherChanged, bool leftChanged, bool rightChanged) {
         inChange = false;
-        if (fatherChanged) {
-            // Force an update
-            father.addr = structureNode.getFather();
-            father.notifiedInfo.reset();
-        }
-        for (std::list<CommAddress>::const_iterator child = childChanges.begin(); child != childChanges.end(); child++) {
-            // Look for it in the list of children
-            bool notFound = true;
-            for (typename std::vector<Link>::iterator it = children.begin(); it != children.end(); it++) {
-                if (it->addr == *child) {
-                    LogMsg("Dsp", DEBUG) << "Child " << *child << " is no more";
-                    // Remove it
-                    children.erase(it);
-                    notFound = false;
-                    break;
-                }
-            }
-            if (notFound) {
-                LogMsg("Dsp", DEBUG) << "New child " << *child;
-                // New child, add it at the end
-                children.push_back(Link(*child));
-            }
-        }
+        if (fatherChanged)
+            father = Link(branch.getFatherAddress());
+        if (leftChanged)
+            leftChild = Link(branch.getLeftAddress());
+        if (rightChanged)
+            rightChild = Link(branch.getRightAddress());
         // Check delayed updates
         for (typename std::vector<AddrMsg>::iterator it = delayedUpdates.begin();
                 it != delayedUpdates.end(); it++)

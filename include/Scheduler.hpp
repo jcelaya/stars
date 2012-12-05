@@ -29,7 +29,7 @@
 #include "TaskBagMsg.hpp"
 #include "Task.hpp"
 #include "AvailabilityInformation.hpp"
-#include "ResourceNode.hpp"
+#include "OverlayLeaf.hpp"
 
 /**
  * \brief Scheduler object interface.
@@ -38,7 +38,7 @@
  * tasks, and is responsible for preparing and executing them in the best order. The
  * particular ordering algorithm is implemented by each subclass.
  */
-class Scheduler : public Service, public ResourceNodeObserver {
+class Scheduler : public Service, public OverlayLeafObserver {
 public:
     /**
      * Interface for the execution environment. The scheduler can obtain information from it
@@ -76,11 +76,14 @@ public:
          * @param ctId The ID of this task relative to its request.
          * @param d TaskDescription with the task requirements.
          */
-        virtual boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
+        virtual boost::shared_ptr<Task> createTask(CommAddress o,
+                int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };
 
-    Scheduler(ResourceNode & rn) : ResourceNodeObserver(rn), seqNum(0),
-            inChange(false), dirty(false), rescheduleTimer(0), monitorTimer(0), tasksExecuted(0) {}
+    Scheduler(OverlayLeaf & l) : leaf(l), seqNum(0), inChange(false), dirty(false),
+            rescheduleTimer(0), monitorTimer(0), tasksExecuted(0) {
+        leaf.registerObserver(this);
+    }
 
     /**
      * Sets the relation with the ExecutionNode.
@@ -100,7 +103,8 @@ public:
         unsigned int numAccepted = acceptable(msg);
         // Now create the tasks and add them to the list
         for (unsigned int i = 0; i < numAccepted; i++) {
-            tasks.push_back(backend.impl->createTask(msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
+            tasks.push_back(backend.impl->createTask(
+                    msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
             acceptTask(tasks.back());
         }
         if (numAccepted) reschedule();
@@ -132,6 +136,7 @@ protected:
         boost::scoped_ptr<ExecutionEnvironment> impl;
     };
 
+    OverlayLeaf & leaf;
     std::list<boost::shared_ptr<Task> > tasks;             ///< The list of tasks.
     uint32_t seqNum;                   ///< Sequence number for the AvailabilityInformation message
     /// Hidden implementation of the execution environment
@@ -180,12 +185,12 @@ private:
     unsigned long int tasksExecuted;   ///< Number of executed tasks since the peer started
     Duration timeRunning;              ///< Amount of time not idle
 
-    // This is documented in ResourceNodeObserver
+    // This is documented in OverlayLeafObserver
     void fatherChanging() {
         inChange = true;
     }
 
-    // This is documented in ResourceNodeObserver
+    // This is documented in OverlayLeafObserver
     void fatherChanged(bool changed) {
         inChange = false;
         if (changed) {

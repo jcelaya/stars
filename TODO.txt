@@ -9,9 +9,9 @@ Sweeper:
 
 Old simulator:
 - Beware with common file paths, like siteLevel traces
-- Include full checkpointing
+- Include full checkpointing:
+	- Change serialize methods by msgpack methods.
 - Allow to change parameters in real time, e.g. maximum memory limit
-- Kill node on trapped exception, print stack trace and maybe connect to gdb
 
 SimGrid based simulator:
 - Incorporate all the changes from the old simulator

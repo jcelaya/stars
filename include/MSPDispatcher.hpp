@@ -38,7 +38,7 @@ public:
      * Constructs a QueueBalancingDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
-    MSPDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    MSPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
     // This is documented in Dispatcher.
     virtual void recomputeInfo();

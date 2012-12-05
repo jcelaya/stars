@@ -45,7 +45,7 @@ public:
      * Creates a new SimpleScheduler with an empty task queue.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    IBPScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+    IBPScheduler(OverlayLeaf & l) : Scheduler(l) {
         reschedule();
         notifySchedule();
     }

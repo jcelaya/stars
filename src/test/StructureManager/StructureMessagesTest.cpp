@@ -136,8 +136,8 @@ BOOST_AUTO_TEST_CASE(testZoneDescription) {
     BOOST_CHECK_EQUAL(zone.getAvailableStrNodes(), 4);
 
     // operator ==
-    shared_ptr<ZoneDescription> zone2(new ZoneDescription(zone));
-    BOOST_CHECK_EQUAL(zone, *zone2);
+    ZoneDescription zone2(zone);
+    BOOST_CHECK_EQUAL(zone, zone2);
 
     // contains
     BOOST_CHECK(zone.contains(CommAddress("127.0.0.1", 2030)));
@@ -148,13 +148,9 @@ BOOST_AUTO_TEST_CASE(testZoneDescription) {
     BOOST_CHECK_CLOSE(zone.distance(CommAddress("127.0.0.4", 2030)), 2.0, 0.001);
 
     // aggregate
-    zone2->setMinAddress(CommAddress("127.0.0.5", 2030));
-    zone2->setMaxAddress(CommAddress("127.0.0.7", 2030));
-    shared_ptr<ZoneDescription> zone3(new ZoneDescription(zone));
-    list<shared_ptr<ZoneDescription> > zones;
-    zones.push_back(zone2);
-    zones.push_back(zone3);
-    zone.aggregate(zones);
+    zone2.setMinAddress(CommAddress("127.0.0.5", 2030));
+    zone2.setMaxAddress(CommAddress("127.0.0.7", 2030));
+    zone.aggregate(zone2);
     BOOST_CHECK_EQUAL(zone.getMinAddress(), CommAddress("127.0.0.1", 2030));
     BOOST_CHECK_EQUAL(zone.getMaxAddress(), CommAddress("127.0.0.7", 2030));
 

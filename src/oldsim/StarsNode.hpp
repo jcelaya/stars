@@ -18,8 +18,8 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PEERCOMPNODE_H_
-#define PEERCOMPNODE_H_
+#ifndef STARSNODE_H_
+#define STARSNODE_H_
 
 #include <boost/scoped_ptr.hpp>
 #include <log4cpp/Priority.hh>
@@ -32,12 +32,11 @@ namespace iost = boost::iostreams;
 #include "Logger.hpp"
 #include "Properties.hpp"
 #include "SimAppDatabase.hpp"
-#include "StructureNode.hpp"
+#include "SimOverlayBranch.hpp"
+#include "SimOverlayLeaf.hpp"
 #include "SubmissionNode.hpp"
-#include "ResourceNode.hpp"
 #include "Scheduler.hpp"
 #include "Dispatcher.hpp"
-#include "MSPDispatcher.hpp"
 #include "AvailabilityInformation.hpp"
 class Simulator;
 
@@ -106,20 +105,18 @@ public:
     void setLocalAddress(const CommAddress & local) { localAddress = local; }
 
     // setup() must be called before these methods
-    StructureNode & getS() const { return static_cast<StructureNode &>(*services[SN]); }
-    ResourceNode & getE() const { return static_cast<ResourceNode &>(*services[RN]); }
+    OverlayBranch & getBranch() const { return static_cast<OverlayBranch &>(*services[Branch]); }
+    OverlayLeaf & getLeaf() const { return static_cast<OverlayLeaf &>(*services[Leaf]); }
     SubmissionNode & getSub() const { return static_cast<SubmissionNode &>(*services[Sub]); }
-    Scheduler & getScheduler() const { return static_cast<Scheduler &>(*services[Sch]); }
-    DispatcherInterface & getDispatcher() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
+    Scheduler & getSch() const { return static_cast<Scheduler &>(*services[Sch]); }
+    DispatcherInterface & getDisp() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() { return db; }
 
     double getAveragePower() const { return power; }
     unsigned long int getAvailableMemory() const { return mem; }
     unsigned long int getAvailableDisk() const { return disk; }
 
-    boost::shared_ptr<AvailabilityInformation> getBranchInfo() const;
-    boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
-    unsigned int getSNLevel() const;
+    unsigned int getBranchLevel() const;
 
     void showRecursive(log4cpp::Priority::Value prio, unsigned int level, const std::string & prefix = "");
     void showPartialTree(bool isBranch, log4cpp::Priority::Value prio = log4cpp::Priority::DEBUG);
@@ -127,13 +124,7 @@ public:
     static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
     static void checkTree();
 
-    void generateRNode(uint32_t rfather);
-    void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, int level);
-    void generateSNode(uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
-    template <class T>
-    void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, int level);
-    template <class T>
-    void generateDispatcher(const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level);
+    void buildDispatcher();
 
     friend std::ostream & operator<<(std::ostream & os, const StarsNode & n) {
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
@@ -141,8 +132,8 @@ public:
 
 private:
     enum {
-        SN = 0,
-        RN,
+        Branch = 0,
+        Leaf,
         Sub,
         Sch,
         Disp,
@@ -150,6 +141,7 @@ private:
 
     friend class CommLayer;
     void createServices();
+    template <class T> void buildDispatcherGen();
 
     SimAppDatabase db;
     double power;
@@ -157,4 +149,4 @@ private:
     unsigned long int disk;
 };
 
-#endif /*PEERCOMPNODE_H_*/
+#endif /*STARSNODE_H_*/

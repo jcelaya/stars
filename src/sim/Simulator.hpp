@@ -65,6 +65,8 @@ public:
 
     bool doContinue();
 
+    void showInformation();
+
     /**
      * Returns the SimulationCase instance that is being run.
      */

@@ -28,17 +28,16 @@
 void IBPDispatcher::recomputeInfo() {
     LogMsg("Dsp.Simple", DEBUG) << "Recomputing the branch information";
     // Only recalculate info for the father
-    std::vector<Link>::iterator child = children.begin();
-    for (; child != children.end() && !child->availInfo.get(); child++);
-    if (child == children.end()) {
+    if (leftChild.availInfo.get()) {
+        father.waitingInfo.reset(leftChild.availInfo->clone());
+        if (rightChild.availInfo.get())
+            father.waitingInfo->join(*rightChild.availInfo);
+        LogMsg("Dsp.Simple", DEBUG) << "The result is " << *father.waitingInfo;
+    } else if (rightChild.availInfo.get()) {
+        father.waitingInfo.reset(rightChild.availInfo->clone());
+        LogMsg("Dsp.Simple", DEBUG) << "The result is " << *father.waitingInfo;
+    } else
         father.waitingInfo.reset();
-        return;
-    }
-    father.waitingInfo.reset(child->availInfo->clone());
-    for (child++; child != children.end(); child++)
-        if (child->availInfo.get())
-            father.waitingInfo->join(*child->availInfo);
-    LogMsg("Dsp.Simple", DEBUG) << "The result is " << *father.waitingInfo;
 }
 
 
@@ -47,15 +46,15 @@ void IBPDispatcher::recomputeInfo() {
  */
 struct IBPDispatcher::DecisionInfo {
     IBPAvailabilityInformation::MDCluster & cluster;
-    unsigned int numBranch;
+    bool leftBranch;
     double distance;
     uint64_t availability;
 
     static const uint32_t ALPHA_MEM = 10;
     static const uint32_t ALPHA_DISK = 1;
 
-    DecisionInfo(IBPAvailabilityInformation::MDCluster & c, uint32_t mem, uint32_t disk, unsigned int b, double d)
-            : cluster(c), numBranch(b), distance(d), availability((c.minM - mem) * ALPHA_MEM + (c.minD - disk) * ALPHA_DISK) {}
+    DecisionInfo(IBPAvailabilityInformation::MDCluster & c, uint32_t mem, uint32_t disk, bool b, double d)
+            : cluster(c), leftBranch(b), distance(d), availability((c.minM - mem) * ALPHA_MEM + (c.minD - disk) * ALPHA_DISK) {}
 
     bool operator<(const DecisionInfo & r) {
         return availability < r.availability || (availability == r.availability && distance < r.distance);
@@ -66,13 +65,12 @@ struct IBPDispatcher::DecisionInfo {
 void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN()) return;
     LogMsg("Dsp.Simple", INFO) << "Received a TaskBagMsg from " << src;
-    if (!structureNode.inNetwork()) {
+    if (!branch.inNetwork()) {
         LogMsg("Dsp.Simple", WARN) << "TaskBagMsg received but not in network";
         return;
     }
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
-    unsigned int nextTask = msg.getFirstTask();
     LogMsg("Dsp.Simple", DEBUG) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
     LogMsg("Dsp.Simple", DEBUG) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
     LogMsg("Dsp.Simple", DEBUG) << "Length: " << req.getLength() << "   Deadline: " << req.getDeadline();
@@ -81,94 +79,49 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // First create a list of node groups which can potentially manage the request
     std::list<DecisionInfo> groups;
-    unsigned int numZone = 0;
-    for (std::vector<Link>::iterator child = children.begin(); child != children.end(); child++, numZone++) {
-        LogMsg("Dsp.Simple", DEBUG) << "Checking zone " << numZone;
-        // Ignore the zone that has sent this message, only if it is a StructureNode
-        if (child->addr == src && !msg.isFromEN()) {
-            LogMsg("Dsp.Simple", DEBUG) << "This zone is the same that sent the message, skiping";
-            continue;
-        }
-
-        // Ignore zones without information
-        if (!child->availInfo.get()) {
-            LogMsg("Dsp.Simple", DEBUG) << "This zone has no information, skiping";
-            continue;
-        }
-
-        // Look for zone information
-        double distance = std::numeric_limits<double>::infinity();
-        for (StructureNode::zoneConstIterator zone = structureNode.getFirstSubZone();
-                zone != structureNode.getLastSubZone(); zone++) {
-            if ((*zone)->getLink() == child->addr && (*zone)->getZone().get()) {
-                distance = src.distance((*zone)->getZone()->getMinAddress());
-                if (src.distance((*zone)->getZone()->getMaxAddress()) < distance)
-                    distance = src.distance((*zone)->getZone()->getMaxAddress());
-                LogMsg("Dsp.Simple", DEBUG) << "This zone is at distance " << distance;
-            }
-        }
-
+    // Ignore the zone that has sent this message, only if it is a StructureNode, and zones without information
+    if ((msg.isFromEN() || leftChild.addr != src) && leftChild.availInfo.get()) {
         std::list<IBPAvailabilityInformation::MDCluster *> nodeGroups;
-        child->availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability";
+        leftChild.availInfo->getAvailability(nodeGroups, req);
+        LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<IBPAvailabilityInformation::MDCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
             LogMsg("Dsp.Simple", DEBUG) << (*git)->value << " nodes with " << (*git)->minM << " memory and " << (*git)->minD << " disk";
-            groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), numZone, distance));
+            groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), true, branch.getLeftDistance(msg.getRequester())));
         }
     }
+
+    if ((msg.isFromEN() || rightChild.addr != src) && rightChild.availInfo.get()) {
+        std::list<IBPAvailabilityInformation::MDCluster *> nodeGroups;
+        rightChild.availInfo->getAvailability(nodeGroups, req);
+        LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
+        for (std::list<IBPAvailabilityInformation::MDCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
+            LogMsg("Dsp.Simple", DEBUG) << (*git)->value << " nodes with " << (*git)->minM << " memory and " << (*git)->minD << " disk";
+            groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), false, branch.getRightDistance(msg.getRequester())));
+        }
+    }
+
     groups.sort();
     LogMsg("Dsp.Simple", DEBUG) << groups.size() << " groups found";
 
     // Now divide the request between the zones
-    std::vector<unsigned int> numTasks(numZone, 0);
-    for (std::list<DecisionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.Simple", DEBUG) << "Using group from branch " << it->numBranch << " and " << it->cluster.value << " nodes, availability is " << it->availability;
+    unsigned int leftTasks = 0, rightTasks = 0;
+    for (std::list<DecisionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; ++it) {
+        LogMsg("Dsp.Simple", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->cluster.value << " nodes, availability is " << it->availability;
         if (remainingTasks > it->cluster.value) {
-            numTasks[it->numBranch] += it->cluster.value;
+            (it->leftBranch ? leftTasks : rightTasks) += it->cluster.value;
             remainingTasks -= it->cluster.value;
             it->cluster.value = 0;
         } else {
-            numTasks[it->numBranch] += remainingTasks;
+            (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
             it->cluster.value -= remainingTasks;
             remainingTasks = 0;
         }
     }
-    for (std::vector<Link>::iterator child = children.begin(); child != children.end(); ++child) {
-        if (child->availInfo.get())
-            child->availInfo->updated();
-    }
+    if (leftChild.availInfo.get())
+        leftChild.availInfo->updated();
+    if (rightChild.availInfo.get())
+        rightChild.availInfo->updated();
 
     // Now create and send the messages
-    numZone = 0;
-    for (std::vector<Link>::iterator it = children.begin(); it != children.end(); it++, numZone++) {
-        if (numTasks[numZone] > 0) {
-            LogMsg("Dsp.Simple", INFO) << "Sending " << numTasks[numZone] << " tasks to @" << it->addr;
-            // Create the message
-            TaskBagMsg * tbm = msg.clone();
-            tbm->setForEN(structureNode.isRNChildren());
-            tbm->setFromEN(false);
-            tbm->setFirstTask(nextTask);
-            nextTask += numTasks[numZone];
-            tbm->setLastTask(nextTask - 1);
-            CommLayer::getInstance().sendMessage(it->addr, tbm);
-        }
-    }
-
-    // If this branch cannot execute all the tasks, send the request to the father
-    if (remainingTasks) {
-        LogMsg("Dsp.Simple", DEBUG) << "There are " << remainingTasks << " remaining tasks";
-        if (structureNode.getFather() != CommAddress()) {
-            TaskBagMsg * tbm = msg.clone();
-            tbm->setFirstTask(nextTask);
-            tbm->setLastTask(msg.getLastTask());
-            tbm->setFromEN(false);
-            if (structureNode.getFather() == src) {
-                // Just ignore them
-                LogMsg("Dsp.Simple", DEBUG) << "But came from the father.";
-            } else
-                CommLayer::getInstance().sendMessage(structureNode.getFather(), tbm);
-        } else {
-            LogMsg("Dsp.Simple", DEBUG) << "But we are the root";
-        }
-    }
+    sendTasks(msg, leftTasks, rightTasks, branch.getFatherAddress() == src);
 }

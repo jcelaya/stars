@@ -28,46 +28,52 @@ using std::vector;
 
 void MSPDispatcher::recomputeInfo() {
     LogMsg("Dsp.MS", DEBUG) << "Recomputing the branch information";
-    // Only recalculate info for the father
-    vector<Link>::iterator child = children.begin();
-    for (; child != children.end() && !child->availInfo.get(); child++);
-    if (child == children.end()) {
+    // Recalculate info for the father
+    if (leftChild.availInfo.get()) {
+        father.waitingInfo.reset(leftChild.availInfo->clone());
+        if (rightChild.availInfo.get())
+            father.waitingInfo->join(*rightChild.availInfo);
+        LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
+    } else if (rightChild.availInfo.get()) {
+        father.waitingInfo.reset(rightChild.availInfo->clone());
+        LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
+    } else
         father.waitingInfo.reset();
-        return;
-    }
-    father.waitingInfo.reset(child->availInfo->clone());
-    for (child++; child != children.end(); child++)
-        if (child->availInfo.get())
-            father.waitingInfo->join(*child->availInfo);
-    LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
 
-    if(!structureNode.isRNChildren()) {
-        for (unsigned int i = 0; i < children.size(); i++) {
-            LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for child " << i;
-            // TODO: send full information, based on configuration switch
-            double minSlowness = 0.0;
-            bool valid = false;
-            if (structureNode.getFather() != CommAddress() && father.availInfo.get()) {
-                minSlowness = father.availInfo->getMinimumSlowness();
-                valid = true;
-            }
-            for (unsigned int j = 0; j < children.size(); j++)
-                if (j != i && children[j].availInfo.get()) {
-                    if (!valid) {
-                        minSlowness = children[j].availInfo->getMinimumSlowness();
-                        valid = true;
-                    }
-                    else {
-                        if (minSlowness > children[j].availInfo->getMinimumSlowness()) {
-                            minSlowness = children[j].availInfo->getMinimumSlowness();
-                        }
-                    }
-                }
-            if (valid) {
-                children[i].waitingInfo.reset(new MSPAvailabilityInformation);
-                children[i].waitingInfo->setMinimumSlowness(minSlowness);
-            }
-        }
+    if(!branch.isLeftLeaf()) {
+        LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for left child.";
+        // TODO: send full information, based on configuration switch
+        if (father.availInfo.get()) {
+            double fatherMinSlowness = father.availInfo->getMinimumSlowness();
+            leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            if (rightChild.availInfo.get()) {
+                double rightMinSlowness = rightChild.availInfo->getMinimumSlowness();
+                leftChild.waitingInfo->setMinimumSlowness(fatherMinSlowness > rightMinSlowness ? fatherMinSlowness : rightMinSlowness);
+            } else
+                leftChild.waitingInfo->setMinimumSlowness(fatherMinSlowness);
+        } else if (rightChild.availInfo.get()) {
+            leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            leftChild.waitingInfo->setMinimumSlowness(rightChild.availInfo->getMinimumSlowness());
+        } else
+            leftChild.waitingInfo.reset();
+    }
+
+    if(!branch.isRightLeaf()) {
+        LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for right child.";
+        // TODO: send full information, based on configuration switch
+        if (father.availInfo.get()) {
+            double fatherMinSlowness = father.availInfo->getMinimumSlowness();
+            rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            if (leftChild.availInfo.get()) {
+                double leftMinSlowness = leftChild.availInfo->getMinimumSlowness();
+                rightChild.waitingInfo->setMinimumSlowness(fatherMinSlowness > leftMinSlowness ? fatherMinSlowness : leftMinSlowness);
+            } else
+                rightChild.waitingInfo->setMinimumSlowness(fatherMinSlowness);
+        } else if (leftChild.availInfo.get()) {
+            rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            rightChild.waitingInfo->setMinimumSlowness(leftChild.availInfo->getMinimumSlowness());
+        } else
+            rightChild.waitingInfo.reset();
     }
 }
 
@@ -85,7 +91,7 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // TODO: Check that we are not in a change
     if (msg.isForEN()) return;
     LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src;
-    if (!structureNode.inNetwork()) {
+    if (!branch.inNetwork()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
     }
@@ -106,19 +112,21 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 //		father.availInfo->update(numTasks, req.getLength());
 //	}
 
-    unsigned int fLimit[children.size()], branchTasks[children.size()];
+    unsigned int rfStart;
     double minSlowness = INFINITY;
     Time now = Time::getCurrentTime();
     // Get the slowness functions of each branch that fulfills memory and disk requirements
     std::vector<std::pair<MSPAvailabilityInformation::LAFunction *, unsigned int> > functions;
-    for (size_t i = 0; i < children.size(); ++i) {
-        branchTasks[i] = 0;
-        if (children[i].availInfo.get()) {
-            LogMsg("Dsp.MS", DEBUG) << "Getting functions of children " << i << " (" << children[i].addr << "): " << *children[i].availInfo;
-            children[i].availInfo->updateRkReference(now);
-            children[i].availInfo->getFunctions(req, functions);
-        }
-        fLimit[i] = functions.size();
+    if (leftChild.availInfo.get()) {
+        LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << leftChild.addr << "): " << *leftChild.availInfo;
+        leftChild.availInfo->updateRkReference(now);
+        leftChild.availInfo->getFunctions(req, functions);
+    }
+    rfStart = functions.size();
+    if (rightChild.availInfo.get()) {
+        LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << rightChild.addr << "): " << *rightChild.availInfo;
+        rightChild.availInfo->updateRkReference(now);
+        rightChild.availInfo->getFunctions(req, functions);
     }
 
     unsigned int totalTasks = 0;
@@ -165,7 +173,7 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     LogMsg("Dsp.MS", DEBUG) << "Result minimum slowness is " << minSlowness;
 
     // if we are not the root and the message does not come from the father
-    if (structureNode.getFather() != CommAddress() && (msg.isFromEN() || structureNode.getFather() != src)) {
+    if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
         // Compare the slowness reached by the new application with the one in the rest of the tree,
         double slownessLimit = 0.0;
         if (father.availInfo.get())
@@ -184,43 +192,40 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
         if (minSlowness > slownessLimit) {
             LogMsg("Dsp.MS", INFO) << "Not enough information to route this request, sending to the father.";
-            CommLayer::getInstance().sendMessage(structureNode.getFather(), msg.clone());
+            CommLayer::getInstance().sendMessage(father.addr, msg.clone());
             return;
         }
     }
 
     // Count tasks per branch and update functions
-    unsigned int branchNumber = 0;
-    for (size_t i = 0; i < tpn.size(); ++i) {
-        if (fLimit[branchNumber] == i) ++branchNumber;
+    unsigned int leftTasks = 0, rightTasks = 0;
+    for (size_t i = 0; i < rfStart; ++i) {
         if (tpn[i]) {
             unsigned int tasksToCluster = tpn[i] * functions[i].second;
             if (i == slownessHeap.front().second)
                 tasksToCluster -= totalTasks - numTasks;
-            branchTasks[branchNumber] += tasksToCluster;
+            leftTasks += tasksToCluster;
+            functions[i].first->update(a, tpn[i]);
+        }
+    }
+
+    for (size_t i = rfStart; i < tpn.size(); ++i) {
+        if (tpn[i]) {
+            unsigned int tasksToCluster = tpn[i] * functions[i].second;
+            if (i == slownessHeap.front().second)
+                tasksToCluster -= totalTasks - numTasks;
+            rightTasks += tasksToCluster;
             functions[i].first->update(a, tpn[i]);
         }
     }
 
     // We are going down!
     // Each branch is sent its accounted number of tasks
-    uint32_t nextTask = msg.getFirstTask();
-    for (unsigned int child = 0; child < children.size(); ++child) {
-        if (branchTasks[child] > 0) {
-            LogMsg("Dsp.MS", DEBUG) << "Finally sending " << branchTasks[child] << " tasks to " << children[child].addr;
-            TaskBagMsg * tbm = msg.clone();
-            tbm->setFromEN(false);
-            tbm->setFirstTask(nextTask);
-            nextTask += branchTasks[child];
-            tbm->setLastTask(nextTask - 1);
-            tbm->setForEN(structureNode.isRNChildren());
-            CommLayer::getInstance().sendMessage(children[child].addr, tbm);
-        }
-    }
+    sendTasks(msg, leftTasks, rightTasks, false);
 
     recomputeInfo();
     // Only notify the father if the message does not come from it
-    if (structureNode.getFather() != CommAddress() && structureNode.getFather() != src) {
+    if (father.addr != CommAddress() && father.addr != src) {
         notify();
     }
 }

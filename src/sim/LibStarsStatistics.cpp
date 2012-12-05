@@ -119,7 +119,7 @@ void LibStarsStatistics::saveCPUStatistics() {
     uint16_t port = ConfigurationManager::getInstance().getPort();
     os << "# Node, tasks exec'd" << std::endl;
     for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
-        unsigned int executedTasks = sim.getNode(addr).getScheduler().getExecutedTasks();
+        unsigned int executedTasks = sim.getNode(addr).getSch().getExecutedTasks();
         os << CommAddress(addr, port) << ',' << executedTasks << std::endl;
         if (executedTasks > maxTasks) maxTasks = executedTasks;
     }
@@ -129,7 +129,7 @@ void LibStarsStatistics::saveCPUStatistics() {
     // Next blocks are CDFs
     Histogram executedTasks(maxTasks);
     for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
-        executedTasks.addValue(sim.getNode(addr).getScheduler().getExecutedTasks());
+        executedTasks.addValue(sim.getNode(addr).getSch().getExecutedTasks());
     }
     os << "# CDF of num of executed tasks" << std::endl << CDF(executedTasks) << std::endl << std::endl;
 }
@@ -252,7 +252,7 @@ void LibStarsStatistics::finishAppStatistics() {
 //     } else {
         for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
             // Get the task queue
-            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getScheduler().getTasks();
+            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
             Time end = now;
             // For each task...
             for (std::list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); t++) {

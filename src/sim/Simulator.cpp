@@ -80,6 +80,12 @@ void finish(int param) {
 }
 
 
+void showInformation(int param) {
+    Simulator::getInstance().showInformation();
+    std::signal(SIGUSR1, showInformation);
+}
+
+
 int main(int argc, char * argv[]) {
     xbt_log_control_set("root.fmt:%m%n");
 #ifdef __x86_64__
@@ -100,7 +106,9 @@ int main(int argc, char * argv[]) {
     setrlimit(RLIMIT_CORE, &zeroLimit);
 #endif
 
-    std::signal(SIGUSR1, finish);
+    std::signal(SIGUSR1, showInformation);
+    std::signal(SIGINT, finish);
+    std::signal(SIGTERM, finish);
 
     // Init simulation framework
     MSG_global_init(&argc, argv);
@@ -235,6 +243,11 @@ bool Simulator::run(const std::string & confFile) {
         << " and used " << MemoryManager::getInstance().getMaxUsedMemory() << " bytes.");
 
     return res == MSG_OK;
+}
+
+
+void Simulator::showInformation() {
+    PROGRESS(getSimulationCase()->getProperties());
 }
 
 

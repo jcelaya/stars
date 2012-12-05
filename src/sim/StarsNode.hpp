@@ -86,8 +86,8 @@ public:
     StructureNode & getStructureNode() const { return static_cast<StructureNode &>(*services[SN]); }
     ResourceNode & getResourceNode() const { return static_cast<ResourceNode &>(*services[RN]); }
     SubmissionNode & getSubmissionNode() const { return static_cast<SubmissionNode &>(*services[Sub]); }
-    Scheduler & getScheduler() const { return static_cast<Scheduler &>(*services[Sch]); }
-    DispatcherInterface & getDispatcher() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
+    Scheduler & getSch() const { return static_cast<Scheduler &>(*services[Sch]); }
+    DispatcherInterface & getDisp() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() {
         return db;
     }

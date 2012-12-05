@@ -325,16 +325,16 @@ void StarsNode::packState(std::streambuf & out) {
     getResourceNode().serializeState(ar);
     switch (policy) {
         case SimpleSchedulerClass:
-            static_cast<IBPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<IBPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<MMPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<MMPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<DPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case MinSlownessSchedulerClass:
-            static_cast<MSPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<MSPDispatcher &>(getDisp()).serializeState(ar);
             break;
         default:
             break;
@@ -392,16 +392,16 @@ void StarsNode::unpackState(std::streambuf & in) {
     getResourceNode().serializeState(ar);
     switch (policy) {
         case SimpleSchedulerClass:
-            static_cast<IBPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<IBPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case FCFSSchedulerClass:
-            static_cast<MMPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<MMPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case EDFSchedulerClass:
-            static_cast<DPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<DPDispatcher &>(getDisp()).serializeState(ar);
             break;
         case MinSlownessSchedulerClass:
-            static_cast<MSPDispatcher &>(getDispatcher()).serializeState(ar);
+            static_cast<MSPDispatcher &>(getDisp()).serializeState(ar);
             break;
         default:
             break;
@@ -411,7 +411,7 @@ void StarsNode::unpackState(std::streambuf & in) {
 
 void StarsNode::createServices() {
     services.push_back(new StructureNode(2));
-    services.push_back(new ResourceNode(getStructureNode()));
+    services.push_back(new ResourceNode);
     services.push_back(new SubmissionNode(getResourceNode()));
     switch (policy) {
         case StarsNode::FCFSSchedulerClass:

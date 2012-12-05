@@ -48,7 +48,7 @@ public:
      * Creates a new EDFScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    DPScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+    DPScheduler(OverlayLeaf & l) : Scheduler(l) {
         calculateAvailability();
         notifySchedule();
     }

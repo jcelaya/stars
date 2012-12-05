@@ -90,16 +90,18 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
         for (unsigned int i = 0; i < failingNodes.size(); ++i) {
             StarsNode & node = sim.getNode(failingNodes[i]);
             sim.setCurrentNode(failingNodes[i]);
-            sneighbours[node.getE().getFather().getIPNum()].second.push_back(node.getLocalAddress());
-            if (node.getS().inNetwork()) {
-                if (node.getS().getFather() != CommAddress())
-                    sneighbours[node.getS().getFather().getIPNum()].second.push_back(node.getLocalAddress());
-                if (node.getS().isRNChildren())
-                    for (int j = 0; j < node.getS().getNumChildren(); ++j)
-                        rneighbours[node.getS().getSubZone(j)->getLink().getIPNum()] = true;
+            sneighbours[node.getLeaf().getFatherAddress().getIPNum()].second.push_back(node.getLocalAddress());
+            if (node.getBranch().inNetwork()) {
+                if (node.getBranch().getFatherAddress() != CommAddress())
+                    sneighbours[node.getBranch().getFatherAddress().getIPNum()].second.push_back(node.getLocalAddress());
+                if (node.getBranch().isLeftLeaf())
+                    rneighbours[node.getBranch().getLeftAddress().getIPNum()] = true;
                 else
-                    for (int j = 0; j < node.getS().getNumChildren(); ++j)
-                        sneighbours[node.getS().getSubZone(j)->getLink().getIPNum()].first = true;
+                    sneighbours[node.getBranch().getLeftAddress().getIPNum()].first = true;
+                if (node.getBranch().isRightLeaf())
+                    rneighbours[node.getBranch().getRightAddress().getIPNum()] = true;
+                else
+                    sneighbours[node.getBranch().getRightAddress().getIPNum()].first = true;
             }
             node.fail();
         }
@@ -109,15 +111,16 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
             sneighbours.erase(failingNodes[i]);
         }
         // Update neighbours
-        for (map<uint32_t, bool>::iterator i = rneighbours.begin(); i != rneighbours.end(); ++i) {
-            sim.setCurrentNode(i->first);
-            sim.getNode(i->first).getE().fireFatherChanged(i->second);
-        }
-        for (map<uint32_t, pair<bool, list<CommAddress> > >::iterator i = sneighbours.begin(); i != sneighbours.end(); ++i) {
-            sim.setCurrentNode(i->first);
-            sim.getNode(i->first).getS().fireCommitChanges(i->second.first, i->second.second);
-            sim.getNode(i->first).getS().fireCommitChanges(i->second.first, i->second.second);
-        }
+        // FIXME
+//        for (map<uint32_t, bool>::iterator i = rneighbours.begin(); i != rneighbours.end(); ++i) {
+//            sim.setCurrentNode(i->first);
+//            sim.getNode(i->first).getE().fireFatherChanged(i->second);
+//        }
+//        for (map<uint32_t, pair<bool, list<CommAddress> > >::iterator i = sneighbours.begin(); i != sneighbours.end(); ++i) {
+//            sim.setCurrentNode(i->first);
+//            sim.getNode(i->first).getS().fireCommitChanges(i->second.first, i->second.second);
+//            sim.getNode(i->first).getS().fireCommitChanges(i->second.first, i->second.second);
+//        }
         // Program next failure
         if (numFailures == 0 || numFailed < numFailures ) {
             unsigned int numFailing = Simulator::uniform(minFail, maxFail, 1);

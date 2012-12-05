@@ -25,7 +25,7 @@
 #include <list>
 #include "DispatchCommandMsg.hpp"
 #include "CommLayer.hpp"
-#include "ResourceNode.hpp"
+#include "OverlayLeaf.hpp"
 #include "TaskBagAppDatabase.hpp"
 
 
@@ -35,7 +35,28 @@
  * This kind of node provides the functionality to submit and monitor the requests of the
  * user. Controls the execution of the remote tasks and updates the progress information.
  */
-class SubmissionNode : public Service, public ResourceNodeObserver {
+class SubmissionNode : public Service, public OverlayLeafObserver {
+public:
+    /**
+     * Constructor, with the ResourceNode to observe.
+     * @param rn ResourceNode to register as an observer.
+     */
+    SubmissionNode(OverlayLeaf & l) : leaf(l), inChange(false) {
+        leaf.registerObserver(this);
+    }
+
+    // This is documented in Service
+    bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
+
+    /**
+     * Returns whether there is any ongoing application instance
+     */
+    bool isIdle() const {
+        return remainingTasks.empty();
+    }
+
+private:
+    OverlayLeaf & leaf;
     bool inChange;   ///< Whether the father of the ResourceNode is changing
     std::list<std::pair<int64_t, int> > delayedInstances;
 
@@ -64,23 +85,6 @@ class SubmissionNode : public Service, public ResourceNodeObserver {
     void sendRequest(int64_t appInstance, int prevRetries);
 
     void finishedApp(int64_t appId);
-
-public:
-    /**
-     * Constructor, with the ResourceNode to observe.
-     * @param rn ResourceNode to register as an observer.
-     */
-    SubmissionNode(ResourceNode & rn) : ResourceNodeObserver(rn), inChange(false) {}
-
-    // This is documented in Service
-    bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
-
-    /**
-     * Returns whether there is any ongoing application instance
-     */
-    bool isIdle() const {
-        return remainingTasks.empty();
-    }
 };
 
 #endif /*SUBMISSIONNODE_H_*/

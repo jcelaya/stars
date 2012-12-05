@@ -113,7 +113,7 @@ public:
     MMPAvailabilityInformation() {
         reset();
     }
-    MMPAvailabilityInformation(const MMPAvailabilityInformation & copy) : AvailabilityInformation(copy), minQueue(copy.minQueue), maxQueue(copy.maxQueue), summary(copy.summary), minM(copy.minM),
+    MMPAvailabilityInformation(const MMPAvailabilityInformation & copy) : AvailabilityInformation(copy), maxQueue(copy.maxQueue), summary(copy.summary), minM(copy.minM),
             maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minP(copy.minP), maxP(copy.maxP), minT(copy.minT), maxT(copy.maxT) {
         unsigned int size = summary.getSize();
         for (unsigned int i = 0; i < size; i++)
@@ -130,10 +130,9 @@ public:
     }
 
     void reset() {
-        minQueue = Time::getCurrentTime();
+        minT = maxT = maxQueue = Time::getCurrentTime();
         summary.clear();
         minM = maxM = minD = maxD = minP = maxP = 0;
-        minT = maxT = maxQueue = minQueue;
     }
 
     /**
@@ -142,14 +141,6 @@ public:
      * @param disk Available disk space.
      */
     void setQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end);
-
-    void setMinQueueLength(Time q) {
-        minQueue = q;
-    }
-
-    Time getMinQueueLength() const {
-        return minQueue;
-    }
 
     void setMaxQueueLength(Time q) {
         maxQueue = q;
@@ -175,7 +166,7 @@ public:
 
     // This is documented in AvailabilityInformation.h
     bool operator==(const MMPAvailabilityInformation & r) const {
-        return minQueue == r.minQueue && maxQueue == r.maxQueue && summary == r.summary;
+        return maxQueue == r.maxQueue && summary == r.summary;
     }
 
     /**
@@ -195,15 +186,15 @@ public:
 
     // This is documented in BasicMsg
     void output(std::ostream & os) const {
-        os << minQueue << ',' << summary;
+        os << maxQueue << ',' << summary;
     }
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, minQueue/*, maxQueue*/, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, maxQueue, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     static int aggrMethod;
-    Time minQueue, maxQueue;
+    Time maxQueue;
     ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
     uint32_t minM, maxM, minD, maxD, minP, maxP;
     Time minT, maxT;

@@ -38,16 +38,6 @@ using namespace std;
 #define INFO_LOG(x) LogMsg("St.RN", INFO) << x
 
 
-ResourceNodeObserver::~ResourceNodeObserver() {
-    for (vector<ResourceNodeObserver *>::iterator it = resourceNode.observers.begin();
-            it != resourceNode.observers.end(); it++)
-        if (*it == this) {
-            resourceNode.observers.erase(it);
-            break;
-        }
-}
-
-
 ostream & operator<<(ostream& os, const ResourceNode & e) {
     os << e.getStatus();
     os << " f=" << e.father;
@@ -78,8 +68,7 @@ string ResourceNode::getStatus() const {
 }
 
 
-ResourceNode::ResourceNode(StructureNode & sn) : StructureNodeObserver(sn),
-        seq(1), transaction(NULL_TRANSACTION_ID), availableStrNodes(true) {}
+ResourceNode::ResourceNode() : seq(1), transaction(NULL_TRANSACTION_ID), availableStrNodes(true) {}
 
 
 void ResourceNode::notifyFather() {

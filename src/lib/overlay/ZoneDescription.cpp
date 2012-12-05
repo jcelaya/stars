@@ -53,27 +53,17 @@ double ZoneDescription::distance(const ZoneDescription & r) const {
 }
 
 
-void ZoneDescription::aggregate(const std::list<boost::shared_ptr<ZoneDescription> > & zones) {
+void ZoneDescription::aggregate(const ZoneDescription & r) {
     // Pre: !zones.empty() && all zones non-null
 
-    // Reset fields
-    minAddr = zones.front()->minAddr;
-    maxAddr = zones.front()->maxAddr;
-
     // Just sum up the available nodes in all the children
-    int avail = 0;
-
-    for (std::list<boost::shared_ptr<ZoneDescription> >::const_iterator it = zones.begin();
-            it != zones.end(); it++) {
-        // Calculate the resulting number of available Structure nodes
-        avail += (*it)->getAvailableStrNodes();
-        // Calculate the minimum address
-        if ((*it)->minAddr < minAddr)
-            minAddr = (*it)->minAddr;
-        // Calculate the maximum address
-        if (maxAddr < (*it)->maxAddr)
-            maxAddr = (*it)->maxAddr;
-    }
+    int avail = availableStrNodes + r.getAvailableStrNodes();
+    // Calculate the minimum address
+    if (r.minAddr < minAddr)
+        minAddr = r.minAddr;
+    // Calculate the maximum address
+    if (maxAddr < r.maxAddr)
+        maxAddr = r.maxAddr;
 
     // Now round up the result to the higher power of two lower than itself.
     // For example, if the result is 45, round it to 32.

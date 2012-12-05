@@ -103,7 +103,7 @@ void CentralizedScheduler::sendOneTask(unsigned int to) {
     tbm->setLastTask(task.tid);
     task.running = true;
     LogMsg("Dsp.Cent", INFO) << "Finally sending a task of request" << tbm->getRequestId() << " to " << AddrIO(to) << ": " << *tbm;
-    sim.sendMessage(sim.getNode(to).getE().getFather().getIPNum(), to, tbm);
+    sim.sendMessage(sim.getNode(to).getLeaf().getFatherAddress().getIPNum(), to, tbm);
 }
 
 
@@ -176,7 +176,7 @@ class BlindScheduler : public CentralizedScheduler {
             tbm->setForEN(true);
             tbm->setFirstTask(i);
             tbm->setLastTask(i);
-            sim.sendMessage(sim.getNode(n).getE().getFather().getIPNum(), n, tbm);
+            sim.sendMessage(sim.getNode(n).getLeaf().getFatherAddress().getIPNum(), n, tbm);
         }
     }
 };
@@ -328,10 +328,10 @@ private:
                 bool meets = true;
                 if (!queue.empty()) {
                     list<TaskDesc>::iterator it = queue.begin();
-                    if (node.getScheduler().getTasks().empty())
+                    if (node.getSch().getTasks().empty())
                         start += it->a;
                     else
-                        start += node.getScheduler().getTasks().front()->getEstimatedDuration();
+                        start += node.getSch().getTasks().front()->getEstimatedDuration();
                     for (it++; it != queue.end() && it->d <= deadline; it++) {
                         start += it->a;
                     }
@@ -487,10 +487,10 @@ class CentralizedDP : public CentralizedScheduler {
                 // Calculate available hole for this application
                 Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
                 if (!queue.empty()) {
-                    if (node.getScheduler().getTasks().empty())
+                    if (node.getSch().getTasks().empty())
                         start += queue.front().a;
                     else
-                        start += node.getScheduler().getTasks().front()->getEstimatedDuration();
+                        start += node.getSch().getTasks().front()->getEstimatedDuration();
                     for (list<TaskDesc>::iterator it = ++queue.begin(); it != queue.end() && it->d <= deadline; it++) {
                         start += it->a;
                     }

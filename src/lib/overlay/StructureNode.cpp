@@ -205,10 +205,16 @@ void StructureNode::recomputeZone() {
     // Make a list of the non-null zones
     list<shared_ptr<ZoneDescription> > tmp;
     for (zoneMutableIterator it = subZones.begin(); it != subZones.end(); it++)
-        if ((*it)->getZone().get()) tmp.push_back((*it)->getZone());
-    if (tmp.empty()) zoneDesc.reset();
-    else if (zoneDesc.get()) zoneDesc->aggregate(tmp);
-    else zoneDesc.reset(new ZoneDescription(tmp));
+        if ((*it)->getZone().get())
+            tmp.push_back((*it)->getZone());
+    if (tmp.empty())
+        zoneDesc.reset();
+    else {
+        list<shared_ptr<ZoneDescription> >::iterator i = tmp.begin();
+        zoneDesc.reset(new ZoneDescription(**i));
+        while (i != tmp.end())
+            zoneDesc->aggregate(**(i++));
+    }
 }
 
 
@@ -909,8 +915,10 @@ void StructureNode::commit() {
         seq = 1;
         newFather = CommAddress();
         notifiedZoneDesc.reset();
-        fireCommitChanges(true, changes);
-    } else fireCommitChanges(false, changes);
+        // FIXME!!!
+        //fireCommitChanges(true, changes);
+        fireCommitChanges(true, true, true);
+    } else fireCommitChanges(true, true, true);//fireCommitChanges(false, changes);
 
     // Clear transaction variables
     txMembersAck.clear();
@@ -981,7 +989,8 @@ void StructureNode::rollback() {
         DEBUG_LOG("The father changed also");
         newFather = CommAddress();
     }
-    fireCommitChanges(false, list<CommAddress>());
+    //fireCommitChanges(false, list<CommAddress>());
+    fireCommitChanges(false, true, true);
 
     // Clear transaction variables
     transaction = NULL_TRANSACTION_ID;

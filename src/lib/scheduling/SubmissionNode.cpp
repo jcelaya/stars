@@ -82,7 +82,7 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
             LogMsg("Sb", INFO) << "Sending request with " << (tbm->getLastTask() - tbm->getFirstTask() + 1) << " tasks of length "
                     << tbm->getMinRequirements().getLength() << " and deadline " << tbm->getMinRequirements().getDeadline();
             // Send this message to the father's Dispatcher
-            CommLayer::getInstance().sendMessage(resourceNode.getFather(), tbm);
+            CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), tbm);
         }
         // On error, the request is sent again in 30 seconds
     } else {
@@ -100,14 +100,14 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
 template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCommandMsg & msg) {
     LogMsg("Sb", INFO) << "Handling DispatchCommandMsg to dispatch an instance of app " << msg.getAppName();
 
-    if (resourceNode.getFather() == CommAddress()) {
+    if (leaf.getFatherAddress() == CommAddress()) {
         LogMsg("Sb", ERROR) << "Trying to send an application request, but not in network...";
         return;
     }
 
     int64_t appId = db.createAppInstance(msg.getAppName(), msg.getDeadline());
     if (appId != -1) {
-    	remainingTasks[appId] = 0;
+        remainingTasks[appId] = 0;
         sendRequest(appId, 0);
     } else
         LogMsg("Sb", ERROR) << "Application " << msg.getAppName() << " does not exist in database.";

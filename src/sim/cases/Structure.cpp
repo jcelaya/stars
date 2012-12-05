@@ -221,11 +221,11 @@ private:
         children[0].addr = CommAddress(schild1, ConfigurationManager::getInstance().getPort());
         children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
         if (level == 0) {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getScheduler().getAvailability().clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getScheduler().getAvailability().clone()));
+            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getSch().getAvailability().clone()));
+            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getSch().getAvailability().clone()));
         } else {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDispatcher().getBranchInfo()->clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDispatcher().getBranchInfo()->clone()));
+            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDisp().getBranchInfo()->clone()));
+            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDisp().getBranchInfo()->clone()));
         }
         children[0].availInfo->reduce();
         children[1].availInfo->reduce();
@@ -233,7 +233,7 @@ private:
         fatherLink.addr = father;
         oaa << fatherLink << children;
         MemoryInArchive iaa(vv.begin());
-        static_cast<T &>(node.getDispatcher()).serializeState(iaa);
+        static_cast<T &>(node.getDisp()).serializeState(iaa);
     }
 
 
@@ -315,13 +315,13 @@ private:
         children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
         children[2].addr = CommAddress(schild3, ConfigurationManager::getInstance().getPort());
         if (level == 0) {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getScheduler().getAvailability().clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getScheduler().getAvailability().clone()));
-            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getScheduler().getAvailability().clone()));
+            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getSch().getAvailability().clone()));
+            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getSch().getAvailability().clone()));
+            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getSch().getAvailability().clone()));
         } else {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDispatcher().getBranchInfo()->clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDispatcher().getBranchInfo()->clone()));
-            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getDispatcher().getBranchInfo()->clone()));
+            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDisp().getBranchInfo()->clone()));
+            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDisp().getBranchInfo()->clone()));
+            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getDisp().getBranchInfo()->clone()));
         }
         children[0].availInfo->reduce();
         children[1].availInfo->reduce();
@@ -330,7 +330,7 @@ private:
         fatherLink.addr = father;
         oaa << fatherLink << children;
         MemoryInArchive iaa(vv.begin());
-        static_cast<T &>(node.getDispatcher()).serializeState(iaa);
+        static_cast<T &>(node.getDisp()).serializeState(iaa);
     }
 
     struct snode {

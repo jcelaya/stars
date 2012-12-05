@@ -26,6 +26,7 @@
 #include <iostream>
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include "OverlayBranch.hpp"
 #include "CommAddress.hpp"
 #include "CommLayer.hpp"
 #include "ZoneDescription.hpp"
@@ -192,10 +193,6 @@ protected:
      * @param available True if the StructureNode is available.
      */
     virtual void availabilityChanged(bool available) = 0;
-
-    virtual void startChanges() = 0;
-
-    virtual void commitChanges(bool fatherChanged, const std::list<CommAddress> & childChanges) = 0;
 };
 
 
@@ -212,7 +209,7 @@ protected:
  * </ul>
  *
  */
-class StructureNode : public Service {
+class StructureNode : public OverlayBranch {
     int state;                                      ///< State of the Structure Manager
 
     // State variables
@@ -248,16 +245,6 @@ public:
     void fireAvailabilityChanged(bool available) {
         for (std::vector<StructureNodeObserver *>::iterator it = observers.begin();
                 it != observers.end(); it++)(*it)->availabilityChanged(available);
-    }
-
-    void fireStartChanges() {
-        for (std::vector<StructureNodeObserver *>::iterator it = observers.begin();
-                it != observers.end(); it++)(*it)->startChanges();
-    }
-
-    void fireCommitChanges(bool fatherChanged, const std::list<CommAddress> & childChanges) {
-        for (std::vector<StructureNodeObserver *>::iterator it = observers.begin();
-                it != observers.end(); it++)(*it)->commitChanges(fatherChanged, childChanges);
     }
 
 private:
@@ -340,27 +327,27 @@ public:
 
     bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
 
-    /**
-     * Returns a ZoneIterator object for the first child zone.
-     * @return A ZoneIterator object of first child.
-     */
-    zoneConstIterator getFirstSubZone() const {
-        return subZones.begin();
+    virtual const CommAddress & getLeftAddress() const {
+        return subZones.front()->getLink();
     }
 
-    /**
-     * Returns a ZoneIterator object for past the last child zone.
-     * @return A ZoneIterator object of past the last child.
-     */
-    zoneConstIterator getLastSubZone() const {
-        return subZones.end();
+    virtual double getLeftDistance(const CommAddress & src) const {
+        return subZones.front()->getZone()->distance(src);
     }
 
-    /**
-     * Returns the level of this StructureNode object in the tree.
-     * @return The level of the node.
-     */
-    bool isRNChildren() const {
+    virtual bool isLeftLeaf() const {
+        return level == 0;
+    }
+
+    virtual const CommAddress & getRightAddress() const {
+        return subZones.back()->getLink();
+    }
+
+    virtual double getRightDistance(const CommAddress & src) const {
+        return subZones.back()->getZone()->distance(src);
+    }
+
+    virtual bool isRightLeaf() const {
         return level == 0;
     }
 
@@ -372,7 +359,7 @@ public:
         return level;
     }
 
-    const CommAddress & getFather() const {
+    virtual const CommAddress & getFatherAddress() const {
         return father;
     }
 
@@ -382,18 +369,11 @@ public:
         return zoneDesc;
     }
 
-    boost::shared_ptr<const ZoneDescription> getNotifiedZoneDesc() const {
-        return notifiedZoneDesc;
-    }
-
     boost::shared_ptr<TransactionalZoneDescription> getSubZone(int i) const {
         zoneConstIterator it = subZones.begin();
         for (int j = 0; j < i && it != subZones.end(); j++, it++);
         if (it != subZones.end()) return *it;
         else return boost::shared_ptr<TransactionalZoneDescription>();
-    }
-    unsigned int getNumChildren() const {
-        return subZones.size();
     }
 
     friend std::ostream & operator<<(std::ostream& os, const StructureNode & s);

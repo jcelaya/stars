@@ -38,12 +38,13 @@ public:
     /// Default constructor
     ZoneDescription() : availableStrNodes(0) {}
     /// Copy constructor
-    ZoneDescription(const ZoneDescription & copy) : minAddr(copy.minAddr), maxAddr(copy.maxAddr),
-            availableStrNodes(copy.availableStrNodes) {}
-    /// Constructor from a list of zones
-    ZoneDescription(const std::list<boost::shared_ptr<ZoneDescription> > & zones) {
-        aggregate(zones);
+    ZoneDescription(const ZoneDescription & copy) : minAddr(copy.minAddr),
+            maxAddr(copy.maxAddr), availableStrNodes(copy.availableStrNodes) {}
+    ZoneDescription(const ZoneDescription & l, const ZoneDescription & r) :
+            minAddr(l.minAddr), maxAddr(l.maxAddr), availableStrNodes(l.availableStrNodes) {
+        aggregate(r);
     }
+    ZoneDescription(const CommAddress & a) : minAddr(a), maxAddr(a), availableStrNodes(0) {}
 
     /**
      * Equality operator.
@@ -74,11 +75,10 @@ public:
     double distance(const ZoneDescription & r) const;
 
     /**
-     * Aggregates a list of ZoneDescription objects together and leaves the result
-     * in this object.
-     * @param zones The list of zones to aggregate.
+     * Aggregates a ZoneDescription to this object.
+     * @param r The zone to aggregate.
      */
-    void aggregate(const std::list<boost::shared_ptr<ZoneDescription> > & zones);
+    void aggregate(const ZoneDescription & r);
 
     // Getters and Setters
 

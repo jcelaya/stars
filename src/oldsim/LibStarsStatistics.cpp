@@ -127,7 +127,7 @@ void LibStarsStatistics::saveCPUStatistics() {
     os << "# Node, tasks exec'd" << std::endl;
     for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
         StarsNode & node = sim.getNode(addr);
-        unsigned int executedTasks = node.getScheduler().getExecutedTasks();
+        unsigned int executedTasks = node.getSch().getExecutedTasks();
         os << CommAddress(addr, port) << ',' << executedTasks << ','
                 << node.getAveragePower() << ',' << node.getAvailableMemory() << ',' << node.getAvailableDisk() << std::endl;
         if (executedTasks > maxTasks) maxTasks = executedTasks;
@@ -231,7 +231,7 @@ void LibStarsStatistics::finishAppStatistics() {
     } else {
         for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
             // Get the task queue
-            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getScheduler().getTasks();
+            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
             Time end = now;
             // For each task...
             for (std::list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); t++) {

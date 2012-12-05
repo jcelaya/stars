@@ -38,7 +38,7 @@ public:
      * Constructs a QueueBalancingDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
-    MMPDispatcher(StructureNode & sn) : Dispatcher(sn) {}
+    MMPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
     // This is documented in Dispatcher.
     virtual void recomputeInfo();

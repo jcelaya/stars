@@ -29,6 +29,7 @@
 #include "TaskBagMsg.hpp"
 #include "DescriptionFile.hpp"
 #include "StructureNode.hpp"
+#include "ResourceNode.hpp"
 #include "TaskStateChgMsg.hpp"
 using namespace std;
 using namespace boost;
@@ -201,9 +202,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     Time reference = Time::getCurrentTime();
 
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
-    StructureNode * sn = new StructureNode(2);
-    CommLayer::getInstance().registerService(sn);
-    ResourceNode * rn = new ResourceNode(*sn);
+    ResourceNode * rn = new ResourceNode;
     CommLayer::getInstance().registerService(rn);
     DPScheduler * sched = new DPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
@@ -307,9 +306,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     TestHost::getInstance().reset();
 
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
-    StructureNode * sn = new StructureNode(2);
-    CommLayer::getInstance().registerService(sn);
-    ResourceNode * rn = new ResourceNode(*sn);
+    ResourceNode * rn = new ResourceNode();
     CommLayer::getInstance().registerService(rn);
     MSPScheduler * sched = new MSPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);

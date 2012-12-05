@@ -38,7 +38,7 @@ public:
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MSPScheduler(ResourceNode & resourceNode) : Scheduler(resourceNode) {
+    MSPScheduler(OverlayLeaf & l) : Scheduler(l) {
         reschedule();
         notifySchedule();
     }

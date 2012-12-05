@@ -27,41 +27,10 @@
 #include <string>
 #include <ostream>
 #include <boost/shared_ptr.hpp>
+#include "OverlayLeaf.hpp"
 #include "CommLayer.hpp"
 #include "StructureNode.hpp"
 #include "ZoneDescription.hpp"
-
-
-class ResourceNode;
-/**
- * \brief Observer pattern for changes in a ResourceNode
- *
- * This class provides two methods for other objects to observe a ResourceNode when
- * its father changes. Both the start and end of the transaction is signaled.
- */
-class ResourceNodeObserver {
-protected:
-    friend class ResourceNode;
-    ResourceNode & resourceNode;   ///< The observed ResourceNode
-
-    /**
-     * Signals that a transaction to change the father node has started.
-     */
-    virtual void fatherChanging() = 0;
-
-    /**
-     * Signals that a transaction to change the father node has finished.
-     * @param changed True if the father actually changed.
-     */
-    virtual void fatherChanged(bool changed) = 0;
-
-public:
-    /// Default constructor, registers with the resource node.
-    ResourceNodeObserver(ResourceNode & rn);
-
-    /// Default destructor, unregisters.
-    virtual ~ResourceNodeObserver();
-};
 
 
 /**
@@ -69,7 +38,7 @@ public:
  *
  * This is the Service that directly manages a resource. It is linked from the leaf StructureNodes.
  */
-class ResourceNode : public StructureNodeObserver, public Service {
+class ResourceNode : public OverlayLeaf {
     CommAddress father;                             ///< StructureNode in charge of this ResourceNode.
     uint64_t seq;                                   ///< Update sequence number.
     TransactionId transaction;                      ///< Transaction ID in use
@@ -80,20 +49,6 @@ class ResourceNode : public StructureNodeObserver, public Service {
     typedef std::pair<CommAddress, boost::shared_ptr<BasicMsg> > AddrMsg;
     std::list<AddrMsg> delayedMessages;   ///< Delayed messages and source addresses till the transaction ends.
 
-    friend class ResourceNodeObserver;
-    std::vector<ResourceNodeObserver *> observers;   ///< List of observers for changes.
-
-public:
-    void fireFatherChanging() {
-        for (std::vector<ResourceNodeObserver *>::iterator it = observers.begin(); it != observers.end(); it++)(*it)->fatherChanging();
-    }
-
-    void fireFatherChanged(bool changed) {
-        for (std::vector<ResourceNodeObserver *>::iterator it = observers.begin(); it != observers.end(); it++)(*it)->fatherChanged(changed);
-    }
-
-private:
-
     /**
      * Obtains a textual name of the status this node is in.
      * @return Name of the status.
@@ -102,10 +57,6 @@ private:
 
     // StructureNodeObserver methods
     void availabilityChanged(bool available);
-
-    void startChanges() {}
-
-    void commitChanges(bool fatherChanged, const std::list<CommAddress> & childChanges) {}
 
     /**
      * Checks whether there has been enough changes in the last transaction to notify the father
@@ -141,7 +92,7 @@ public:
     /**
      * Registers itself with the CommLayer object.
      */
-    ResourceNode(StructureNode & sn);
+    ResourceNode();
     ~ResourceNode() {}
 
     bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
@@ -150,7 +101,7 @@ public:
      * Returns the address of the father node.
      * @return Pointer to the address of the father node. It is null if there is no father node.
      */
-    const CommAddress & getFather() const {
+    virtual const CommAddress & getFatherAddress() const {
         return father;
     }
 
@@ -162,10 +113,5 @@ public:
         ar & father & seq;
     }
 };
-
-inline ResourceNodeObserver::ResourceNodeObserver(ResourceNode & rn) :
-        resourceNode(rn) {
-    rn.observers.push_back(this);
-}
 
 #endif /*RESOURCENODE_H_*/

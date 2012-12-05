@@ -52,7 +52,7 @@ void TrafficStatistics::msgReceived(uint32_t src, uint32_t dst, unsigned int siz
     // If it is a finishing task, account for data transfers
     if (typeid(msg) == typeid(TaskStateChgMsg)) {
         NodeTraffic & nt = nodeStatistics[dst];
-        TaskDescription & desc = sim.getNode(src).getScheduler()
+        TaskDescription & desc = sim.getNode(src).getSch()
                 .getTask(static_cast<const TaskStateChgMsg &>(msg).getTaskId())->getDescription();
         nt.dataBytesRecv += desc.getInputSize() * 1024ULL;
         nt.dataBytesSent += desc.getOutputSize() * 1024ULL;
@@ -62,7 +62,7 @@ void TrafficStatistics::msgReceived(uint32_t src, uint32_t dst, unsigned int siz
     if (src == dst) return;
 
     {
-        unsigned int level = sim.getNode(src).getSNLevel();
+        unsigned int level = sim.getNode(src).getBranchLevel();
         if (typeSentStatistics.size() <= level) typeSentStatistics.resize(level + 1);
         if (typeRecvStatistics.size() <= level) typeRecvStatistics.resize(level + 1);
         MessageType & mt = typeSentStatistics[level][msg.getName()];
@@ -73,7 +73,7 @@ void TrafficStatistics::msgReceived(uint32_t src, uint32_t dst, unsigned int siz
         typeRecvStatistics[level][msg.getName()];
     }
     {
-        unsigned int level = sim.getNode(dst).getSNLevel();
+        unsigned int level = sim.getNode(dst).getBranchLevel();
         if (typeSentStatistics.size() <= level) typeSentStatistics.resize(level + 1);
         if (typeRecvStatistics.size() <= level) typeRecvStatistics.resize(level + 1);
         MessageType & mt = typeRecvStatistics[level][msg.getName()];
@@ -145,7 +145,7 @@ void TrafficStatistics::saveTotalStatistics() {
     for (vector<NodeTraffic>::const_iterator i = nodeStatistics.begin(); i != nodeStatistics.end(); i++, addr++) {
         double inBW = sim.getNetInterface(addr).inBW;
         double outBW = sim.getNetInterface(addr).outBW;
-        unsigned int level = sim.getNode(addr).getSNLevel();
+        unsigned int level = sim.getNode(addr).getBranchLevel();
         //if (level > maxLevel) maxLevel = level;
         os << CommAddress(addr, ConfigurationManager::getInstance().getPort()) << ',' << level << ','
             << i->bytesSent << ',' << ((i->bytesSent / totalTime) / outBW) << ','

@@ -30,44 +30,52 @@ double MMPDispatcher::beta = 1.0;
 
 void MMPDispatcher::recomputeInfo() {
     LogMsg("Dsp.QB", DEBUG) << "Recomputing the branch information";
-    // Only recalculate info for the father
-    std::vector<Link>::iterator child = children.begin();
-    for (; child != children.end() && !child->availInfo.get(); child++);
-    if (child == children.end()) {
+    // Recalculate info for the father
+    if (leftChild.availInfo.get()) {
+        father.waitingInfo.reset(leftChild.availInfo->clone());
+        if (rightChild.availInfo.get())
+            father.waitingInfo->join(*rightChild.availInfo);
+        LogMsg("Dsp.QB", DEBUG) << "The result is " << *father.waitingInfo;
+    } else if (rightChild.availInfo.get()) {
+        father.waitingInfo.reset(rightChild.availInfo->clone());
+        LogMsg("Dsp.QB", DEBUG) << "The result is " << *father.waitingInfo;
+    } else
         father.waitingInfo.reset();
-        return;
-    }
-    father.waitingInfo.reset(child->availInfo->clone());
-    for (child++; child != children.end(); child++)
-        if (child->availInfo.get())
-            father.waitingInfo->join(*child->availInfo);
-    LogMsg("Dsp.QB", DEBUG) << "The result is " << *father.waitingInfo;
 
-    if (!structureNode.isRNChildren()) {
-        for (unsigned int i = 0; i < children.size(); i++) {
-            LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for child " << i;
-            // TODO: send full information, based on configuration switch
-            std::list<Time> queueLengths;
-            if (structureNode.getFather() != CommAddress() && father.availInfo.get()) {
-                queueLengths.push_back(father.availInfo->getMinQueueLength());
-                queueLengths.push_back(father.availInfo->getMaxQueueLength());
-            }
-            for (unsigned int j = 0; j < children.size(); j++)
-                if (j != i && children[j].availInfo.get()) {
-                    queueLengths.push_back(children[j].availInfo->getMinQueueLength());
-                    queueLengths.push_back(children[j].availInfo->getMaxQueueLength());
-                }
-            if (!queueLengths.empty()) {
-                Time minQueue = queueLengths.front(), maxQueue = queueLengths.front();
-                for (std::list<Time>::iterator it = queueLengths.begin(); it != queueLengths.end(); it++) {
-                    if (minQueue > *it) minQueue = *it;
-                    if (maxQueue < *it) maxQueue = *it;
-                }
-                children[i].waitingInfo.reset(new MMPAvailabilityInformation);
-                children[i].waitingInfo->setMinQueueLength(minQueue);
-                children[i].waitingInfo->setMaxQueueLength(maxQueue);
-            }
-        }
+    if(!branch.isLeftLeaf()) {
+        LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for left child.";
+        // TODO: send full information, based on configuration switch
+        if (father.availInfo.get()) {
+            Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
+            leftChild.waitingInfo.reset(new MMPAvailabilityInformation);
+            if (rightChild.availInfo.get()) {
+                Time rightMaxQueue = rightChild.availInfo->getMaxQueueLength();
+                leftChild.waitingInfo->setMaxQueueLength(fatherMaxQueue > rightMaxQueue ? fatherMaxQueue : rightMaxQueue);
+            } else
+                leftChild.waitingInfo->setMaxQueueLength(fatherMaxQueue);
+        } else if (rightChild.availInfo.get()) {
+            leftChild.waitingInfo.reset(new MMPAvailabilityInformation);
+            leftChild.waitingInfo->setMaxQueueLength(rightChild.availInfo->getMaxQueueLength());
+        } else
+            leftChild.waitingInfo.reset();
+    }
+
+    if(!branch.isRightLeaf()) {
+        LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for right child.";
+        // TODO: send full information, based on configuration switch
+        if (father.availInfo.get()) {
+            Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
+            rightChild.waitingInfo.reset(new MMPAvailabilityInformation);
+            if (leftChild.availInfo.get()) {
+                Time leftMaxQueue = leftChild.availInfo->getMaxQueueLength();
+                rightChild.waitingInfo->setMaxQueueLength(fatherMaxQueue > leftMaxQueue ? fatherMaxQueue : leftMaxQueue);
+            } else
+                rightChild.waitingInfo->setMaxQueueLength(fatherMaxQueue);
+        } else if (leftChild.availInfo.get()) {
+            rightChild.waitingInfo.reset(new MMPAvailabilityInformation);
+            rightChild.waitingInfo->setMaxQueueLength(leftChild.availInfo->getMaxQueueLength());
+        } else
+            rightChild.waitingInfo.reset();
     }
 }
 
@@ -77,7 +85,7 @@ void MMPDispatcher::recomputeInfo() {
  */
 struct MMPDispatcher::DecissionInfo {
     MMPAvailabilityInformation::MDPTCluster * cluster;
-    unsigned int numBranch;
+    bool leftBranch;
     double distance;
     double availability;
     unsigned int numTasks;
@@ -86,8 +94,8 @@ struct MMPDispatcher::DecissionInfo {
     static const uint32_t ALPHA_DISK = 1;
     static const uint32_t ALPHA_TIME = 100;
 
-    DecissionInfo(MMPAvailabilityInformation::MDPTCluster * c, const TaskDescription & req, unsigned int b, double d)
-            : cluster(c), numBranch(b), distance(d) {
+    DecissionInfo(MMPAvailabilityInformation::MDPTCluster * c, const TaskDescription & req, bool b, double d)
+            : cluster(c), leftBranch(b), distance(d) {
         double oneTaskTime = req.getLength() / (double)c->minP;
         availability = ALPHA_MEM * c->getLostMemory(req)
                 + ALPHA_DISK * c->getLostDisk(req)
@@ -104,7 +112,7 @@ struct MMPDispatcher::DecissionInfo {
 void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN()) return;
     LogMsg("Dsp.QB", INFO) << "Received a TaskBagMsg from " << src;
-    if (!structureNode.inNetwork()) {
+    if (!branch.inNetwork()) {
         LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but not in network";
         return;
     }
@@ -122,7 +130,7 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     LogMsg("Dsp.QB", INFO) << "Length: " << req.getLength();
 
     std::list<MMPAvailabilityInformation::MDPTCluster *> nodeGroups;
-    if (structureNode.getFather() != CommAddress()) {
+    if (father.addr != CommAddress()) {
         // Count number of tasks before the minimum length in the rest of the tree
         Time now = Time::getCurrentTime();
         //Time fatherInfo = father.availInfo.get() && (father.availInfo->getMinQueueLength() > now) ? father.availInfo->getMinQueueLength() : now;
@@ -135,11 +143,11 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         unsigned int tasks = zoneInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.QB", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
 
-        if (tasks < remainingTasks && (src != structureNode.getFather() || msg.isFromEN())) {
+        if (tasks < remainingTasks && (src != father.addr || msg.isFromEN())) {
             // Send it up if there are not enough nodes, we are not the root and the sender is not our father or it is a child with the same address
             TaskBagMsg * tbm = msg.clone();
             tbm->setFromEN(false);
-            CommLayer::getInstance().sendMessage(structureNode.getFather(), tbm);
+            CommLayer::getInstance().sendMessage(father.addr, tbm);
             LogMsg("Dsp.QB", INFO) << "Not enough nodes, send to the father";
             return;
         }
@@ -157,76 +165,53 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     LogMsg("Dsp.QB", DEBUG) << "The calculated queue length is " << balancedQueue;
 
     // Calculate distances
-    std::vector<double> distances(children.size(), 1000.0);
     const CommAddress & requester = msg.getRequester();
-    for (unsigned int numZone = 0; numZone < children.size(); numZone++) {
-        if (children[numZone].addr == requester && !msg.isFromEN()) continue;
-        for (StructureNode::zoneConstIterator zone = structureNode.getFirstSubZone();
-                zone != structureNode.getLastSubZone(); zone++) {
-            if ((*zone)->getLink() == children[numZone].addr && (*zone)->getZone().get()) {
-                distances[numZone] = requester.distance((*zone)->getZone()->getMinAddress());
-                if (requester.distance((*zone)->getZone()->getMaxAddress()) < distances[numZone])
-                    distances[numZone] = requester.distance((*zone)->getZone()->getMaxAddress());
-                LogMsg("Dsp.QB", DEBUG) << "This zone is at distance " << distances[numZone];
-            }
-        }
-    }
+    double leftDistance = branch.getLeftDistance(requester),
+            rightDistance = branch.getRightDistance(requester);
 
     // First create a list of node groups which can potentially manage the request
     std::list<DecissionInfo> groups;
-    for (unsigned int numZone = 0; numZone < children.size(); numZone++) {
-        Link & child = children[numZone];
-        LogMsg("Dsp.QB", DEBUG) << "Checking zone " << numZone;
-        // Ignore zones without information
-        if (!child.availInfo.get()) {
-            LogMsg("Dsp.QB", DEBUG) << "This zone has no information, skipping";
-            continue;
-        }
+    if (leftChild.availInfo.get()) {
         nodeGroups.clear();
-        child.availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability";
+        leftChild.availInfo->getAvailability(nodeGroups, req);
+        LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
             LogMsg("Dsp.QB", DEBUG) << (*git)->value << " tasks of size availability " << req.getLength();
-            groups.push_back(DecissionInfo(*git, req, numZone, distances[numZone]));
+            groups.push_back(DecissionInfo(*git, req, true, leftDistance));
+        }
+    }
+    if (rightChild.availInfo.get()) {
+        nodeGroups.clear();
+        rightChild.availInfo->getAvailability(nodeGroups, req);
+        LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from right child.";
+        for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
+            LogMsg("Dsp.QB", DEBUG) << (*git)->value << " tasks of size availability " << req.getLength();
+            groups.push_back(DecissionInfo(*git, req, true, leftDistance));
         }
     }
     LogMsg("Dsp.QB", DEBUG) << groups.size() << " groups found";
     groups.sort();
 
     // Now divide the request between the zones
-    std::vector<unsigned int> numTasks(children.size(), 0);
+    unsigned int leftTasks = 0, rightTasks = 0;
     for (std::list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.QB", DEBUG) << "Using group from branch " << it->numBranch << " and " << it->numTasks << " tasks";
+        LogMsg("Dsp.QB", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->numTasks << " tasks";
         unsigned int tasksInGroup = it->numTasks;
         if (remainingTasks > tasksInGroup) {
-            numTasks[it->numBranch] += tasksInGroup;
+            (it->leftBranch ? leftTasks : rightTasks) += tasksInGroup;
             remainingTasks -= tasksInGroup;
         } else {
-            numTasks[it->numBranch] += remainingTasks;
+            (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
             remainingTasks = 0;
         }
         it->cluster->maxT = balancedQueue;
     }
 
-    // Now create and send the messages
-    for (unsigned int numZone = 0; numZone < children.size(); numZone++) {
-        if (numTasks[numZone] > 0) {
-            children[numZone].availInfo->updateMaxT(balancedQueue);
-            LogMsg("Dsp.QB", INFO) << "Sending " << numTasks[numZone] << " tasks to @" << children[numZone].addr;
-            // Create the message
-            TaskBagMsg * tbm = msg.clone();
-            tbm->setForEN(structureNode.isRNChildren());
-            tbm->setFirstTask(nextTask);
-            nextTask += numTasks[numZone];
-            tbm->setLastTask(nextTask - 1);
-            CommLayer::getInstance().sendMessage(children[numZone].addr, tbm);
-        }
-    }
+    if (leftTasks > 0)
+        leftChild.availInfo->updateMaxT(balancedQueue);
+    if (rightTasks > 0)
+        rightChild.availInfo->updateMaxT(balancedQueue);
 
-    // If this branch cannot execute all the tasks, send the request to the father
-    if (remainingTasks) {
-        LogMsg("Dsp.QB", INFO) << "There are " << remainingTasks << " remaining tasks";
-        // Just ignore them
-        LogMsg("Dsp.QB", INFO) << "But came from the father.";
-    }
+    // Now create and send the messages, do not send up remaining tasks
+    sendTasks(msg, leftTasks, rightTasks, true);
 }

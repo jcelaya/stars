@@ -154,7 +154,7 @@ void MMPAvailabilityInformation::setQueueEnd(uint32_t mem, uint32_t disk, uint32
     minM = maxM = mem;
     minD = maxD = disk;
     minP = maxP = power;
-    minT = maxT = minQueue = maxQueue = end;
+    minT = maxT = maxQueue = end;
     summary.pushBack(MDPTCluster(this, mem, disk, power, end));
 }
 
@@ -162,10 +162,7 @@ void MMPAvailabilityInformation::setQueueEnd(uint32_t mem, uint32_t disk, uint32
 void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
     if (!r.summary.isEmpty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
-        // Aggregate min queue time
-        if (r.minQueue < minQueue)
-            minQueue = r.minQueue;
-
+        // Aggregate max queue time
         if (r.maxQueue > maxQueue)
             maxQueue = r.maxQueue;
 
