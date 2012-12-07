@@ -34,7 +34,7 @@ SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDes
 
 
 SimTask::~SimTask() {
-    Simulator::getInstance().getStarsStatistics().taskFinished(timer != -1);
+    Simulator::getInstance().getStarsStatistics().taskFinished(*this, timer != -1);
 }
 
 

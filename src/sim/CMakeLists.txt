@@ -21,6 +21,8 @@ if(SIMGRID_FOUND)
         SimulationCase.cpp
         Simulator.cpp
         RequestGenerator.cpp
+        SimOverlayLeaf.cpp
+        SimOverlayBranch.cpp
         ${cases_sources})
 
     set(STARS_LIBRARIES stars${BIN_SUFFIX})

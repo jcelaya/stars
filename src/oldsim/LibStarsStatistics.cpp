@@ -122,7 +122,6 @@ void LibStarsStatistics::saveCPUStatistics() {
     fs::ofstream os(sim.getResultDir() / fs::path("cpu.stat"));
     os << std::setprecision(6) << std::fixed;
 
-    unsigned int maxTasks = 0;
     uint16_t port = ConfigurationManager::getInstance().getPort();
     os << "# Node, tasks exec'd" << std::endl;
     for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
@@ -130,7 +129,6 @@ void LibStarsStatistics::saveCPUStatistics() {
         unsigned int executedTasks = node.getSch().getExecutedTasks();
         os << CommAddress(addr, port) << ',' << executedTasks << ','
                 << node.getAveragePower() << ',' << node.getAvailableMemory() << ',' << node.getAvailableDisk() << std::endl;
-        if (executedTasks > maxTasks) maxTasks = executedTasks;
     }
 }
 

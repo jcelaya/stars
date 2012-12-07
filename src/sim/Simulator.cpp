@@ -198,8 +198,7 @@ bool Simulator::run(const std::string & confFile) {
     StarsNode::libStarsConfigure(property);
 
     // Platform setup
-    // Platform file relative to configuration file directory
-    MSG_create_environment((fs::absolute(confFile).parent_path() / property("platform_file", std::string())).native().c_str());
+    MSG_create_environment(fs::path(property("platform_file", std::string())).native().c_str());
     xbt_dynar_t hosts = MSG_hosts_as_dynar();
     unsigned int numNodes = xbt_dynar_length(hosts);
     pstats.resizeNumNodes(numNodes);
@@ -247,7 +246,7 @@ bool Simulator::run(const std::string & confFile) {
 
 
 void Simulator::showInformation() {
-    PROGRESS(getSimulationCase()->getProperties());
+    PROGRESS(simCase->getProperties());
 }
 
 

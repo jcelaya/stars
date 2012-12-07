@@ -32,9 +32,9 @@ namespace iost = boost::iostreams;
 #include "Logger.hpp"
 #include "Properties.hpp"
 #include "SimAppDatabase.hpp"
-#include "StructureNode.hpp"
+#include "OverlayBranch.hpp"
 #include "SubmissionNode.hpp"
-#include "ResourceNode.hpp"
+#include "OverlayLeaf.hpp"
 #include "Scheduler.hpp"
 #include "Dispatcher.hpp"
 #include "AvailabilityInformation.hpp"
@@ -49,20 +49,52 @@ namespace iost = boost::iostreams;
  */
 class StarsNode : public CommLayer {
 public:
-    enum {
-        SimpleSchedulerClass = 0,
-        FCFSSchedulerClass = 1,
-        EDFSchedulerClass = 2,
-        MinSlownessSchedulerClass = 3,
+    class Configuration {
+        int minMem;
+        int maxMem;
+        int stepMem;
+        int minDisk;
+        int maxDisk;
+        int stepDisk;
+        int policy;
+        std::string inFileName;
+        fs::ifstream inFile;
+        iost::filtering_streambuf<iost::input> in;
+        std::string outFileName;
+        fs::ofstream outFile;
+        iost::filtering_streambuf<iost::output> out;
+        friend class StarsNode;
+
+    public:
+        enum {
+            IBPolicy = 0,
+            MMPolicy = 1,
+            DPolicy = 2,
+            MSPolicy = 3,
+        };
+
+        static Configuration & getInstance() {
+            static Configuration instance;
+            return instance;
+        }
+
+        void setup(const Properties & property);
+
+        int getPolicy() const { return policy; }
     };
 
-    enum {
-        SN = 0,
-        RN,
-        Sub,
-        Sch,
-        Disp,
-    };
+    /**
+     * The entry point for every process. Each host is assigned this function as its entry
+     * point. The private data of each process is its corresponding StarsNode object.
+     */
+    static int processFunction(int argc, char * argv[]);
+
+    /**
+     * Measures the size of a serialized BasicMsg-derived object.
+     */
+    static unsigned long int getMsgSize(BasicMsg * msg);
+
+    static void libStarsConfigure(const Properties & property);
 
     StarsNode() {}
     StarsNode(const StarsNode & copy) {}
@@ -83,9 +115,9 @@ public:
     }
 
     // createServices() must be called before these methods
-    StructureNode & getStructureNode() const { return static_cast<StructureNode &>(*services[SN]); }
-    ResourceNode & getResourceNode() const { return static_cast<ResourceNode &>(*services[RN]); }
-    SubmissionNode & getSubmissionNode() const { return static_cast<SubmissionNode &>(*services[Sub]); }
+    OverlayBranch & getBranch() const { return static_cast<OverlayBranch &>(*services[Branch]); }
+    OverlayLeaf & getLeaf() const { return static_cast<OverlayLeaf &>(*services[Leaf]); }
+    SubmissionNode & getSub() const { return static_cast<SubmissionNode &>(*services[Sub]); }
     Scheduler & getSch() const { return static_cast<Scheduler &>(*services[Sch]); }
     DispatcherInterface & getDisp() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() {
@@ -101,9 +133,10 @@ public:
     unsigned long int getAvailableDisk() const {
         return disk;
     }
-    int getPolicyType() const {
-        return policy;
-    }
+
+    unsigned int getBranchLevel() const;
+
+    void buildDispatcher();
 
     //     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
     //     unsigned int getSNLevel() const;
@@ -118,28 +151,23 @@ public:
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
     }
 
-    /**
-     * The entry point for every process. Each host is assigned this function as its entry
-     * point. The private data of each process is its corresponding StarsNode object.
-     */
-    static int processFunction(int argc, char * argv[]);
-
-    /**
-     * Measures the size of a serialized BasicMsg-derived object.
-     */
-    static unsigned long int getMsgSize(BasicMsg * msg);
-
-    static void libStarsConfigure(const Properties & property);
-
 private:
+    enum {
+        Branch = 0,
+        Leaf,
+        Sub,
+        Sch,
+        Disp,
+    };
+
     int mainLoop();
 
     void createServices();
     void destroyServices();
+    template <class T> void buildDispatcherGen();
 
     m_host_t simHost;
     std::string mailbox;
-    int policy;
     SimAppDatabase db;
     double power;
     unsigned long int mem;

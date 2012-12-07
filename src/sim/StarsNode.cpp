@@ -22,8 +22,8 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include "StarsNode.hpp"
-#include "ResourceNode.hpp"
-#include "StructureNode.hpp"
+#include "SimOverlayLeaf.hpp"
+#include "SimOverlayBranch.hpp"
 #include "SubmissionNode.hpp"
 #include "DPScheduler.hpp"
 #include "DPDispatcher.hpp"
@@ -124,76 +124,60 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 }
 
 
-// Configuration object
-struct StarsNodeConfiguration {
-    int minMem;
-    int maxMem;
-    int stepMem;
-    int minDisk;
-    int maxDisk;
-    int stepDisk;
-    int sched;
-    std::string inFileName;
-    fs::ifstream inFile;
-    iost::filtering_streambuf<iost::input> in;
-    std::string outFileName;
-    fs::ofstream outFile;
-    iost::filtering_streambuf<iost::output> out;
-
-    static StarsNodeConfiguration & getInstance() {
-        static StarsNodeConfiguration instance;
-        return instance;
+void StarsNode::Configuration::setup(const Properties & property) {
+    minMem = property("min_mem", 256);
+    maxMem = property("max_mem", 4096);
+    stepMem = property("step_mem", 256);
+    minDisk = property("min_disk", 64);
+    maxDisk = property("max_disk", 1000);
+    stepDisk = property("step_disk", 100);
+    inFileName = property("in_file", string(""));
+    outFileName = property("out_file", string(""));
+    string s = property("policy", string(""));
+    if (s == "DS") policy = DPolicy;
+    else if (s == "MS") policy = MSPolicy;
+    else if (s == "FCFS") policy = MMPolicy;
+    else policy = IBPolicy;
+    if (inFileName != "") {
+        inFile.exceptions(ios_base::failbit | ios_base::badbit);
+        inFile.open(inFileName, ios_base::binary);
+        if (inFileName.substr(inFileName.length() - 3) == ".gz")
+            in.push(iost::gzip_decompressor());
+        in.push(inFile);
     }
-
-    void setup(const Properties & property) {
-        minMem = property("min_mem", 256);
-        maxMem = property("max_mem", 4096);
-        stepMem = property("step_mem", 256);
-        minDisk = property("min_disk", 64);
-        maxDisk = property("max_disk", 1000);
-        stepDisk = property("step_disk", 100);
-        inFileName = property("in_file", string(""));
-        outFileName = property("out_file", string(""));
-        string s = property("scheduler", string(""));
-        if (s == "DS") sched = StarsNode::EDFSchedulerClass;
-        else if (s == "MS") sched = StarsNode::MinSlownessSchedulerClass;
-        else if (s == "FCFS") sched = StarsNode::FCFSSchedulerClass;
-        else sched = StarsNode::SimpleSchedulerClass;
-        if (inFileName != "") {
-            inFile.exceptions(ios_base::failbit | ios_base::badbit);
-            inFile.open(inFileName, ios_base::binary);
-            if (inFileName.substr(inFileName.length() - 3) == ".gz")
-                in.push(iost::gzip_decompressor());
-            in.push(inFile);
-        }
-        if (outFileName != "") {
-            // Create directories if needed
-            fs::path parentDir = fs::absolute(outFileName).parent_path();
-            if (!fs::exists(parentDir))
-                 fs::create_directories(parentDir);
-            outFile.exceptions(ios_base::failbit | ios_base::badbit);
-            outFile.open(outFileName, ios_base::binary);
-            if (outFileName.substr(outFileName.length() - 3) == ".gz")
-                out.push(iost::gzip_compressor());
-            out.push(outFile);
-        }
+    if (outFileName != "") {
+        // Create directories if needed
+        fs::path parentDir = fs::absolute(outFileName).parent_path();
+        if (!fs::exists(parentDir))
+             fs::create_directories(parentDir);
+        outFile.exceptions(ios_base::failbit | ios_base::badbit);
+        outFile.open(outFileName, ios_base::binary);
+        if (outFileName.substr(outFileName.length() - 3) == ".gz")
+            out.push(iost::gzip_compressor());
+        out.push(outFile);
     }
-};
+}
 
 
 void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setUpdateBandwidth(property("update_bw", 1000.0));
     ConfigurationManager::getInstance().setSlownessRatio(property("stretch_ratio", 2.0));
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
+    ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
     unsigned int clustersBase = property("avail_clusters_base", 3U);
     if (clustersBase) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
         MMPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
         DPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+        MSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
     }
+    IBPAvailabilityInformation::setMethod(property("aggregation_method", (int)IBPAvailabilityInformation::MINIMUM));
+    MMPAvailabilityInformation::setMethod(property("aggregation_method", (int)MMPAvailabilityInformation::MINIMUM));
     DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
-    StarsNodeConfiguration::getInstance().setup(property);
+    MSPAvailabilityInformation::setNumPieces(property("si_pieces", 64U));
+    MMPDispatcher::setBeta(property("mmp_beta", 0.5));
+    StarsNode::Configuration::getInstance().setup(property);
 }
 
 
@@ -203,7 +187,7 @@ void StarsNode::setup(unsigned int addr, m_host_t host) {
     ostringstream oss;
     oss << localAddress;
     mailbox = oss.str();
-    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    Configuration & cfg = Configuration::getInstance();
     power = MSG_get_host_speed(simHost) / 1000000.0;
     // NOTE: using the same seed generates the same set of memory and disk values between simulations
 //     const char * memoryStr = MSG_host_get_property_value(simHost, "mem");
@@ -216,7 +200,6 @@ void StarsNode::setup(unsigned int addr, m_host_t host) {
 //         istringstream(string(diskStr)) >> disk;
 //     else
         disk = Simulator::uniform(cfg.minDisk, cfg.maxDisk, cfg.stepDisk);
-    policy = cfg.sched;
 
     createServices();
     // Load service state if needed
@@ -239,7 +222,7 @@ int StarsNode::mainLoop() {
     while(sim.doContinue()) {
         // Event loop: receive messages from the simulator and treat them
         m_task_t task = NULL;
-        double timeout = timerList.empty() ? 5.0 : (timerList.front().timeout - Time::getCurrentTime()).seconds();
+        double timeout = timerList.empty() ? 1000.0 : (timerList.front().timeout - Time::getCurrentTime()).seconds();
         msg_comm_t comm = MSG_task_irecv(&task, mailbox.c_str());
         if (MSG_comm_wait(comm, timeout) == MSG_OK) {
             MSG_comm_destroy(comm);
@@ -274,7 +257,7 @@ int StarsNode::mainLoop() {
 
 
 void StarsNode::finish()  {
-    StarsNodeConfiguration & cfg = StarsNodeConfiguration::getInstance();
+    Configuration & cfg = Configuration::getInstance();
     if (cfg.outFile.is_open()) {
         packState(cfg.out);
     }
@@ -309,11 +292,6 @@ public:
     }
 };
 
-template<> inline MsgpackOutArchive & MsgpackOutArchive::operator&(TransactionalZoneDescription & o) {
-    o.serializeState(*this);
-    return *this;
-}
-
 const bool MsgpackOutArchive::valid = true, MsgpackOutArchive::invalid = false;
 
 
@@ -321,19 +299,18 @@ void StarsNode::packState(std::streambuf & out) {
     msgpack::sbuffer buffer;
     msgpack::packer<msgpack::sbuffer> pk(&buffer);
     MsgpackOutArchive ar(pk);
-    getStructureNode().serializeState(ar);
-    getResourceNode().serializeState(ar);
-    switch (policy) {
-        case SimpleSchedulerClass:
+    ar & power & mem & disk & static_cast<SimOverlayBranch &>(getBranch()) & static_cast<SimOverlayLeaf &>(getLeaf());
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::IBPolicy:
             static_cast<IBPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case FCFSSchedulerClass:
+        case Configuration::MMPolicy:
             static_cast<MMPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case EDFSchedulerClass:
+        case Configuration::DPolicy:
             static_cast<DPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case MinSlownessSchedulerClass:
+        case Configuration::MSPolicy:
             static_cast<MSPDispatcher &>(getDisp()).serializeState(ar);
             break;
         default:
@@ -374,11 +351,6 @@ public:
     }
 };
 
-template<> inline MsgpackInArchive & MsgpackInArchive::operator&(TransactionalZoneDescription & o) {
-    o.serializeState(*this);
-    return *this;
-}
-
 
 void StarsNode::unpackState(std::streambuf & in) {
     uint32_t size;
@@ -388,19 +360,18 @@ void StarsNode::unpackState(std::streambuf & in) {
     in.sgetn(upk.buffer(), size);
     upk.buffer_consumed(size);
     MsgpackInArchive ar(upk);
-    getStructureNode().serializeState(ar);
-    getResourceNode().serializeState(ar);
-    switch (policy) {
-        case SimpleSchedulerClass:
+    ar & power & mem & disk & static_cast<SimOverlayBranch &>(getBranch()) & static_cast<SimOverlayLeaf &>(getLeaf());
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::IBPolicy:
             static_cast<IBPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case FCFSSchedulerClass:
+        case Configuration::MMPolicy:
             static_cast<MMPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case EDFSchedulerClass:
+        case Configuration::DPolicy:
             static_cast<DPDispatcher &>(getDisp()).serializeState(ar);
             break;
-        case MinSlownessSchedulerClass:
+        case Configuration::MSPolicy:
             static_cast<MSPDispatcher &>(getDisp()).serializeState(ar);
             break;
         default:
@@ -410,25 +381,25 @@ void StarsNode::unpackState(std::streambuf & in) {
 
 
 void StarsNode::createServices() {
-    services.push_back(new StructureNode(2));
-    services.push_back(new ResourceNode);
-    services.push_back(new SubmissionNode(getResourceNode()));
-    switch (policy) {
-        case StarsNode::FCFSSchedulerClass:
-            services.push_back(new MMPScheduler(getResourceNode()));
-            services.push_back(new MMPDispatcher(getStructureNode()));
+    services.push_back(new SimOverlayBranch);
+    services.push_back(new SimOverlayLeaf);
+    services.push_back(new SubmissionNode(getLeaf()));
+    switch (Configuration::getInstance().getPolicy()) {
+        case Configuration::MMPolicy:
+            services.push_back(new MMPScheduler(getLeaf()));
+            services.push_back(new MMPDispatcher(getBranch()));
             break;
-        case StarsNode::EDFSchedulerClass:
-            services.push_back(new DPScheduler(getResourceNode()));
-            services.push_back(new DPDispatcher(getStructureNode()));
+        case Configuration::DPolicy:
+            services.push_back(new DPScheduler(getLeaf()));
+            services.push_back(new DPDispatcher(getBranch()));
             break;
-        case StarsNode::MinSlownessSchedulerClass:
-            services.push_back(new MSPScheduler(getResourceNode()));
-            services.push_back(new MSPDispatcher(getStructureNode()));
+        case Configuration::MSPolicy:
+            services.push_back(new MSPScheduler(getLeaf()));
+            services.push_back(new MSPDispatcher(getBranch()));
             break;
         default:
-            services.push_back(new IBPScheduler(getResourceNode()));
-            services.push_back(new IBPDispatcher(getStructureNode()));
+            services.push_back(new IBPScheduler(getLeaf()));
+            services.push_back(new IBPDispatcher(getBranch()));
             break;
     }
 }
@@ -442,11 +413,88 @@ void StarsNode::destroyServices() {
 }
 
 
+unsigned int StarsNode::getBranchLevel() const {
+    if (!getBranch().inNetwork())
+        return Simulator::getInstance().getNode(getLeaf().getFatherAddress().getIPNum()).getBranchLevel() + 1;
+    else if (getBranch().getFatherAddress() != CommAddress())
+        return Simulator::getInstance().getNode(getBranch().getFatherAddress().getIPNum()).getBranchLevel() + 1;
+    else return 0;
+}
+
+
 unsigned long int StarsNode::getMsgSize(BasicMsg * msg) {
     ostringstream oss;
     msgpack::packer<std::ostream> pk(&oss);
     msg->pack(pk);
     return oss.tellp();
+}
+
+
+void StarsNode::buildDispatcher() {
+    // Generate Dispatcher state
+    switch (Configuration::getInstance().getPolicy()) {
+    case Configuration::IBPolicy:
+        buildDispatcherGen<IBPDispatcher>();
+        break;
+    case Configuration::MMPolicy:
+        buildDispatcherGen<MMPDispatcher>();
+        break;
+    case Configuration::DPolicy:
+        buildDispatcherGen<DPDispatcher>();
+        break;
+    case Configuration::MSPolicy:
+        buildDispatcherGen<MSPDispatcher>();
+        break;
+    default:
+        break;
+    }
+}
+
+
+class MemoryOutArchive {
+    vector<void *>::iterator ptr;
+public:
+    typedef boost::mpl::bool_<false> is_loading;
+    MemoryOutArchive(vector<void *>::iterator o) : ptr(o) {}
+    template<class T> MemoryOutArchive & operator<<(T & o) { *ptr++ = &o; return *this; }
+    template<class T> MemoryOutArchive & operator&(T & o) { return operator<<(o); }
+};
+
+
+class MemoryInArchive {
+    vector<void *>::iterator ptr;
+public:
+    typedef boost::mpl::bool_<true> is_loading;
+    MemoryInArchive(vector<void *>::iterator o) : ptr(o) {}
+    template<class T> MemoryInArchive & operator>>(T & o) { o = *static_cast<T *>(*ptr++); return *this; }
+    template<class T> MemoryInArchive & operator&(T & o) { return operator>>(o); }
+};
+
+
+template <class T> void StarsNode::buildDispatcherGen() {
+    Simulator & sim = Simulator::getInstance();
+    vector<void *> vv(200);
+    MemoryOutArchive oaa(vv.begin());
+    typename T::Link fatherLink, leftLink, rightLink;
+    fatherLink.addr = getBranch().getFatherAddress();
+    leftLink.addr = getBranch().getLeftAddress();
+    rightLink.addr = getBranch().getRightAddress();
+    if (getBranch().isLeftLeaf())
+        leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getSch().getAvailability().clone()));
+    else
+        leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
+    if (getBranch().isRightLeaf())
+        rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getSch().getAvailability().clone()));
+    else
+        rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
+    leftLink.availInfo->reduce();
+    rightLink.availInfo->reduce();
+    fatherLink.serializeState(oaa);
+    leftLink.serializeState(oaa);
+    rightLink.serializeState(oaa);
+    MemoryInArchive iaa(vv.begin());
+    static_cast<T &>(getDisp()).serializeState(iaa);
+    static_cast<T &>(getDisp()).recomputeInfo();
 }
 
 

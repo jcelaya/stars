@@ -10,7 +10,7 @@ Sweeper:
 Old simulator:
 - Beware with common file paths, like siteLevel traces
 - Include full checkpointing:
-	- Change serialize methods by msgpack methods.
+    - Change serialize methods by msgpack methods.
 - Allow to change parameters in real time, e.g. maximum memory limit
 
 SimGrid based simulator:
@@ -19,6 +19,7 @@ SimGrid based simulator:
 - Add the rest of the statistics to the simulator: traffic and availability. Traffic is included in the simulation engine, I expect...
 - Add the perfect scheduler
 - Add the failure generator: it should be procedural and not part of the platform description
+- Substitute Properties with boost::program_options?
 
 All:
 - Documentation, comments and Doxygen

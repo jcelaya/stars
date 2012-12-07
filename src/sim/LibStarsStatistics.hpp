@@ -25,9 +25,9 @@
 #include <utility>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/thread/mutex.hpp>
-#include "Distributions.hpp"
 #include "Time.hpp"
 class StarsNode;
+class Task;
 
 
 class LibStarsStatistics {
@@ -50,7 +50,7 @@ public:
     void finishedApp(StarsNode & node, long int appId, Time end, int finishedTasks);
 
     void taskStarted();
-    void taskFinished(bool successful);
+    void taskFinished(const Task & t, bool successful);
     unsigned long int getExistingTasks() const { return existingTasks; }
 
 private:
@@ -70,6 +70,7 @@ private:
     unsigned long int existingTasks;
     Time lastTSample;
     unsigned int partialFinishedTasks, totalFinishedTasks;
+    unsigned long partialComputation, totalComputation;
     static const double delayTSample = 60;
 
     // App statistics
@@ -77,13 +78,6 @@ private:
     boost::filesystem::ofstream appos;
     boost::filesystem::ofstream reqos;
     boost::filesystem::ofstream slowos;
-    Histogram numNodesHist;
-    Histogram finishedHist;
-    Histogram searchHist;
-    Histogram jttHist;
-    Histogram seqHist;
-    Histogram spupHist;
-    Histogram slownessHist;
     unsigned int unfinishedApps;
     unsigned int totalApps;
     std::list<std::pair<Time, double> > lastSlowness;

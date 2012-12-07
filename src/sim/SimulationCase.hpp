@@ -49,6 +49,7 @@ public:
     virtual void afterEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {}
     // Some common events
     virtual void finishedApp(long int appId) {}
+    const Properties & getProperties() const { return property; }
 };
 
 

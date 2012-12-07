@@ -23,358 +23,111 @@
 #include <list>
 #include "Simulator.hpp"
 #include "SimulationCase.hpp"
-#include "StructureNode.hpp"
-#include "ResourceNode.hpp"
+#include "SimOverlayBranch.hpp"
+#include "SimOverlayLeaf.hpp"
 #include "IBPDispatcher.hpp"
 #include "MMPDispatcher.hpp"
 #include "DPDispatcher.hpp"
 #include "MSPDispatcher.hpp"
+using std::vector;
 
 
-class CreateTree : public SimulationCase {
+class CreateSimOverlay : public SimulationCase {
 public:
-    CreateTree(const Properties & p) : SimulationCase(p) {
+    CreateSimOverlay(const Properties & p) : SimulationCase(p) {
         // Prepare the properties
     }
 
-    static const std::string getName() { return std::string("create_tree"); }
+    static const std::string getName() { return std::string("create_sim_overlay"); }
 
     virtual void preStart() {
         // NOTE: outside MSG_main, do not call Simulator::getCurrentNode() !!
         Simulator & sim = Simulator::getInstance();
+        uint16_t port = ConfigurationManager::getInstance().getPort();
         uint32_t numNodes = sim.getNumNodes();
         uint32_t p2NumNodes = 1;
-        for (uint32_t i = numNodes; i > 1; i >>= 1) p2NumNodes <<= 1;
+        for (uint32_t i = numNodes; i > 1; i >>= 1)
+            p2NumNodes <<= 1;
+        uint32_t l1NumNodes = numNodes - p2NumNodes;
 
-        std::vector<uint32_t> treeNodes(numNodes);
-        for (uint32_t i = 0; i < numNodes; i++) treeNodes[i] = i;
-        // Shuffle
-        std::random_shuffle(treeNodes.begin(), treeNodes.end());
+        // Select l1NumNodes nodes that will have an additional level
+        vector<bool> additionalLevel(p2NumNodes, false);
+        for (uint32_t i = 0; i < l1NumNodes; ++i)
+            additionalLevel[i] = true;
+        random_shuffle(additionalLevel.begin(), additionalLevel.end());
 
-        std::list<snode> toCreate;
+        // Prepare first level and additional level
+        vector<uint32_t> currentLevel(p2NumNodes);
+        vector<uint32_t> availBranches(p2NumNodes);
+        for (uint32_t i = 0, j = 0; i < p2NumNodes; ++i, ++j) {
+            currentLevel[i] = j;
+            if (additionalLevel[i]) {
+                // Setup these SimOverlayLeafs
+                CommAddress father(j, port);
+                static_cast<SimOverlayLeaf &>(sim.getNode(j).getLeaf()).setFatherAddress(father);
+                static_cast<SimOverlayLeaf &>(sim.getNode(j + 1).getLeaf()).setFatherAddress(father);
+                // And the SimOverlayBranch
+                static_cast<SimOverlayBranch &>(sim.getNode(j).getBranch()).build(CommAddress(j, port), false, CommAddress(j + 1, port), false);
+                ++j;
+            }
+            availBranches[i] = j;
+        }
+        // Shuffle branches
+        random_shuffle(availBranches.begin(), availBranches.end());
+        uint32_t nextAvail = 0;
 
-        if (3 * p2NumNodes / 2 >= numNodes) {
-            // Ok enough nodes for 3 children in level 0
-            uint32_t threeChildren = numNodes - p2NumNodes;
-            // Generate ResourceNodes
-            for (uint32_t spos = 0, rpos = 0; spos < p2NumNodes / 2; spos++) {
-                int numChildren = spos < threeChildren ? 3 : 2;
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (int i = 0; i < numChildren; rpos++, i++) {
-                    generateRNode(sim.getNode(rpos), n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
+        // First level
+        for (size_t i = 0, j = 0; i < p2NumNodes; i += 2, ++j) {
+            uint32_t leftAddr = currentLevel[i], rightAddr = currentLevel[i + 1], fatherAddr = availBranches[nextAvail++];
+            currentLevel[j] = fatherAddr;
+            // Setup these SimOverlayLeafs
+            CommAddress father(fatherAddr, port);
+            if (additionalLevel[i])
+                static_cast<SimOverlayBranch &>(sim.getNode(leftAddr).getBranch()).setFatherAddress(father);
+            else {
+                static_cast<SimOverlayLeaf &>(sim.getNode(leftAddr).getLeaf()).setFatherAddress(father);
             }
-            // Generate structure nodes
-            while (toCreate.size() > 1) {
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                for (uint32_t i = 0; i < 2; i++) {
-                    snode c = toCreate.front();
-                    toCreate.pop_front();
-                    if (c.children.size() == 2)
-                        generateSNode(sim.getNode(c.addr), n.addr, c.children[0], c.children[1], c.level);
-                    else
-                        generateSNode(sim.getNode(c.addr), n.addr, c.children[0], c.children[1], c.children[2], c.level);
-                    n.children.push_back(c.addr);
-                    n.level = c.level + 1;
-                }
-                toCreate.push_back(n);
+            if (additionalLevel[i + 1])
+                static_cast<SimOverlayBranch &>(sim.getNode(rightAddr).getBranch()).setFatherAddress(father);
+            else {
+                static_cast<SimOverlayLeaf &>(sim.getNode(rightAddr).getLeaf()).setFatherAddress(father);
             }
-            // Root node
-            snode root = toCreate.front();
-            generateSNode(sim.getNode(root.addr), root.addr, root.children[0], root.children[1], root.level);
-        } else {
-            // We also need some level 1 nodes with 3 children
-            uint32_t twoChildren = 0;
-            if (numNodes % 3 == 1) twoChildren = 2;
-            else if (numNodes % 3 == 2) twoChildren = 1;
-            uint32_t threeChildren = (numNodes - twoChildren * 2) / 3;
-            uint32_t level1threeChildren = threeChildren + twoChildren - p2NumNodes / 2;
-            // Generate ResourceNodes
-            for (uint32_t spos = 0, rpos = 0; spos < threeChildren + twoChildren; spos++) {
-                int numChildren = spos < threeChildren ? 3 : 2;
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                n.level = 0;
-                for (int i = 0; i < numChildren; rpos++, i++) {
-                    generateRNode(sim.getNode(rpos), n.addr);
-                    n.children.push_back(rpos);
-                }
-                toCreate.push_back(n);
+            // And the SimOverlayBranch
+            static_cast<SimOverlayBranch &>(sim.getNode(fatherAddr).getBranch()).build(
+                    CommAddress(leftAddr, port), additionalLevel[i], CommAddress(rightAddr, port), additionalLevel[i + 1]);
+        }
+        p2NumNodes >>= 1;
+
+        // Next levels
+        while (p2NumNodes > 1) {
+            for (size_t i = 0, j = 0; i < p2NumNodes; ++i, ++j) {
+                uint32_t leftAddr = currentLevel[i], rightAddr = currentLevel[++i], fatherAddr = availBranches[nextAvail++];
+                currentLevel[j] = fatherAddr;
+                // Setup these SimOverlayLeafs
+                CommAddress father(fatherAddr, port);
+                static_cast<SimOverlayBranch &>(sim.getNode(leftAddr).getBranch()).setFatherAddress(father);
+                static_cast<SimOverlayBranch &>(sim.getNode(rightAddr).getBranch()).setFatherAddress(father);
+                // And the SimOverlayBranch
+                static_cast<SimOverlayBranch &>(sim.getNode(fatherAddr).getBranch()).build(
+                        CommAddress(leftAddr, port), true, CommAddress(rightAddr, port), true);
             }
-            // Generate structure nodes
-            for (uint32_t j = 0; toCreate.size() > 1; j++) {
-                int numChildren = j < level1threeChildren ? 3 : 2;
-                snode n;
-                n.addr = treeNodes.back();
-                treeNodes.pop_back();
-                for (uint32_t i = 0; i < numChildren; i++) {
-                    snode c = toCreate.front();
-                    toCreate.pop_front();
-                    if (c.children.size() == 2)
-                        generateSNode(sim.getNode(c.addr), n.addr, c.children[0], c.children[1], c.level);
-                    else
-                        generateSNode(sim.getNode(c.addr), n.addr, c.children[0], c.children[1], c.children[2], c.level);
-                    n.children.push_back(c.addr);
-                    n.level = c.level + 1;
-                }
-                toCreate.push_back(n);
-            }
-            // Root node
-            snode root = toCreate.front();
-            generateSNode(sim.getNode(root.addr), root.addr, root.children[0], root.children[1], root.level);
+            p2NumNodes >>= 1;
         }
 
-        // Prevent the simulator from running
+        // Build Dispatchers
+        std::list<StarsNode *> sortedNodes;
+        sortedNodes.push_back(&sim.getNode(currentLevel[0]));
+        for (std::list<StarsNode *>::iterator i = sortedNodes.begin(); i != sortedNodes.end(); ++i) {
+            if (!(**i).getBranch().isLeftLeaf())
+                sortedNodes.push_back(&sim.getNode((**i).getBranch().getLeftAddress().getIPNum()));
+            if (!(**i).getBranch().isRightLeaf())
+                sortedNodes.push_back(&sim.getNode((**i).getBranch().getRightAddress().getIPNum()));
+        }
+        for (std::list<StarsNode *>::reverse_iterator i = sortedNodes.rbegin(); i != sortedNodes.rend(); ++i)
+            (**i).buildDispatcher();
+
+        // Prevent any timer from running the simulation
         sim.stop();
     }
-
-private:
-    void generateRNode(StarsNode & node, uint32_t rfather) {
-        std::vector<void *> v(10);
-        MemoryOutArchive oa(v.begin());
-        // Generate ResourceNode information
-        boost::shared_ptr<ZoneDescription> rzone(new ZoneDescription);
-        CommAddress father(rfather, ConfigurationManager::getInstance().getPort());
-        rzone->setMinAddress(father);
-        rzone->setMaxAddress(father);
-        uint64_t seq = 0;
-        oa << father << seq << rzone << rzone;
-        MemoryInArchive ia(v.begin());
-        node.getResourceNode().serializeState(ia);
-    }
-
-    void generateSNode(StarsNode & node, uint32_t sfather, uint32_t schild1, uint32_t schild2, int level) {
-        Simulator & sim = Simulator::getInstance();
-        std::vector<void *> v(10);
-        MemoryOutArchive oa(v.begin());
-        // Generate StructureNode information
-        boost::shared_ptr<ZoneDescription> zone(new ZoneDescription);
-        CommAddress father;
-        if (sfather != node.getLocalAddress().getIPNum())
-            father = CommAddress(sfather, ConfigurationManager::getInstance().getPort());
-        std::list<boost::shared_ptr<TransactionalZoneDescription> > subZones;
-        boost::shared_ptr<ZoneDescription> zone1, zone2;
-        if (level == 0) {
-            zone1.reset(new ZoneDescription);
-            zone1->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone1->setMaxAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone2.reset(new ZoneDescription);
-            zone2->setMinAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-            zone2->setMaxAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-            zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone->setMaxAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-        } else {
-            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getStructureNode().getZoneDesc()));
-            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getStructureNode().getZoneDesc()));
-            zone->setMinAddress(zone1->getMinAddress());
-            zone->setMaxAddress(zone2->getMaxAddress());
-        }
-        subZones.push_back(boost::shared_ptr<TransactionalZoneDescription>(new TransactionalZoneDescription));
-        subZones.push_back(boost::shared_ptr<TransactionalZoneDescription>(new TransactionalZoneDescription));
-        subZones.front()->setLink(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-        subZones.front()->setZone(zone1);
-        subZones.front()->commit();
-        subZones.back()->setLink(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-        subZones.back()->setZone(zone2);
-        subZones.back()->commit();
-        uint64_t seq = 0;
-        unsigned int m = 2;
-        int state = StructureNode::ONLINE;
-        oa << state << m << level << zone << zone << father << seq << subZones;
-        MemoryInArchive ia(v.begin());
-        node.getStructureNode().serializeState(ia);
-
-        // Generate Dispatcher state
-        switch (node.getPolicyType()) {
-        case StarsNode::SimpleSchedulerClass:
-            generateDispatcher<IBPDispatcher>(node, father, schild1, schild2, level);
-            break;
-        case StarsNode::FCFSSchedulerClass:
-            generateDispatcher<MMPDispatcher>(node, father, schild1, schild2, level);
-            break;
-        case StarsNode::EDFSchedulerClass:
-            generateDispatcher<DPDispatcher>(node, father, schild1, schild2, level);
-            break;
-        case StarsNode::MinSlownessSchedulerClass:
-            generateDispatcher<MSPDispatcher>(node, father, schild1, schild2, level);
-            break;
-        default:
-            break;
-        }
-    }
-
-
-    template <class T>
-    void generateDispatcher(StarsNode & node, const CommAddress & father, uint32_t schild1, uint32_t schild2, int level) {
-        Simulator & sim = Simulator::getInstance();
-        std::vector<void *> vv(20);
-        MemoryOutArchive oaa(vv.begin());
-        std::vector<typename T::Link> children(2);
-        children[0].addr = CommAddress(schild1, ConfigurationManager::getInstance().getPort());
-        children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
-        if (level == 0) {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getSch().getAvailability().clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getSch().getAvailability().clone()));
-        } else {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDisp().getBranchInfo()->clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDisp().getBranchInfo()->clone()));
-        }
-        children[0].availInfo->reduce();
-        children[1].availInfo->reduce();
-        typename T::Link fatherLink;
-        fatherLink.addr = father;
-        fatherLink.serializeState(oaa);
-        size_t size = 2;
-        oaa << size;
-        children[0].serializeState(oaa);
-        children[1].serializeState(oaa);
-        MemoryInArchive iaa(vv.begin());
-        static_cast<T &>(node.getDisp()).serializeState(iaa);
-        static_cast<T &>(node.getDisp()).recomputeInfo();
-    }
-
-
-    void generateSNode(StarsNode & node, uint32_t sfather, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level) {
-        Simulator & sim = Simulator::getInstance();
-        std::vector<void *> v(10);
-        MemoryOutArchive oa(v.begin());
-        // Generate StructureNode information
-        boost::shared_ptr<ZoneDescription> zone(new ZoneDescription);
-        CommAddress father;
-        if (sfather != node.getLocalAddress().getIPNum())
-            father = CommAddress(sfather, ConfigurationManager::getInstance().getPort());
-        std::list<boost::shared_ptr<TransactionalZoneDescription> > subZones;
-        boost::shared_ptr<ZoneDescription> zone1, zone2, zone3;
-        if (level == 0) {
-            zone1.reset(new ZoneDescription);
-            zone1->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone1->setMaxAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone2.reset(new ZoneDescription);
-            zone2->setMinAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-            zone2->setMaxAddress(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-            zone3.reset(new ZoneDescription);
-            zone3->setMinAddress(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
-            zone3->setMaxAddress(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
-            zone->setMinAddress(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-            zone->setMaxAddress(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
-        } else {
-            zone1.reset(new ZoneDescription(*sim.getNode(schild1).getStructureNode().getZoneDesc()));
-            zone2.reset(new ZoneDescription(*sim.getNode(schild2).getStructureNode().getZoneDesc()));
-            zone3.reset(new ZoneDescription(*sim.getNode(schild3).getStructureNode().getZoneDesc()));
-            zone->setMinAddress(zone1->getMinAddress());
-            zone->setMaxAddress(zone3->getMaxAddress());
-        }
-        subZones.push_back(boost::shared_ptr<TransactionalZoneDescription>(new TransactionalZoneDescription));
-        subZones.back()->setLink(CommAddress(schild1, ConfigurationManager::getInstance().getPort()));
-        subZones.back()->setZone(zone1);
-        subZones.back()->commit();
-        subZones.push_back(boost::shared_ptr<TransactionalZoneDescription>(new TransactionalZoneDescription));
-        subZones.back()->setLink(CommAddress(schild2, ConfigurationManager::getInstance().getPort()));
-        subZones.back()->setZone(zone2);
-        subZones.back()->commit();
-        subZones.push_back(boost::shared_ptr<TransactionalZoneDescription>(new TransactionalZoneDescription));
-        subZones.back()->setLink(CommAddress(schild3, ConfigurationManager::getInstance().getPort()));
-        subZones.back()->setZone(zone3);
-        subZones.back()->commit();
-        unsigned int m = 2;
-        uint64_t seq = 0;
-        int state = StructureNode::ONLINE;
-        oa << state << m << level << zone << zone << father << seq << subZones;
-        MemoryInArchive ia(v.begin());
-        node.getStructureNode().serializeState(ia);
-
-        // Generate Dispatcher state
-        switch (node.getPolicyType()) {
-        case StarsNode::SimpleSchedulerClass:
-            generateDispatcher<IBPDispatcher>(node, father, schild1, schild2, schild3, level);
-            break;
-        case StarsNode::FCFSSchedulerClass:
-            generateDispatcher<MMPDispatcher>(node, father, schild1, schild2, schild3, level);
-            break;
-        case StarsNode::EDFSchedulerClass:
-            generateDispatcher<DPDispatcher>(node, father, schild1, schild2, schild3, level);
-            break;
-        case StarsNode::MinSlownessSchedulerClass:
-            generateDispatcher<MSPDispatcher>(node, father, schild1, schild2, schild3, level);
-            break;
-        default:
-            break;
-        }
-    }
-
-    template <class T>
-    void generateDispatcher(StarsNode & node, const CommAddress & father, uint32_t schild1, uint32_t schild2, uint32_t schild3, int level) {
-        Simulator & sim = Simulator::getInstance();
-        std::vector<void *> vv(20);
-        MemoryOutArchive oaa(vv.begin());
-        std::vector<typename T::Link> children(3);
-        children[0].addr = CommAddress(schild1, ConfigurationManager::getInstance().getPort());
-        children[1].addr = CommAddress(schild2, ConfigurationManager::getInstance().getPort());
-        children[2].addr = CommAddress(schild3, ConfigurationManager::getInstance().getPort());
-        if (level == 0) {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getSch().getAvailability().clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getSch().getAvailability().clone()));
-            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getSch().getAvailability().clone()));
-        } else {
-            children[0].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild1).getDisp().getBranchInfo()->clone()));
-            children[1].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild2).getDisp().getBranchInfo()->clone()));
-            children[2].availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(schild3).getDisp().getBranchInfo()->clone()));
-        }
-        children[0].availInfo->reduce();
-        children[1].availInfo->reduce();
-        children[2].availInfo->reduce();
-        typename T::Link fatherLink;
-        fatherLink.addr = father;
-        fatherLink.serializeState(oaa);
-        size_t size = 3;
-        oaa << size;
-        children[0].serializeState(oaa);
-        children[1].serializeState(oaa);
-        children[2].serializeState(oaa);
-        MemoryInArchive iaa(vv.begin());
-        static_cast<T &>(node.getDisp()).serializeState(iaa);
-        static_cast<T &>(node.getDisp()).recomputeInfo();
-    }
-
-    struct snode {
-        std::vector<uint32_t> children;
-        uint32_t addr;
-        int level;
-        snode() { children.reserve(3); }
-    };
-
-    class MemoryInArchive {
-        std::vector<void *>::iterator ptr;
-    public:
-        MemoryInArchive(std::vector<void *>::iterator o) : ptr(o) {}
-        template<class T> MemoryInArchive & operator>>(T & o) {
-            o = *static_cast<T *>(*ptr++);
-            return *this;
-        }
-        template<class T> MemoryInArchive & operator&(T & o) {
-            return operator>>(o);
-        }
-    };
-
-    class MemoryOutArchive {
-        std::vector<void *>::iterator ptr;
-    public:
-        MemoryOutArchive(std::vector<void *>::iterator o) : ptr(o) {}
-        template<class T> MemoryOutArchive & operator<<(T & o) {
-            *ptr++ = &o;
-            return *this;
-        }
-        template<class T> MemoryOutArchive & operator&(T & o) {
-            return operator<<(o);
-        }
-    };
 };
-REGISTER_SIMULATION_CASE(CreateTree);
+REGISTER_SIMULATION_CASE(CreateSimOverlay);

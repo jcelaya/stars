@@ -95,7 +95,7 @@ RequestGenerator::RequestGenerator(const Properties & property) {
     }
     // Load max mem and disk distributions
     std::string mem_values = property("task_max_mem", std::string("1024")),
-    disk_values = property("task_max_disk", std::string("1024"));
+            disk_values = property("task_max_disk", std::string("1024"));
     if (fs::exists(mem_values))
         taskMemory.loadFrom(mem_values);
     else createUniformCDF(taskMemory, mem_values);
@@ -118,10 +118,7 @@ DispatchCommandMsg * RequestGenerator::generate(StarsNode & client, Time release
     minReq.setLength(ad.length);
     minReq.setInputSize(input);
     minReq.setOutputSize(output);
-    std::ostringstream oss;
-    oss << "app_" << minReq.getMaxMemory() << '_' << minReq.getMaxDisk() << '_' << minReq.getNumTasks() << '_' << minReq.getLength()
-    << '_' << minReq.getInputSize() << '_' << minReq.getOutputSize();
-    client.getDatabase().createAppDescription(oss.str(), minReq);
+    client.getDatabase().setNextApp(minReq);
 
     // Create instance
     //double d = minReq.getLength() * ad.deadline / client.getAveragePower();
@@ -129,6 +126,5 @@ DispatchCommandMsg * RequestGenerator::generate(StarsNode & client, Time release
     if (d <= 0.0 || d > 31536000.0)
         d = 31536000.0;
     dcm->setDeadline(releaseDate + Duration(d));
-    dcm->setAppName(oss.str());
     return dcm;
 }

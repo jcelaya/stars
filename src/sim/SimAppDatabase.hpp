@@ -31,77 +31,60 @@
 
 class SimAppDatabase {
 public:
-    struct AppInstance {
-        struct Task {
-            enum {
-                READY,
-                SEARCHING,
-                EXECUTING,
-                FINISHED
-            } state;
-            //Time atime, ftime;
-            CommAddress host;
-            Task() : state(READY) {}
-        };
-
-        TaskDescription req;
-        Time ctime, rtime;
-        std::vector<Task> tasks;
+    struct RemoteTask {
+        enum {
+            READY,
+            SEARCHING,
+            EXECUTING,
+            FINISHED
+        } state;
+        CommAddress host;
+        RemoteTask() : state(READY) {}
     };
 
     struct Request {
-        long int appId;
+        int64_t rid;
         Time rtime, stime;
-        long int numNodes, acceptedTasks;
-        std::vector<AppInstance::Task *> tasks;
-        friend std::ostream & operator<<(std::ostream& os, const Request & r) {
-            return os << "(A=" << r.appId << ", r=" << r.rtime << ", s=" << r.stime
-                   << ", n=" << r.numNodes << ", a=" << r.acceptedTasks << ", t=" << r.tasks.size() << ")";
-        }
+        size_t numNodes, acceptedTasks, remainingTasks;
+        std::vector<RemoteTask *> tasks;
+//        friend std::ostream & operator<<(std::ostream& os, const Request & r) {
+//            return os << "(A=" << r.appId << ", r=" << r.rtime << ", s=" << r.stime
+//                    << ", n=" << r.numNodes << ", a=" << r.acceptedTasks << ", t=" << r.tasks.size() << ")";
+//        }
     };
 
-    void createAppDescription(const std::string & name, const TaskDescription & req);
-    void dropAppDescription(const std::string & name);
-    const std::pair<std::string, TaskDescription> & getLastApp() const {
-        return lastApp;
+    struct AppInstance {
+        TaskDescription req;
+        Time ctime;
+        std::vector<RemoteTask> tasks;
+        std::list<Request> requests;
+    };
+
+    SimAppDatabase() : lastInstance(0) {
+        instanceCache.first = requestCache.first = -1;
     }
-    void appInstanceFinished(long int appId);
-    bool appInstanceExists(long int appId) {
-        return instances.count(appId) > 0;
-    }
-    const AppInstance & getAppInstance(long int appId) const {
-        return instances.find(appId)->second;
-    }
-    long int getAppId(long int rid) const {
-        std::map<long int, Request>::const_iterator it = requests.find(rid);
-        return it != requests.end() ? it->second.appId : -1;
-    }
-    bool getNextAppRequest(long int appId, std::map<long int, Request>::const_iterator & it, bool valid);
-    void updateDeadline(long int appId, Time nd) {
-        instances.find(appId)->second.req.setDeadline(nd);
-    }
+
+    void setNextApp(const TaskDescription & req) { nextApp = req; }
+    const TaskDescription & getNextApp() const { return nextApp; }
+    void appInstanceFinished(int64_t appId);
+    const AppInstance * getAppInstance(int64_t appId) { return findAppInstance(appId) ? instanceCache.second : NULL; }
+    void updateDeadline(int64_t appId, Time nd) { instances.find(appId)->second.req.setDeadline(nd); }
+
+    static SimAppDatabase & getCurrentDatabase();
+    static int64_t getAppId(int64_t rid) { return rid >> bitsPerRequest; }
 
 private:
     friend class TaskBagAppDatabase;
+    static const int bitsPerRequest = 32;
 
-    static long int getNextInstanceId() {
-        boost::mutex::scoped_lock lock(lastM);
-        return lastInstance++;
-    }
+    TaskDescription nextApp;
+    std::map<int64_t, AppInstance> instances;
+    int64_t lastInstance;
+    std::pair<int64_t, AppInstance *> instanceCache;
+    std::pair<int64_t, Request *> requestCache;
 
-    static long int getNextRequestId() {
-        boost::mutex::scoped_lock lock(lastM);
-        return lastRequest++;
-    }
-
-    std::pair<std::string, TaskDescription> lastApp;
-    std::map<std::string, TaskDescription> apps;
-    std::map<long int, AppInstance> instances;
-    std::map<long int, Request> requests;
-    static boost::mutex lastM;
-    static long int lastInstance, lastRequest;
-
-    friend std::ostream & operator<<(std::ostream& os, const SimAppDatabase & s);
+    bool findAppInstance(int64_t appId);
+    bool findRequest(int64_t rid);
 };
 
 #endif /* SIMAPPDATABASE_H_ */
