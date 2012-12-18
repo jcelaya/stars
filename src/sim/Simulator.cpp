@@ -200,7 +200,7 @@ bool Simulator::run(const std::string & confFile) {
     // Platform setup
     MSG_create_environment(fs::path(property("platform_file", std::string())).native().c_str());
     xbt_dynar_t hosts = MSG_hosts_as_dynar();
-    unsigned int numNodes = xbt_dynar_length(hosts);
+    numNodes = xbt_dynar_length(hosts);
     pstats.resizeNumNodes(numNodes);
     routingTable.reset(new StarsNode[numNodes]);
     // For every host in the platform, set StarsNode::processFunction as the process function

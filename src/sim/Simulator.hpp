@@ -77,7 +77,7 @@ public:
      * which in practice is the same as the number of hosts.
      */
     unsigned long int getNumNodes() const {
-        return xbt_dynar_length(MSG_hosts_as_dynar());
+        return numNodes;
     }
 
     StarsNode & getNode(unsigned int i) {
@@ -180,6 +180,7 @@ private:
 
     // Simulation framework
     boost::scoped_array<StarsNode> routingTable;   ///< The set of StarsNodes in this simulation.
+    size_t numNodes;
     boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
     bool end;                                      ///< Signals the end of the simulation
     bool inSimulation;                             ///< States if the currently running code is inside MSG_main

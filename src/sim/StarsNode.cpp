@@ -229,6 +229,7 @@ int StarsNode::mainLoop() {
             BasicMsg * msg = static_cast<BasicMsg *>(MSG_task_get_data(task));
             const CommAddress & src = static_cast<StarsNode *>(MSG_host_get_data(MSG_task_get_source(task)))->getLocalAddress();
             enqueueMessage(src, boost::shared_ptr<BasicMsg>(msg));
+            MSG_task_destroy(task);
         } else {
             MSG_comm_destroy(comm);
             // Check timers
