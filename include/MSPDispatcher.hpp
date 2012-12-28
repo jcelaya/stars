@@ -43,7 +43,11 @@ public:
     // This is documented in Dispatcher.
     virtual void recomputeInfo();
 
+    static void setBeta(double b) { beta = b; }
+
 private:
+    static double beta;
+
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 };

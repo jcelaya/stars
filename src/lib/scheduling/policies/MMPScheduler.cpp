@@ -52,7 +52,10 @@ void MMPScheduler::reschedule() {
         LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Queue finishes at " << estimatedFinish;
 
         // If the first task is not running, start it!
-        if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
+        if (tasks.front()->getStatus() == Task::Prepared) {
+            tasks.front()->run();
+            startedTaskEvent(*tasks.front());
+        }
     }
 
     info.setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),

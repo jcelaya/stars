@@ -32,7 +32,6 @@ class SimTask : public Task {
 
 public:
     SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d);
-    ~SimTask();
 
     int getStatus() const;
 

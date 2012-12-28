@@ -36,7 +36,9 @@ using boost::shared_ptr;
 
 Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new UnixExecutionEnvironment) {}
 
-void Scheduler::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {}
+void Scheduler::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {}
+void Scheduler::startedTaskEvent(const Task & t) {}
+void Scheduler::finishedTaskEvent(const Task & t, bool successful) {}
 
 
 // Timers
@@ -72,6 +74,8 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
             for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
                 if ((*i)->getTaskId() == msg.getTaskId()) {
                     notFound = false;
+                    // For statistics purpose
+                    finishedTaskEvent(**i, msg.getNewState() == Task::Finished);
                     // Send a TaskMonitorMsg to signal finalization
                     shared_ptr<Task> task = *i;
                     TaskMonitorMsg * tmm = new TaskMonitorMsg;
@@ -97,10 +101,9 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
 
 
 /**
- * A request for a group of available nodes to assign a bag of tasks to. In this case, the
- * bag should have only one task, to be assigned to this Scheduler.
+ * A request for a group of available nodes to assign a bag of tasks to.
  *
- * It is sent firstly by the client, and then it is divided by each branch StructureNode.
+ * It is sent by the SubmissionNode, and then it is divided by each branch StructureNode.
  * @param src The source address.
  * @param msg The received message.
  */
@@ -130,14 +133,10 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
                 atm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
                 CommLayer::getInstance().sendMessage(msg.getRequester(), atm);
                 if (monitorTimer == 0) setMonitorTimer();
-            }
 
-            // For statistics purpose
-            Time queueEnd = Time::getCurrentTime();
-            for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
-                queueEnd += (*it)->getEstimatedDuration();
+                // For statistics purpose
+                addedTasksEvent(msg, numAccepted);
             }
-            queueChangedStatistics(msg.getRequestId(), numAccepted, queueEnd);
 
             if (numAccepted == numTasks) return;
         }
@@ -169,6 +168,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
         for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
             if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
                 notFound = false;
+                finishedTaskEvent(**it, false);
                 (*it)->abort();
                 tasks.erase(it);
                 break;

@@ -63,7 +63,10 @@ void DPScheduler::reschedule() {
     */
 
     // If the first task is not running, start it!
-    if (!tasks.empty() && tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
+    if (!tasks.empty() && tasks.front()->getStatus() == Task::Prepared) {
+        tasks.front()->run();
+        startedTaskEvent(*tasks.front());
+    }
 
     calculateAvailability();
 
@@ -140,13 +143,13 @@ unsigned int DPScheduler::acceptable(const TaskBagMsg & msg) {
     if (numSlots < numAccepted) {
         LogMsg("Ex.Sch.EDF", INFO) << "Rejecting " << (numAccepted - numSlots) << " tasks from " << msg.getRequester() << ", reason:";
         LogMsg("Ex.Sch.EDF", DEBUG) << "Deadline: " << msg.getMinRequirements().getDeadline()
-        		<< "   Lenght: " << msg.getMinRequirements().getLength()
-        		<< " (" << Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()) << ')';
+                << "   Lenght: " << msg.getMinRequirements().getLength()
+                << " (" << Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()) << ')';
         LogMsg("Ex.Sch.EDF", DEBUG) << "Available: " << available << ", " << numSlots << " slots";
         LogMsg("Ex.Sch.EDF", DEBUG) << "Info: " << info;
         LogMsg("Ex.Sch.EDF", DEBUG) << "Task queue:";
         for (list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); ++t)
-        	LogMsg("Ex.Sch.EDF", DEBUG) << "   " << (*t)->getEstimatedDuration() << " l" << (*t)->getDescription().getLength() << " d" << (*t)->getDescription().getDeadline();
+            LogMsg("Ex.Sch.EDF", DEBUG) << "   " << (*t)->getEstimatedDuration() << " l" << (*t)->getDescription().getLength() << " d" << (*t)->getDescription().getDeadline();
         unsigned int available = getAvailabilityBefore(msg.getMinRequirements().getDeadline());
         numAccepted = numSlots;
     }

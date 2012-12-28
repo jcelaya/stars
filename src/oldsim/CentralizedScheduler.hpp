@@ -53,9 +53,12 @@ public:
 protected:
     Simulator & sim;
     std::vector<std::list<TaskDesc> > queues;
-    fs::ofstream os;
+    fs::ofstream queueos;
     Time maxQueue;
     std::vector<Time> queueEnds;
+    fs::ofstream slowos;
+    double maxSlowness;
+    std::vector<double> nodeMaxSlowness;
 
     Time current;
     unsigned long int inTraffic, outTraffic;
@@ -64,6 +67,8 @@ protected:
     virtual void taskFinished(unsigned int node);
     void sendOneTask(unsigned int to);
     void addToQueue(const TaskDesc & task, unsigned int node);
+    void updateQueue(unsigned int node);
+    double getMaxSlowness(unsigned int node);
 
     CentralizedScheduler();
 };

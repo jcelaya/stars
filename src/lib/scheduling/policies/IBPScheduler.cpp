@@ -33,7 +33,10 @@ void IBPScheduler::reschedule() {
         Time estimatedFinish = Time::getCurrentTime() + tasks.front()->getEstimatedDuration();
         LogMsg("Ex.Sch.Simple", DEBUG) << "Simple@" << this << ": One task, finishes at " << estimatedFinish;
         // If the first task is not running, start it!
-        if (tasks.front()->getStatus() == Task::Prepared) tasks.front()->run();
+        if (tasks.front()->getStatus() == Task::Prepared) {
+            tasks.front()->run();
+            startedTaskEvent(*tasks.front());
+        }
 
         info.reset();
     }

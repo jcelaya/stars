@@ -114,6 +114,7 @@ public:
     StarsNode & getNode(unsigned int i) { return routingTable[i]; }
     const NodeNetInterface & getNetInterface(unsigned int i) const { return iface[i]; }
     StarsNode & getCurrentNode() { return *currentNode; }
+    uint32_t getCurrentNodeNum() { return currentNode - &routingTable[0]; }
     int getCurrentEventId() const { return p != NULL ? p->id : 0; }
     Event & getCurrentEvent() { return *p; }
     bool emptyEventQueue() const { return events.empty(); }

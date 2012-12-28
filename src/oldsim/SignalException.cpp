@@ -35,6 +35,9 @@ void SignalException::Handler::setHandler() {
     oss << "/usr/bin/gdbserver host:12345 --attach " << getpid();
     getInstance().gdbservercmd = oss.str();
     signal(SIGSEGV, SignalException::Handler::handler);
+    signal(SIGILL, SignalException::Handler::handler);
+    signal(SIGFPE, SignalException::Handler::handler);
+    signal(SIGBUS, SignalException::Handler::handler);
 }
 
 

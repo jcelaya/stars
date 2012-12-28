@@ -90,13 +90,6 @@ void Simulator::progressLog(const string & msg) {
 }
 
 
-void SubmissionNode::finishedApp(int64_t appId) {
-    Simulator & sim = Simulator::getInstance();
-    sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
-    sim.getSimulationCase()->finishedApp(appId);
-}
-
-
 void finish(int param) {
     cout << "Stopping due to user signal" << endl;
     Simulator::getInstance().stop();
@@ -284,6 +277,7 @@ void Simulator::setProperties(Properties & property) {
 
     // Statistics
     sstats.openStatsFiles(resultDir);
+    sstats.setNumNodes(numNodes);
     tstats.setNumNodes(numNodes);
 
     // Node creation

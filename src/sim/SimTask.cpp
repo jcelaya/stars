@@ -27,14 +27,8 @@
 
 SimTask::SimTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
-    Simulator::getInstance().getStarsStatistics().taskStarted();
     taskDuration = Duration(description.getLength() / Simulator::getInstance().getCurrentNode().getAveragePower());
     LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
-}
-
-
-SimTask::~SimTask() {
-    Simulator::getInstance().getStarsStatistics().taskFinished(*this, timer != -1);
 }
 
 

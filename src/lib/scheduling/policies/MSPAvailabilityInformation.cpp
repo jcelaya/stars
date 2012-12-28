@@ -62,7 +62,10 @@ bool TaskProxy::meetDeadlines(const list<TaskProxy> & curTasks, double slowness,
 
 void TaskProxy::sortMinSlowness(list<TaskProxy> & curTasks, const std::vector<double> & switchValues) {
     // Trivial cases
-    if (switchValues.empty()) return;
+    if (switchValues.empty()) {
+        TaskProxy::sort(curTasks, 1.0);
+        return;
+    }
     Time now = Time::getCurrentTime();
     if (switchValues.size() == 1) {
         TaskProxy::sort(curTasks, switchValues.front() / 2.0);

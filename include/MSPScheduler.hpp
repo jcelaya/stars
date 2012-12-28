@@ -38,7 +38,7 @@ public:
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MSPScheduler(OverlayLeaf & l) : Scheduler(l) {
+    MSPScheduler(OverlayLeaf & l) : Scheduler(l), dirty(false) {
         reschedule();
         notifySchedule();
     }
@@ -62,7 +62,8 @@ public:
 private:
     MSPAvailabilityInformation info;
     std::list<TaskProxy> proxys;
-    std::vector<std::pair<double, int> > switchValues;
+    std::vector<double> switchValues;
+    bool dirty;
 
     // This is documented in Scheduler
     virtual void reschedule();

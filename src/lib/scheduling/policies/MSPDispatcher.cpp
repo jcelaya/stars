@@ -26,6 +26,9 @@
 using std::vector;
 
 
+double MSPDispatcher::beta = 2.0;
+
+
 void MSPDispatcher::recomputeInfo() {
     LogMsg("Dsp.MS", DEBUG) << "Recomputing the branch information";
     // Recalculate info for the father
@@ -181,7 +184,7 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         else if (zoneInfo.get())
             slownessLimit = zoneInfo->getMinimumSlowness();
         LogMsg("Dsp.MS", DEBUG) << "The minimum slowness in the rest of the tree is " << slownessLimit;
-        slownessLimit *= ConfigurationManager::getInstance().getSlownessRatio();
+        slownessLimit *= beta;
         if (zoneInfo.get()) {
             LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << zoneInfo->getMaximumSlowness();
             if (zoneInfo->getMaximumSlowness() > slownessLimit)

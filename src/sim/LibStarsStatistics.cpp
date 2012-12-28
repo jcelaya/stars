@@ -52,12 +52,12 @@ void LibStarsStatistics::openStatsFiles() {
 
 
 // Queue statistics
-void Scheduler::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
-    Simulator::getInstance().getStarsStatistics().queueChangedStatistics(rid, numAccepted, queueEnd);
+void Scheduler::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
+    Simulator::getInstance().getStarsStatistics().addedTasksEvent(msg, numAccepted);
 }
 
 
-void LibStarsStatistics::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
+void LibStarsStatistics::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
     boost::mutex::scoped_lock lock(m);
     Time now = Time::getCurrentTime();
     if (maxQueue < queueEnd) {

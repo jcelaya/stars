@@ -89,7 +89,13 @@ public:
      * Sets the relation with the ExecutionNode.
      * @param e Related ExecutionNode.
      */
-    virtual ~Scheduler() {}
+    virtual ~Scheduler() {
+        // Abort tasks
+        if (!tasks.empty()) {
+            tasks.front()->abort();
+            tasks.clear();
+        }
+    }
 
     bool receiveMessage(const CommAddress & src, const BasicMsg & msg);
 
@@ -174,6 +180,11 @@ protected:
 
     virtual void acceptTask(const boost::shared_ptr<Task> & task) {}
 
+    // Statistics
+    void addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted);
+    void startedTaskEvent(const Task & t);
+    void finishedTaskEvent(const Task & t, bool successful);
+
 private:
     bool inChange;         ///< States whether the father of the ResourceNode is changing.
     bool dirty;            ///< States whether a change must be notified to the father
@@ -181,7 +192,6 @@ private:
     int monitorTimer;      ///< Timer to send monitoring info
 
     // Statistics
-    void queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd);
     unsigned long int tasksExecuted;   ///< Number of executed tasks since the peer started
     Duration timeRunning;              ///< Amount of time not idle
 

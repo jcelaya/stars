@@ -28,6 +28,7 @@
 #include "Time.hpp"
 class StarsNode;
 class Task;
+class TaskBagMsg;
 
 
 class LibStarsStatistics {
@@ -36,6 +37,9 @@ public:
 
     /// Open the statistics file at the given directory.
     void openStatsFiles(const boost::filesystem::path & statDir);
+    void setNumNodes(unsigned int n) {
+        nodeMaxSlowness.resize(n, 0.0);
+    }
 
     void saveTotalStatistics() {
         saveCPUStatistics();
@@ -45,9 +49,9 @@ public:
     }
 
     // Public statistics handlers
-    void queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd);
+    void addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted);
 
-    void finishedApp(StarsNode & node, long int appId, Time end, int finishedTasks);
+    void finishedApp(StarsNode & node, int64_t appId, Time end, int finishedTasks);
 
     void taskStarted();
     void taskFinished(const Task & t, bool successful);
@@ -75,12 +79,14 @@ private:
 
     // App statistics
     void finishAppStatistics();
+    Time updateCurMaxSlowness();
     boost::filesystem::ofstream appos;
     boost::filesystem::ofstream reqos;
     boost::filesystem::ofstream slowos;
     unsigned int unfinishedApps;
     unsigned int totalApps;
-    std::list<std::pair<Time, double> > lastSlowness;
+    double maxSlowness;
+    std::vector<double> nodeMaxSlowness;
 };
 
 #endif /* LIBSTARSSTATISTICS_H_ */

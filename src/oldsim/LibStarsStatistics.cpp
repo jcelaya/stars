@@ -27,7 +27,7 @@
 
 
 LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
-        partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0) {}
+        partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0), maxSlowness(0.0) {}
 
 
 void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir) {
@@ -46,26 +46,76 @@ void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir)
     reqos.open(statDir / fs::path("requests.stat"));
     reqos << "# Req. ID, App. ID, num tasks, num nodes, num accepted, release date, search time" << std::endl;
     slowos.open(statDir / fs::path("slowness.stat"));
-    slowos << "# Time, maximum slowness" << std::endl;
+    slowos << "# Time, maximum slowness" << std::fixed << std::endl;
+
     lastTSample = Simulator::getInstance().getCurrentTime();
 }
 
 
 // Queue statistics
-void Scheduler::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
-    Simulator::getInstance().getStarsStatistics().queueChangedStatistics(rid, numAccepted, queueEnd);
+void Scheduler::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
+    Simulator::getInstance().getStarsStatistics().addedTasksEvent(msg, numAccepted);
 }
 
 
-void LibStarsStatistics::queueChangedStatistics(int64_t rid, unsigned int numAccepted, Time queueEnd) {
-    Time now = Simulator::getInstance().getCurrentTime();
+void Scheduler::startedTaskEvent(const Task & t) {
+    Simulator::getInstance().getStarsStatistics().taskStarted();
+}
+
+
+void Scheduler::finishedTaskEvent(const Task & t, bool successful) {
+    Simulator::getInstance().getStarsStatistics().taskFinished(t, successful);
+}
+
+
+Time LibStarsStatistics::updateCurMaxSlowness() {
+    Simulator & sim = Simulator::getInstance();
+    // Calculate queue end and maximum slowness
+    Time queueEnd = sim.getCurrentTime(), now = queueEnd;
+    double & curMaxSlowness = nodeMaxSlowness[sim.getCurrentNodeNum()], prevMaxSlowness = curMaxSlowness;
+    curMaxSlowness = 0.0;
+    std::list<boost::shared_ptr<Task> > & tasks = sim.getCurrentNode().getSch().getTasks();
+    for (std::list<boost::shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
+        queueEnd += (*it)->getEstimatedDuration();
+        double slowness = (queueEnd - (*it)->getCreationTime()).seconds() / (*it)->getDescription().getLength();
+        if (curMaxSlowness < slowness) curMaxSlowness = slowness;
+    }
+
+    // Record maximum slowness
+    if (curMaxSlowness > maxSlowness) {
+        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+            << std::setprecision(8) << maxSlowness << std::endl;
+        maxSlowness = curMaxSlowness;
+        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+            << std::setprecision(8) << maxSlowness << std::endl;
+    } else if (prevMaxSlowness == maxSlowness) {
+        maxSlowness = 0.0;
+        for (uint32_t i = 0; i < sim.getNumNodes(); ++i)
+            if (maxSlowness < nodeMaxSlowness[i])
+                maxSlowness = nodeMaxSlowness[i];
+        if (maxSlowness < prevMaxSlowness) {
+            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+                << std::setprecision(8) << prevMaxSlowness << std::endl;
+            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+                << std::setprecision(8) << maxSlowness << std::endl;
+        }
+    }
+
+    return queueEnd;
+}
+
+
+void LibStarsStatistics::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
+    CommAddress a = Simulator::getInstance().getCurrentNode().getLocalAddress();
+    Time now = Simulator::getInstance().getCurrentTime(), queueEnd = updateCurMaxSlowness();
+    // Record maximum queue length
     if (maxQueue < queueEnd) {
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
                 << ",queue length updated" << std::endl;
         maxQueue = queueEnd;
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
-                << ',' << numAccepted << " new tasks accepted at " << Simulator::getInstance().getCurrentNode().getLocalAddress()
-                << " for request " << rid << std::endl;
+                << ',' << numAccepted << " new tasks accepted at " << a
+                << " for request " << msg.getRequestId() << std::endl;
     }
 }
 
@@ -95,12 +145,15 @@ void LibStarsStatistics::taskStarted() {
 
 void LibStarsStatistics::taskFinished(const Task & t, bool successful) {
     --existingTasks;
+    // Calculate current maximum slowness, and record it
+    updateCurMaxSlowness();
+    // Record throughput
     if (successful) {
+        Time now = Time::getCurrentTime();
         partialFinishedTasks++;
         partialComputation += t.getDescription().getLength();
         totalFinishedTasks++;
         totalComputation += t.getDescription().getLength();
-        Time now = Simulator::getInstance().getCurrentTime();
         double elapsed = (now - lastTSample).seconds();
         if (elapsed >= delayTSample) {
             throughputos << std::setprecision(3) << std::fixed << (now.getRawDate() / 1000000.0) << ','
@@ -130,6 +183,13 @@ void LibStarsStatistics::saveCPUStatistics() {
         os << CommAddress(addr, port) << ',' << executedTasks << ','
                 << node.getAveragePower() << ',' << node.getAvailableMemory() << ',' << node.getAvailableDisk() << std::endl;
     }
+}
+
+
+void SubmissionNode::finishedApp(int64_t appId) {
+    Simulator & sim = Simulator::getInstance();
+    sim.getStarsStatistics().finishedApp(sim.getCurrentNode(), appId, sim.getCurrentTime(), 0);
+    sim.getSimulationCase()->finishedApp(appId);
 }
 
 
@@ -168,23 +228,6 @@ void LibStarsStatistics::finishedApp(StarsNode & node, int64_t appId, Time end, 
             << std::setprecision(3) << std::fixed << (it->rtime.getRawDate() / 1000000.0) << ','
             << std::setprecision(8) << std::fixed << search << std::endl;
     }
-
-    // Save maximum slowness among concurrently running applications
-    Time start = app->ctime;
-    // Record the maximum of all the apps that ended before "start"
-    while (!lastSlowness.empty() && lastSlowness.front().first < start) {
-        double maxSlowness = 0.0;
-        for (std::list<std::pair<Time, double> >::iterator it = lastSlowness.begin(); it != lastSlowness.end(); ++it)
-            if (maxSlowness < it->second) maxSlowness = it->second;
-        slowos << std::setprecision(3) << std::fixed << (lastSlowness.front().first.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << std::fixed << maxSlowness << std::endl;
-        lastSlowness.pop_front();
-    }
-    // Now record the maximum slowness among this app and the apps that ended after "start"
-    double maxSlowness = slowness;
-    for (std::list<std::pair<Time, double> >::iterator it = lastSlowness.begin(); it != lastSlowness.end(); ++it)
-        if (maxSlowness < it->second) maxSlowness = it->second;
-    lastSlowness.push_back(std::make_pair(end, maxSlowness));
 }
 
 
@@ -267,13 +310,7 @@ void LibStarsStatistics::finishAppStatistics() {
     appos << "# " << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
         << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl;
 
-    // Write the slowness data of the last apps
-    while (!lastSlowness.empty()) {
-        double maxSlowness = 0.0;
-        for (std::list<std::pair<Time, double> >::iterator it = lastSlowness.begin(); it != lastSlowness.end(); ++it)
-            if (maxSlowness < it->second) maxSlowness = it->second;
-        slowos << std::setprecision(3) << std::fixed << (lastSlowness.front().first.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << std::fixed << maxSlowness << std::endl;
-        lastSlowness.pop_front();
-    }
+    slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+        << std::setprecision(8) << maxSlowness << std::endl;
+    slowos.close();
 }

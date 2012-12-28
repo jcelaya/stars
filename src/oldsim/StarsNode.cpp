@@ -188,6 +188,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
     MSPAvailabilityInformation::setNumPieces(property("si_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
+    MSPDispatcher::setBeta(property("msp_beta", 2.0));
     SimAppDatabase::reset();
     StarsNode::Configuration::getInstance().setup(property);
 }

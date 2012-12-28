@@ -37,9 +37,12 @@ using namespace boost::posix_time;
 
 
 CentralizedScheduler::CentralizedScheduler() : sim(Simulator::getInstance()), queues(sim.getNumNodes()),
-        maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue), inTraffic(0), outTraffic(0) {
-    os.open(sim.getResultDir() / fs::path("cent_queue_length.stat"));
-    os << "# Time, max" << endl << setprecision(3) << fixed;
+        maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue),
+        maxSlowness(0.0), nodeMaxSlowness(sim.getNumNodes(), 0.0), inTraffic(0), outTraffic(0) {
+    queueos.open(sim.getResultDir() / fs::path("cent_queue_length.stat"));
+    queueos << "# Time, max" << endl << setprecision(3) << fixed;
+    slowos.open(sim.getResultDir() / fs::path("cent_slowness.stat"));
+    slowos << "# Time, maximum slowness" << std::fixed << std::endl;
 }
 
 
@@ -67,8 +70,17 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
             LogMsg("Dsp.Cent", INFO) << "Request " << msg->getRequestId() << " at " << ev.t
                     << " with " << (msg->getLastTask() - msg->getFirstTask() + 1) << " tasks of length " << msg->getMinRequirements().getLength();
 
+            double currentMaxSlowness = maxSlowness;
+
             // Reschedule
             newApp(msg);
+
+            if (currentMaxSlowness != maxSlowness) {
+                slowos << std::setprecision(3) << (Time::getCurrentTime().getRawDate() / 1000000.0) << ','
+                    << std::setprecision(8) << currentMaxSlowness << std::endl;
+                slowos << std::setprecision(3) << (Time::getCurrentTime().getRawDate() / 1000000.0) << ','
+                    << std::setprecision(8) << maxSlowness << std::endl;
+            }
 
             sim.getPerfStats().endEvent("Centralized scheduling");
 
@@ -107,10 +119,38 @@ void CentralizedScheduler::sendOneTask(unsigned int to) {
 }
 
 
+double CentralizedScheduler::getMaxSlowness(unsigned int node) {
+    // Calculate queue end and maximum slowness
+    Time queueEnd = queueEnds[node];
+    double currentMaxSlowness = 0.0;
+    std::list<TaskDesc> & tasks = queues[node];
+    for (std::list<TaskDesc>::reverse_iterator it = tasks.rbegin(); it != tasks.rend(); ++it) {
+        double slowness = (queueEnd - it->r).seconds() / it->msg->getMinRequirements().getLength();
+        queueEnd -= it->a;
+        if (currentMaxSlowness < slowness) currentMaxSlowness = slowness;
+    }
+    return currentMaxSlowness;
+}
+
+
 void CentralizedScheduler::taskFinished(unsigned int node) {
     LogMsg("Dsp.Cent", INFO) << "Finished a task in node " << AddrIO(node);
     if (!queues[node].empty()) {
         queues[node].pop_front();
+        double currentMaxSlowness = getMaxSlowness(node);
+        if (nodeMaxSlowness[node] == maxSlowness) {
+            Time now = Time::getCurrentTime();
+            nodeMaxSlowness[node] = currentMaxSlowness;
+            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+                << std::setprecision(8) << maxSlowness << std::endl;
+            maxSlowness = 0.0;
+            for (uint32_t i = 0; i < sim.getNumNodes(); ++i)
+                if (maxSlowness < nodeMaxSlowness[i])
+                    maxSlowness = nodeMaxSlowness[i];
+            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+                << std::setprecision(8) << maxSlowness << std::endl;
+        } else
+            nodeMaxSlowness[node] = currentMaxSlowness;
         if (!queues[node].empty())
             sendOneTask(node);
     } else {
@@ -123,17 +163,9 @@ void CentralizedScheduler::addToQueue(const TaskDesc & task, unsigned int node) 
     Time now = sim.getCurrentTime();
     list<TaskDesc> & queue = queues[node];
     queue.push_back(task);
-    if (queue.size() == 1) {
-        sendOneTask(node);
-    }
     if (queueEnds[node] < now)
         queueEnds[node] = now;
     queueEnds[node] += task.a;
-    if (maxQueue < queueEnds[node]) {
-        os << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-        maxQueue = queueEnds[node];
-        os << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-    }
     shared_ptr<AcceptTaskMsg> atm(new AcceptTaskMsg);
     atm->setRequestId(task.msg->getRequestId());
     atm->setFirstTask(task.tid);
@@ -143,12 +175,40 @@ void CentralizedScheduler::addToQueue(const TaskDesc & task, unsigned int node) 
 }
 
 
+void CentralizedScheduler::updateQueue(unsigned int node) {
+    Time now = sim.getCurrentTime();
+    list<TaskDesc> & queue = queues[node];
+    queue.sort();
+    if (!queue.empty() && !queue.front().running) {
+        sendOneTask(node);
+    }
+    if (maxQueue < queueEnds[node]) {
+        queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+        maxQueue = queueEnds[node];
+        queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+    }
+    double currentMaxSlowness = getMaxSlowness(node);
+    // Record maximum slowness
+    nodeMaxSlowness[node] = currentMaxSlowness;
+    if (maxSlowness < currentMaxSlowness) {
+        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+            << std::setprecision(8) << maxSlowness << std::endl;
+        maxSlowness = currentMaxSlowness;
+        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+            << std::setprecision(8) << maxSlowness << std::endl;
+    }
+}
+
+
 CentralizedScheduler::~CentralizedScheduler() {
     Time now = sim.getCurrentTime();
-    os << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-    os.close();
-    LogMsg("Dsp.Cent", WARN) << "Centralized scheduler would consume (just with request traffic):";
-    LogMsg("Dsp.Cent", WARN) << "  " << inTraffic << " in bytes, " << outTraffic << " out bytes";
+    queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+    queueos << "#Centralized scheduler would consume (just with request traffic):" << endl;
+    queueos << "#  " << inTraffic << " in bytes, " << outTraffic << " out bytes" << endl;
+    queueos.close();
+    slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
+        << std::setprecision(8) << maxSlowness << std::endl;
+    slowos.close();
 }
 
 
@@ -177,180 +237,6 @@ class BlindScheduler : public CentralizedScheduler {
             tbm->setFirstTask(i);
             tbm->setLastTask(i);
             sim.sendMessage(sim.getNode(n).getLeaf().getFatherAddress().getIPNum(), n, tbm);
-        }
-    }
-};
-
-
-class CentralizedRandomSimple : public CentralizedScheduler {
-public:
-    CentralizedRandomSimple(bool b) : CentralizedScheduler(), blind(b) {}
-
-private:
-    bool blind;
-
-    void newApp(shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = sim.getNumNodes();
-        unsigned long a = msg->getMinRequirements().getLength();
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
-        // Get the nodes that can execute this app and shuffle them
-        vector<unsigned int> usableNodes;
-        if (!blind) {
-            usableNodes.reserve(numNodes);
-            for (unsigned int n = 0; n < numNodes; n++) {
-                StarsNode & node = sim.getNode(n);
-                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk && queues[n].empty()) {
-                    usableNodes.push_back(n);
-                    // Exchange with an element at random (maybe itself too)
-                    unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
-                    usableNodes.back() = usableNodes[pos];
-                    usableNodes[pos] = n;
-                }
-            }
-        } else usableNodes.resize(numTasks);
-
-        TaskDesc task(msg);
-        for (task.tid = 1; task.tid <= numTasks && task.tid <= usableNodes.size(); task.tid++) {
-            LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
-            // Send each task to a random node which can execute it
-            unsigned int n;
-            if (blind) {
-                n = Simulator::uniform(0, numNodes - 1);
-                StarsNode & node = sim.getNode(n);
-                if (node.getAvailableMemory() < mem || node.getAvailableDisk() < disk || !queues[n].empty())
-                    continue;
-            }
-            else n = usableNodes[task.tid - 1];
-            LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << n;
-            task.a = Duration(a / sim.getNode(n).getAveragePower());
-            addToQueue(task, n);
-        }
-    }
-};
-
-
-class CentralizedRandomFCFS : public CentralizedScheduler {
-public:
-    CentralizedRandomFCFS(bool b) : CentralizedScheduler(), blind(b) {}
-
-private:
-    bool blind;
-
-    void newApp(shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = sim.getNumNodes();
-        unsigned long a = msg->getMinRequirements().getLength();
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
-
-        // Get the nodes that can execute this app
-        vector<unsigned int> usableNodes;
-        if (!blind) {
-            usableNodes.reserve(numNodes);
-            for (unsigned int n = 0; n < numNodes; n++) {
-                StarsNode & node = sim.getNode(n);
-                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-                    usableNodes.push_back(n);
-                    // Exchange with an element at random to shuffle the list (maybe itself too)
-                    unsigned int pos = Simulator::uniform(0, usableNodes.size() - 1);
-                    usableNodes.back() = usableNodes[pos];
-                    usableNodes[pos] = n;
-                }
-            }
-
-            if(usableNodes.empty()) return;
-        }
-
-        TaskDesc task(msg);
-        for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
-            // Send each task to a random node which can execute it
-            unsigned int n;
-            if (blind) {
-                n = Simulator::uniform(0, numNodes - 1);
-                StarsNode & node = sim.getNode(n);
-                if (node.getAvailableMemory() < mem || node.getAvailableDisk() < disk)
-                    continue;
-            }
-            else n = usableNodes[task.tid % usableNodes.size()];
-            LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << n;
-            task.a = Duration(a / sim.getNode(n).getAveragePower());
-            addToQueue(task, n);
-        }
-    }
-};
-
-
-class CentralizedRandomDeadlines : public CentralizedScheduler {
-public:
-    CentralizedRandomDeadlines(bool b) : CentralizedScheduler(), blind(b) {}
-
-private:
-    bool blind;
-
-    void newApp(shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = sim.getNumNodes();
-        unsigned long a = msg->getMinRequirements().getLength();
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
-        Time deadline = msg->getMinRequirements().getDeadline();
-
-        // Get the nodes that can execute this app
-        vector<unsigned int> usableNodes;
-        if (!blind) {
-            usableNodes.reserve(numNodes);
-            for (unsigned int n = 0; n < numNodes; n++) {
-                StarsNode & node = sim.getNode(n);
-                if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-                    usableNodes.push_back(n);
-                }
-            }
-
-            if(usableNodes.empty()) return;
-        }
-
-        TaskDesc task(msg);
-        task.d = deadline;
-        for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            //LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
-            // Send each task to a random node which can execute it
-            unsigned int n = blind ? Simulator::uniform(0, numNodes - 1) : usableNodes[Simulator::uniform(0, usableNodes.size() - 1)];
-            StarsNode & node = sim.getNode(n);
-            // If the allocation is blind, check memory and disk here
-            if (!blind || (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk)) {
-                task.a = Duration(a / node.getAveragePower());
-                list<TaskDesc> & queue = queues[n];
-                // Calculate ent time for all the tasks
-                Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
-                bool meets = true;
-                if (!queue.empty()) {
-                    list<TaskDesc>::iterator it = queue.begin();
-                    if (node.getSch().getTasks().empty())
-                        start += it->a;
-                    else
-                        start += node.getSch().getTasks().front()->getEstimatedDuration();
-                    for (it++; it != queue.end() && it->d <= deadline; it++) {
-                        start += it->a;
-                    }
-                    start += task.a;
-                    meets = start <= deadline;
-                    for (; meets && it != queue.end(); it++) {
-                        start += it->a;
-                        meets = start <= it->d;
-                    }
-                } else {
-                    meets = start + task.a < deadline;
-                }
-                if (meets) {
-                    //LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << n;
-                    addToQueue(task, n);
-                    queue.sort();
-                }
-            }
-            // If this node does not meet deadlines, drop the task
         }
     }
 };
@@ -404,6 +290,7 @@ class CentralizedIBP : public CentralizedScheduler {
             LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << node << " with availability " << usableNodes[task.tid - 1].a;
             task.a = Duration(a / sim.getNode(node).getAveragePower());
             addToQueue(task, node);
+            updateQueue(node);
         }
     }
 };
@@ -454,6 +341,7 @@ class CentralizedMMP : public CentralizedScheduler {
             LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << best.node << " with queue time " << best.qTime;
             task.a = taskTime[best.node];
             addToQueue(task, best.node);
+            updateQueue(best.node);
             best.qTime += task.a;
             push_heap(queueCache.begin(), queueCache.end());
         }
@@ -563,7 +451,7 @@ class CentralizedDP : public CentralizedScheduler {
                     addToQueue(task, best.node);
                 }
                 // Sort the queue
-                queues[best.node].sort();
+                updateQueue(best.node);
                 ignoreTasks = 0;
             }
             lastHole--;
@@ -752,102 +640,10 @@ class CentralizedMSP : public CentralizedScheduler {
                     addToQueue(task, n);
                 }
                 // Sort the queue
-                queues[n].sort();
+                updateQueue(n);
             }
         }
     }
-
-
-//		vector<SlownessTasks> assignment;
-//        for (unsigned int n = 0; n < numNodes; ++n) {
-//            StarsNode & node = sim.getNode(n);
-//        	// Obtain the slowness of assigning one task
-//            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-//            	// From those nodes that fulfill memory and disk requirements
-//            	list<TaskProxy> proxys;
-//            	getProxys(n, proxys);
-//            	proxys.push_back(TaskProxy(msg->getMinRequirements().getLength(), node.getAveragePower()));
-//            	vector<double> lBounds;
-//            	getBounds(proxys, lBounds);
-//            	TaskProxy::sortMinSlowness(proxys, lBounds);
-//            	double minSlowness = 0.0;
-//        		Time e = now;
-//        		// For each task, calculate finishing time
-//        		for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-//        			e += Duration(i->t);
-//        			double slowness = (e - i->rabs).seconds() / i->a;
-//        			if (slowness > minSlowness)
-//        				minSlowness = slowness;
-//        		}
-//        		assignment.push_back(SlownessTasks());
-//            	assignment.back().set(minSlowness, 1, n);
-//            }
-//        }
-//		unsigned int suitableNodes = assignment.size();
-//        if (assignment.empty()) return;
-//        sort(assignment.begin(), assignment.end());
-//
-//        // Calculate if it is better to assign more tasks
-//        unsigned int tasksPerNode = 1;
-//		while (true) {
-//			// Calculate the last function index
-//			unsigned int totalTasks = 0, last;
-//			for (last = 0; last < suitableNodes && totalTasks < numTasks; ++last)
-//				totalTasks += assignment[last].numTasks;
-//			// Calculate the slowness with one more task per node
-//			++tasksPerNode;
-//			vector<SlownessTasks> st1Sorted(last);
-//			for (size_t i = 0; i < last; ++i) {
-//	            StarsNode & node = sim.getNode(assignment[i].node);
-//	        	// Obtain the slowness
-//            	list<TaskProxy> proxys;
-//            	getProxys(assignment[i].node, proxys);
-//				for (unsigned int j = 0; j < tasksPerNode; ++j)
-//					proxys.push_back(TaskProxy(msg->getMinRequirements().getLength(), node.getAveragePower()));
-//            	vector<double> lBounds;
-//            	getBounds(proxys, lBounds);
-//            	TaskProxy::sortMinSlowness(proxys, lBounds);
-//            	double minSlowness = 0.0;
-//        		Time e = now;
-//        		// For each task, calculate finishing time
-//        		for (list<TaskProxy>::iterator it = proxys.begin(); it != proxys.end(); ++it) {
-//        			e += Duration(it->t);
-//        			double slowness = (e - it->rabs).seconds() / it->a;
-//        			if (slowness > minSlowness)
-//        				minSlowness = slowness;
-//        		}
-//				st1Sorted[i].set(minSlowness, tasksPerNode, assignment[i].node);
-//			}
-//			sort(st1Sorted.begin(), st1Sorted.end());
-//			// Substitute those functions that provide lower slowness with more tasks per node than the maximum
-//			// If there are none, end
-//			if (totalTasks >= numTasks && st1Sorted[0].slowness >= assignment[last - 1].slowness) break;
-//			for (size_t i = 0; i < last && (totalTasks < numTasks || st1Sorted[i].slowness < assignment[last - 1].slowness); ++i) {
-//				assignment[i] = st1Sorted[i];
-//			}
-//		}
-//
-//		// Assign tasks
-//        TaskDesc task(msg);
-//        task.tid = 1;
-//        unsigned int totalTasks = 0;
-//        for (unsigned int i = 0; i < suitableNodes && totalTasks < numTasks; ++i) {
-//            // Send tasks to the next node
-//            task.d = now + Duration(assignment[i].slowness * msg->getMinRequirements().getLength());
-//            task.a = Duration(a / sim.getNode(assignment[i].node).getAveragePower());
-//
-//			unsigned int tasksToNode = assignment[i].numTasks;
-//			totalTasks += tasksToNode;
-//			if (totalTasks > numTasks) tasksToNode -= totalTasks - numTasks;
-//			//LogMsg("Dsp.Cent", DEBUG) << tasksToNode << " tasks allocated to node " << assignment[i].node << " with room for " << assignment[i].numTasks << " tasks";
-//			for (unsigned int j = 0; j < tasksToNode; j++, task.tid++) {
-//				//LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
-//				addToQueue(task, assignment[i].node);
-//			}
-//			// Sort the queue
-//			queues[assignment[i].node].sort();
-//        }
-//	}
 
 public:
     CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), switchValuesN(queues.size()) {}
@@ -855,18 +651,6 @@ public:
 
 
 shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
-//    if (type == "SSrandom")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomSimple(false));
-//    else if (type == "FCFSrandom")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomFCFS(false));
-//    else if (type == "DSrandom")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomDeadlines(false));
-//    else if (type == "SSrandom_blind")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomSimple(true));
-//    else if (type == "FCFSrandom_blind")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomFCFS(true));
-//    else if (type == "DSrandom_blind")
-//        return shared_ptr<CentralizedScheduler>(new CentralizedRandomDeadlines(true));
     if (type == "blind")
         return shared_ptr<CentralizedScheduler>(new BlindScheduler());
     else if (type == "cent") {

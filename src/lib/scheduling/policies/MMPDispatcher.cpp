@@ -25,7 +25,7 @@
 using boost::shared_ptr;
 
 
-double MMPDispatcher::beta = 1.0;
+double MMPDispatcher::beta = 0.5;
 
 
 void MMPDispatcher::recomputeInfo() {

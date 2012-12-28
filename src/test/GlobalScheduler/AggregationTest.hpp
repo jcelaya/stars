@@ -174,8 +174,8 @@ public:
         return maxSize;
     }
 
-    double getMeanSize() const {
-        return (double)bytes / messages;
+    unsigned int getMeanSize() const {
+        return bytes / messages;
     }
 
     time_duration getMeanTime() const {

@@ -31,7 +31,7 @@ using std::list;
 
 template<> struct Priv<MSPAvailabilityInformation> {
     MSPAvailabilityInformation::LAFunction totalAvail;
-    MSPAvailabilityInformation::LAFunction minAvail;
+    MSPAvailabilityInformation::LAFunction maxAvail;
 };
 
 
@@ -51,6 +51,8 @@ void getProxys(const list<shared_ptr<Task> > & tasks, list<TaskProxy> & result, 
                 }
             }
     std::sort(lBounds.begin(), lBounds.end());
+    vector<double>::iterator last = std::unique(lBounds.begin(), lBounds.end());
+    lBounds.resize(last - lBounds.begin());
 }
 
 
@@ -174,6 +176,18 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
         os << endl;
     }
 }
+
+bool isMax(const MSPAvailabilityInformation::LAFunction & f1,
+        const MSPAvailabilityInformation::LAFunction & f2,
+        const MSPAvailabilityInformation::LAFunction & max,
+        uint64_t ah, uint64_t astep) {
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+        double l1 = f1.getSlowness(a), l2 = f2.getSlowness(a), lmax = max.getSlowness(a);
+        if ((l1 > l2 && lmax != l1) || (l1 <= l2 && lmax != l2))
+            return false;
+    }
+    return true;
+}
 }
 
 
@@ -184,14 +198,14 @@ template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilit
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
     totalInfo->join(*s);
-    const MSPAvailabilityInformation::LAFunction & minL = s->getSummary()[0].maxL;
-    if (privateData.minAvail == MSPAvailabilityInformation::LAFunction())
-        privateData.minAvail = minL;
-    else {
-        privateData.minAvail.min(privateData.minAvail, minL);
+    const MSPAvailabilityInformation::LAFunction & maxL = s->getSummary()[0].maxL;
+    if (privateData.maxAvail == MSPAvailabilityInformation::LAFunction()) {
+        privateData.maxAvail = maxL;
+    } else {
+        privateData.maxAvail.max(privateData.maxAvail, maxL);
         //privateData.minAvail.reduce();
     }
-    privateData.totalAvail.maxDiff(dummy, dummy, 1, 1, minL, privateData.totalAvail);
+    privateData.totalAvail.maxDiff(dummy, dummy, 1, 1, maxL, privateData.totalAvail);
     return s;
 }
 
@@ -243,33 +257,27 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
             if (tmpah > ah) ah = tmpah;
         }
         ah *= 1.2;
+        uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
+
         MSPAvailabilityInformation::LAFunction min, max;
         min.min(f11, f12);
         min.min(min, f13);
         min.min(min, f21);
         min.min(min, f22);
         max.max(f11, f12);
+        BOOST_CHECK_PREDICATE(isMax, (f11)(f12)(max)(ah)(astep));
         max.max(max, f13);
+        BOOST_CHECK_PREDICATE(isMax, (f13)(max)(max)(ah)(astep));
         max.max(max, f21);
+        BOOST_CHECK_PREDICATE(isMax, (f21)(max)(max)(ah)(astep));
         max.max(max, f22);
+        BOOST_CHECK_PREDICATE(isMax, (f22)(max)(max)(ah)(astep));
 
         // Check one of the functions
         for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah;
-                a += (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100) {
+                a += (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 1000) {
             // Check the estimation of one task
             BOOST_CHECK_CLOSE(f11.getSlowness(a), f11.estimateSlowness(a, 1), 0.01);
-            // Check the minimum
-            BOOST_CHECK_LE(min.getSlowness(a), f11.getSlowness(a));
-            BOOST_CHECK_LE(min.getSlowness(a), f12.getSlowness(a));
-            BOOST_CHECK_LE(min.getSlowness(a), f13.getSlowness(a));
-            BOOST_CHECK_LE(min.getSlowness(a), f21.getSlowness(a));
-            BOOST_CHECK_LE(min.getSlowness(a), f22.getSlowness(a));
-            // Check the maximum
-            BOOST_CHECK_GE(max.getSlowness(a), f11.getSlowness(a));
-            BOOST_CHECK_GE(max.getSlowness(a), f12.getSlowness(a));
-            BOOST_CHECK_GE(max.getSlowness(a), f13.getSlowness(a));
-            BOOST_CHECK_GE(max.getSlowness(a), f21.getSlowness(a));
-            BOOST_CHECK_GE(max.getSlowness(a), f22.getSlowness(a));
         }
 
         // Join f11 with f12
@@ -278,6 +286,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         MSPAvailabilityInformation::LAFunction accumAln112;
         //accumAln112.max(f11, f12);
         accumAln112.maxDiff(f11, f12, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f11)(f12)(f112)(ah)(astep));
         BOOST_CHECK_GE(accumAsq112, 0);
         BOOST_CHECK_CLOSE(accumAsq112, f112.sqdiff(f11, ah) + f112.sqdiff(f12, ah), 0.0001);
         BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ah), 0.0001);
@@ -287,6 +296,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         double accumAsq1 = f1.maxAndLoss(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction(), ah) + accumAsq112;
         MSPAvailabilityInformation::LAFunction accumAln1;
         accumAln1.maxDiff(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f112)(f13)(f1)(ah)(astep));
         BOOST_CHECK_GE(accumAsq1, 0);
         BOOST_CHECK_CLOSE(accumAsq1, f1.sqdiff(f11, ah) + f1.sqdiff(f12, ah) + f1.sqdiff(f13, ah), 0.0001);
 
@@ -295,6 +305,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         double accumAsq2 = f2.maxAndLoss(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
         MSPAvailabilityInformation::LAFunction accumAln2;
         accumAln2.maxDiff(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f21)(f22)(f2)(ah)(astep));
         BOOST_CHECK_GE(accumAsq2, 0);
         BOOST_CHECK_CLOSE(accumAsq2, f2.sqdiff(f21, ah) + f2.sqdiff(f22, ah), 0.0001);
 
@@ -303,12 +314,18 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         double accumAsq = f.maxAndLoss(f1, f2, 3, 2, accumAln1, accumAln2, ah) + accumAsq1 + accumAsq2;
         MSPAvailabilityInformation::LAFunction accumAln;
         accumAln.maxDiff(f1, f2, 3, 2, accumAln1, accumAln2);
+        BOOST_CHECK_PREDICATE(isMax, (f1)(f2)(f)(ah)(astep));
         BOOST_CHECK_GE(accumAsq, 0);
         BOOST_CHECK_CLOSE(accumAsq, f.sqdiff(f11, ah) + f.sqdiff(f12, ah) + f.sqdiff(f13, ah) + f.sqdiff(f21, ah) + f.sqdiff(f22, ah), 0.0001);
 
         MSPAvailabilityInformation::LAFunction fred(f);
         double accumAsqRed = accumAsq + 5 * fred.reduceMax(4, ah);
         BOOST_CHECK_GE(accumAsqRed, 0);
+        for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+            BOOST_CHECK_GE(fred.getSlowness(a), f.getSlowness(a));
+            if (fred.getSlowness(a) < f.getSlowness(a))
+                break;
+        }
 
         // Print functions
         of << "# Functions " << i << endl;
@@ -400,6 +417,26 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
     }
 }
 
+
+class Field {
+    ostringstream oss;
+    unsigned int width, written;
+public:
+    Field(unsigned int w) : width(w), written(0) {}
+    template<class T> Field & operator<<(const T & t) {
+        oss << t;
+        written = oss.tellp();
+        return *this;
+    }
+    friend ostream & operator<<(ostream & os, const Field & f) {
+        os << f.oss.str();
+        if (f.written < f.width)
+            os << string(f.width - f.written, ' ');
+        return os;
+    }
+};
+
+
 BOOST_AUTO_TEST_CASE(siAggr) {
     //Time ct = reference;
     ClusteringVector<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
@@ -417,9 +454,9 @@ BOOST_AUTO_TEST_CASE(siAggr) {
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            MSPAvailabilityInformation::LAFunction minAvail, aggrAvail, treeAvail;
+            MSPAvailabilityInformation::LAFunction maxAvail, aggrAvail, treeAvail;
             MSPAvailabilityInformation::LAFunction & totalAvail = const_cast<MSPAvailabilityInformation::LAFunction &>(t.getPrivateData().totalAvail);
-            minAvail.maxDiff(t.getPrivateData().minAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
+            maxAvail.maxDiff(t.getPrivateData().maxAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
@@ -446,7 +483,7 @@ BOOST_AUTO_TEST_CASE(siAggr) {
                 }
             }
 
-            double meanTotalAvail = 0.0, meanAggrAvail = 0.0, meanTreeAvail = 0.0, meanMinAvail = 0.0;
+            double meanTotalAvail = 0.0, meanAggrAvail = 0.0, meanTreeAvail = 0.0, meanMaxAvail = 0.0;
 
             off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             double ah = totalAvail.getHorizon() * 1.2;
@@ -455,26 +492,28 @@ BOOST_AUTO_TEST_CASE(siAggr) {
                 double t = totalAvail.getSlowness(a),
                         aa = aggrAvail.getSlowness(a),
                         at = treeAvail.getSlowness(a),
-                        min = minAvail.getSlowness(a);
+                        max = maxAvail.getSlowness(a);
                 meanTotalAvail += t / 100;
                 meanAggrAvail += aa / 100;
                 meanTreeAvail += at / 100;
-                meanMinAvail += min / 100;
+                meanMaxAvail += max / 100;
                 off << a << ',' << t
-                        << ',' << min << ',' << (t == 0 ? 100 : min * 100.0 / t)
+                        << ',' << max << ',' << (t == 0 ? 100 : max * 100.0 / t)
                         << ',' << aa << ',' << (t == 0 ? 100 : aa * 100.0 / t)
                         << ',' << at << ',' << (t == 0 ? 100 : at * 100.0 / t) << endl;
             }
             off << endl;
 
-            LogMsg("Test.RI", INFO) << "H. " << i << " nc. " << nc << ": min/mean/max " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-                            << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-                            << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)"
-                            << " avail " << (meanTreeAvail - meanMinAvail) << '/' << (meanTotalAvail - meanMinAvail) << '(' << ((meanTreeAvail - meanMinAvail) * 100.0 / (meanTotalAvail - meanMinAvail)) << "%)";
-            LogMsg("Test.RI", INFO) << "N. " << t.getNumNodes() << " nc. " << nc
-                            << " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-                            << " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)"
-                            << " avail " << (meanAggrAvail - meanMinAvail) << '/' << (meanTotalAvail - meanMinAvail) << '(' << ((meanAggrAvail - meanMinAvail) * 100.0 / (meanTotalAvail - meanMinAvail)) << "%)";
+            LogMsg("Test.RI", INFO) << i << ' ' << setw(6) << t.getNumNodes() << ' ' << nc << ' '
+                    << (Field(15) << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()) << "  "
+                    << setiosflags(ios_base::fixed | ios_base::right) << setprecision(2)
+                    << setw(7) << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "% "
+                    << setw(7) << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "% "
+                    << setw(7) << ((meanMaxAvail - meanTreeAvail) * 100.0 / (meanMaxAvail - meanTotalAvail)) << "%   "
+                    << setw(7) << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "% "
+                    << setw(7) << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "% "
+                    << setw(7) << ((meanMaxAvail - meanAggrAvail) * 100.0 / (meanMaxAvail - meanTotalAvail)) << "%";
+
             ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
             ofmd << (i + 1) << ',' << nc << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
             ofmd << (i + 1) << ',' << nc << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
