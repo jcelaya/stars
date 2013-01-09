@@ -158,7 +158,7 @@ public:
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
     int setTimer(Time time, boost::shared_ptr<BasicMsg> msg) {
-        if (time > Time::getCurrentTime()) return setTimerImpl(time, msg);
+        if (time >= Time::getCurrentTime()) return setTimerImpl(time, msg);
         else return 0;
     }
 
