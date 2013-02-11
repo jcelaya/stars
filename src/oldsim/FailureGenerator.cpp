@@ -44,21 +44,19 @@ static shared_ptr<FailureMsg> failMsg(new FailureMsg);
 void FailureGenerator::startFailures(double median_session, unsigned int minf, unsigned int maxf) {
     unsigned int numNodes = Simulator::getInstance().getNumNodes();
     meanTime = median_session / (numNodes * log(2.0));
-    minFail = minf;
-    maxFail = maxf > numNodes ? numNodes : maxf;
+    failNumVar = DiscreteUniformVariable(minf, maxf > numNodes ? numNodes : maxf);
     numFailures = numFailed = 0;
-    unsigned int numFailing = Simulator::uniform(minFail, maxFail, 1);
-    programFailure(Duration(Simulator::exponential(meanTime * numFailing)), numFailing);
+    unsigned int numFailing = failNumVar();
+    programFailure(Duration(exponential(meanTime * numFailing)), numFailing);
 }
 
 
 void FailureGenerator::bigFailure(Duration failAt, unsigned int minf, unsigned int maxf) {
     unsigned int numNodes = Simulator::getInstance().getNumNodes();
-    minFail = minf;
-    maxFail = maxf > numNodes ? numNodes : maxf;
+    failNumVar = DiscreteUniformVariable(minf, maxf > numNodes ? numNodes : maxf);
     numFailures = 1;
     numFailed = 0;
-    unsigned int numFailing = Simulator::uniform(minFail, maxFail, 1);
+    unsigned int numFailing = failNumVar();
     programFailure(failAt, numFailing);
 }
 
@@ -69,7 +67,7 @@ void FailureGenerator::programFailure(Duration failAt, unsigned int numFailing) 
     // Simulate a random shuffle
     failingNodes.resize(numFailing);
     for (size_t i = 0; i < sim.getNumNodes(); ++i) {
-        size_t pos = Simulator::uniform(0, i, 1);
+        size_t pos = DiscreteUniformVariable(0, i)();
         if (pos < numFailing) {
             if (i < numFailing && pos != i) failingNodes[i] = failingNodes[pos];
             failingNodes[pos] = i;
@@ -123,8 +121,8 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
 //        }
         // Program next failure
         if (numFailures == 0 || numFailed < numFailures ) {
-            unsigned int numFailing = Simulator::uniform(minFail, maxFail, 1);
-            programFailure(Duration(Simulator::exponential(meanTime * numFailing)), numFailing);
+            unsigned int numFailing = failNumVar();
+            programFailure(Duration(exponential(meanTime * numFailing)), numFailing);
         }
         return true;
     }

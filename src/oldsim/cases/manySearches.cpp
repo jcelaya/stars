@@ -30,7 +30,8 @@
 #include "RequestTimeout.hpp"
 #include "AvailabilityInformation.hpp"
 #include "TaskStateChgMsg.hpp"
-#include "../sim/SimTask.hpp"
+#include "SimTask.hpp"
+#include "Variables.hpp"
 using namespace std;
 using namespace boost;
 
@@ -41,9 +42,10 @@ class manySearches : public SimulationCase {
     DispatchCommandMsg dcm;
     TaskDescription minReq;
     Duration deadline;
+    DiscreteUniformVariable clientVar;
 
 public:
-    manySearches(const Properties & p) : SimulationCase(p) {
+    manySearches(const Properties & p) : SimulationCase(p), clientVar(0, 1) {
         // Prepare the properties
     }
 
@@ -53,6 +55,7 @@ public:
         Simulator & sim = Simulator::getInstance();
         // Before running simulation
         deadline = Duration(property("task_deadline", 3600.0));
+        clientVar = DiscreteUniformVariable(0, sim.getNumNodes() - 1);
 
         numSearches = property("num_searches", 1);
         LogMsg("Sim.Progress", WARN) << "Performing " << numSearches << " searches.";
@@ -70,7 +73,7 @@ public:
         taskRepeat = property("task_repeat", 1);
 
         // Send first app instance
-        uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
+        uint32_t client = clientVar();
         dcm.setDeadline(sim.getCurrentTime() + deadline);
         sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
         nextSearch = 2;
@@ -80,7 +83,7 @@ public:
     void afterEvent(const Simulator::Event & ev) {
         Simulator & sim = Simulator::getInstance();
         if (sim.emptyEventQueue() && nextSearch <= numSearches) {
-            uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
+            uint32_t client = clientVar();
             if (!taskRepeat) {
                 minReq.setNumTasks(minReq.getNumTasks() + taskDelta);
                 SimAppDatabase::getCurrentDatabase().setNextApp(minReq);

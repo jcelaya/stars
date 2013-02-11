@@ -38,6 +38,7 @@ namespace iost = boost::iostreams;
 #include "Scheduler.hpp"
 #include "Dispatcher.hpp"
 #include "AvailabilityInformation.hpp"
+#include "Variables.hpp"
 class Simulator;
 
 
@@ -51,15 +52,10 @@ class Simulator;
 class StarsNode : public CommLayer {
 public:
     class Configuration {
-        int minCPU;
-        int maxCPU;
-        int stepCPU;
-        int minMem;
-        int maxMem;
-        int stepMem;
-        int minDisk;
-        int maxDisk;
-        int stepDisk;
+        Configuration() : cpuVar(1000, 3000), memVar(256, 1024), diskVar(10, 1000), policy(IBPolicy) {}
+
+        DiscreteParetoVariable cpuVar;
+        DiscreteUniformVariable memVar, diskVar;
         int policy;
         std::string inFileName;
         fs::ifstream inFile;

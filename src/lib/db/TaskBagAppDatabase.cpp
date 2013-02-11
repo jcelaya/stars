@@ -222,12 +222,14 @@ unsigned int TaskBagAppDatabase::cancelSearch(int64_t rid) {
 }
 
 
-void TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid) {
-    Database::Query(*db, "update tb_task set state = 'EXECUTING', atime = ?, host_IP = ?, host_port = ? where tid in "
-                    "(select tid from tb_task_request where rid = ? and rtid between ? and ?) and "
+unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid) {
+    Database::Query(*db, "update tb_task set state = 'EXECUTING', atime = ?, host_IP = ?, host_port = ? where "
+                    "state = 'SEARCHING' and "
+                    "tid in (select tid from tb_task_request where rid = ? and rtid between ? and ?) and "
                     "app_instance = (select app_instance from tb_request where rid = ?4)")
     .par(Time::getCurrentTime().getRawDate()).par(src.getIPString())
     .par(src.getPort()).par(rid).par(firstRtid).par(lastRtid).execute();
+    return db->getChangedRows();
 }
 
 

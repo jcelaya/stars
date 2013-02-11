@@ -23,6 +23,7 @@
 
 #include <vector>
 #include "Time.hpp"
+#include "Variables.hpp"
 class BasicMsg;
 
 
@@ -36,13 +37,15 @@ class BasicMsg;
  */
 class FailureGenerator {
     double meanTime;
-    unsigned int minFail, maxFail;
+    DiscreteUniformVariable failNumVar;
     unsigned int numFailures, numFailed;
     std::vector<unsigned int> failingNodes;
 
     void programFailure(Duration failAt, unsigned int numFailing);
 
 public:
+    FailureGenerator() : failNumVar(0, 1) {}
+
     void startFailures(double median_session, unsigned int minf, unsigned int maxf);
     void bigFailure(Duration failAt, unsigned int minf, unsigned int maxf);
 

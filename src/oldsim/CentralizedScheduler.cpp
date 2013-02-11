@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <assert.h>
 #include "CentralizedScheduler.hpp"
 #include "RescheduleTimer.hpp"
 #include "AvailabilityInformation.hpp"
@@ -213,7 +214,6 @@ CentralizedScheduler::~CentralizedScheduler() {
 
 
 class BlindScheduler : public CentralizedScheduler {
-
     bool blockMessage(const shared_ptr<BasicMsg> & msg) {
         // Block AvailabilityInformation and RescheduleTimer
         if (typeid(*msg) == typeid(RescheduleTimer) || dynamic_pointer_cast<AvailabilityInformation>(msg).get())
@@ -226,10 +226,9 @@ class BlindScheduler : public CentralizedScheduler {
     }
 
     void newApp(shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = sim.getNumNodes();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
 
-        unsigned int n = Simulator::uniform(0, numNodes - 1);
+        unsigned int n = clientVar();
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
             shared_ptr<TaskBagMsg> tbm(msg->clone());
             tbm->setFromEN(false);
@@ -239,6 +238,11 @@ class BlindScheduler : public CentralizedScheduler {
             sim.sendMessage(sim.getNode(n).getLeaf().getFatherAddress().getIPNum(), n, tbm);
         }
     }
+
+    DiscreteUniformVariable clientVar;
+
+public:
+    BlindScheduler() : CentralizedScheduler(), clientVar(0, Simulator::getInstance().getNumNodes() - 1) {}
 };
 
 
@@ -470,103 +474,48 @@ class CentralizedMSP : public CentralizedScheduler {
     };
 
     vector<list<TaskProxy> > proxysN;
-    vector<vector<std::pair<double, int> > > switchValuesN;
+    vector<vector<double> > switchValuesN;
+    vector<Time> firstTaskEndTimeN;
 
     virtual void taskFinished(unsigned int node) {
         list<TaskProxy> & proxys = proxysN[node];
-        vector<std::pair<double, int> > & switchValues = switchValuesN[node];
-        // Assume it's the first proxy
-        vector<double> svOld;
-        // Calculate bounds with the rest of the tasks, except the first
-        for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-            if (it->a != proxys.front().a) {
-                double l = (proxys.front().rabs - it->rabs).seconds() / (it->a - proxys.front().a);
-                if (l > 0.0) {
-                    svOld.push_back(l);
-                }
-            }
-        std::sort(svOld.begin(), svOld.end());
-        // Create a new list of switch values without the removed ones, counting occurrences
-        vector<std::pair<double, int> > svCur(switchValues.size());
-        vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
-        vector<double>::iterator in2 = svOld.begin();
-        while (in1 != switchValues.end() && in2 != svOld.end()) {
-            if (in1->first != *in2) *out++ = *in1++;
-            else {
-                if (in1->second > 1) {
-                    out->first = in1->first;
-                    (out++)->second = in1->second - 1;
-                }
-                ++in1;
-                ++in2;
-            }
-        }
-        if (in2 == svOld.end())
-            out = std::copy(in1, switchValues.end(), out);
-        if (out != svCur.end())
-            svCur.erase(out, svCur.end());
-        switchValues.swap(svCur);
+        vector<double> & switchValues = switchValuesN[node];
         // Remove the proxy
         proxys.pop_front();
-
+        if (!proxys.empty()) {
+            // Adjust the time of the first task
+            firstTaskEndTimeN[node] = Time::getCurrentTime() + (++queues[node].begin())->a;
+        }
+        // Recalculate switch values
+        TaskProxy::getSwitchValues(proxys, switchValues);
         CentralizedScheduler::taskFinished(node);
     }
 
-    double addTasks(list<TaskProxy> & proxys, vector<std::pair<double, int> > & switchValues, unsigned int n, double a, double power, Time now) {
+    //double addTasks(list<TaskProxy> & proxys, vector<std::pair<double, int> > & switchValues, unsigned int n, double a, double power, Time now) {
+    double addTasks(list<TaskProxy> & proxys, vector<double> & switchValues, unsigned int n, double a, double power, Time now) {
         size_t numOriginalTasks = proxys.size();
-        proxys.push_back(TaskProxy(a, power));
+        proxys.push_back(TaskProxy(a, power, now));
         list<TaskProxy>::iterator ni = --proxys.end();
         for (unsigned int j = 1; j < n; ++j)
-            proxys.push_back(TaskProxy(a, power));
+            proxys.push_back(TaskProxy(a, power, now));
         vector<double> svNew;
         // If there were more than the first task, sort them with the new tasks
         if (numOriginalTasks > 1) {
-            svNew.reserve(switchValues.size());
             // Calculate bounds with the rest of the tasks, except the first
             for (list<TaskProxy>::iterator it = ++proxys.begin(); it != ni; ++it)
-                if (it->a != ni->a) {
-                    double l = (ni->rabs - it->rabs).seconds() / (it->a - ni->a);
-                    if (l > 0.0) {
-                        svNew.push_back(l);
+                if (it->a != a) {
+                    double l = (now - it->rabs).seconds() / (it->a - a);
+                    if (l > switchValues.front()) {
+                        switchValues.push_back(l);
                     }
                 }
-            std::sort(svNew.begin(), svNew.end());
-            // Create new vector of values, counting occurrences
-            vector<std::pair<double, int> > svCur(switchValues.size() + svNew.size());
-            vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
-            vector<double>::iterator in2 = svNew.begin();
-            while (in1 != switchValues.end() && in2 != svNew.end()) {
-                if (in1->first < *in2) *out++ = *in1++;
-                else if (in1->first > *in2) *out++ = std::make_pair(*in2++, n);
-                else {
-                    out->first = in1->first;
-                    (out++)->second = (in1++)->second + n;
-                    ++in2;
-                }
-            }
-            if (in1 == switchValues.end())
-                while (in2 != svNew.end()) *out++ = std::make_pair(*in2++, n);
-            if (in2 == svNew.end())
-                out = std::copy(in1, switchValues.end(), out);
-            if (out != svCur.end())
-                svCur.erase(out, svCur.end());
-            switchValues.swap(svCur);
-
-            svNew.resize(switchValues.size());
-            for (size_t i = 0; i < svNew.size(); ++i)
-                svNew[i] = switchValues[i].first;
-            TaskProxy::sortMinSlowness(proxys, svNew);
+            std::sort(switchValues.begin(), switchValues.end());
+            // Remove duplicate values
+            vector<double>::iterator last = std::unique(switchValues.begin(), switchValues.end());
+            switchValues.resize(last - switchValues.begin());
+            TaskProxy::sortMinSlowness(proxys, switchValues);
         }
-        double slowness = 0.0;
-        Time e = now;
-        // For each task, calculate finishing time
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-            e += Duration(i->t);
-            double s = (e - i->rabs).seconds() / i->a;
-            if (s > slowness)
-                slowness = s;
-        }
-        return slowness;
+        return TaskProxy::getSlowness(proxys);
     }
 
     void newApp(shared_ptr<TaskBagMsg> msg) {
@@ -579,11 +528,22 @@ class CentralizedMSP : public CentralizedScheduler {
 
         unsigned int totalTasks = 0;
         // Number of tasks sent to each node
-        vector<int> tpn(numNodes);
+        vector<int> tpn(numNodes, -1);
         // Discard the uncapable nodes
         for (size_t n = 0; n < numNodes; ++n) {
+            assert(proxysN[n].size() == queues[n].size());
             StarsNode & node = sim.getNode(n);
-            tpn[n] = node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk ? 0 : -1;
+            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
+                tpn[n] = 0;
+                // Adjust the time of the first task
+                if (!proxysN[n].empty()) {
+                    proxysN[n].front().t = (firstTaskEndTimeN[n] - now).seconds();
+                    if (proxysN[n].front().t < -100.0) {
+                        std::cerr << "Negative time to finish (" << proxysN[n].front().t << ") for node " << n << " at " << now << endl;
+                        assert(false);
+                    }
+                }
+            }
         }
         // Heap of slowness values
         vector<std::pair<double, size_t> > slownessHeap;
@@ -597,7 +557,7 @@ class CentralizedMSP : public CentralizedScheduler {
                 if (tpn[n] == currentTpn - 1) {
                     // calculate the slowness with one task more
                     list<TaskProxy> proxys = proxysN[n];
-                    vector<std::pair<double, int> > switchValues = switchValuesN[n];
+                    vector<double> switchValues = switchValuesN[n];
                     double slowness = addTasks(proxys, switchValues, currentTpn, a, sim.getNode(n).getAveragePower(), now);
                     // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
                     if (totalTasks < numTasks || slowness < slownessHeap.front().first) {
@@ -627,12 +587,23 @@ class CentralizedMSP : public CentralizedScheduler {
             if (tpn[n] > 0) {
                 unsigned int tasksToSend = tpn[n];
                 list<TaskProxy> & proxys = proxysN[n];
-                vector<std::pair<double, int> > & switchValues = switchValuesN[n];
+                vector<double> & switchValues = switchValuesN[n];
                 double slowness = addTasks(proxys, switchValues, tasksToSend, a, sim.getNode(n).getAveragePower(), now);
 
                 // Send tasks to the node
-                task.d = now + Duration(slowness * msg->getMinRequirements().getLength());
+                task.d = now + Duration(slowness * a);
                 task.a = Duration(a / sim.getNode(n).getAveragePower());
+                if (queues[n].empty()) {
+                    firstTaskEndTimeN[n] = now + task.a;
+                    // First value is slowness so that first task meets deadline
+                    switchValues.push_back(1.0 / sim.getNode(n).getAveragePower());
+                    assert(slowness + 0.000000001 >= switchValues.front());
+                }
+                else {
+                    // Update all deadlines
+                    for (list<TaskDesc>::iterator it = queues[n].begin(); it != queues[n].end(); ++it)
+                        it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
+                }
 
                 //LogMsg("Dsp.Cent", DEBUG) << tasksToNode << " tasks allocated to node " << assignment[i].node << " with room for " << assignment[i].numTasks << " tasks";
                 for (unsigned int j = 0; j < tasksToSend; j++, task.tid++) {
@@ -641,12 +612,37 @@ class CentralizedMSP : public CentralizedScheduler {
                 }
                 // Sort the queue
                 updateQueue(n);
+
+//                // Check order
+//                assert(queues[n].size() == proxys.size());
+//                if (proxys.size() > 0) {
+//                    list<TaskDesc>::iterator qi = ++queues[n].begin();
+//                    list<TaskProxy>::iterator pi = ++proxys.begin();
+//                    while (qi != queues[n].end()) {
+//                        if (qi->a != Duration(pi->t)) {
+//                            cerr << "Queues are different, slowness should be " << slowness << ", queue yields " << getMaxSlowness(n) << endl;
+//                            cerr << "queue:";
+//                            for (list<TaskDesc>::iterator qj = queues[n].begin(); qj != queues[n].end(); ++qj) {
+//                                cerr << ' ' << *qj;
+//                            }
+//                            cerr << endl << "proxys:";
+//                            for (list<TaskProxy>::iterator qj = proxys.begin(); qj != proxys.end(); ++qj) {
+//                                qj->setSlowness(slowness);
+//                                cerr << ' ' << *qj;
+//                            }
+//                            cerr << endl;
+//                            break;
+//                        }
+//                        ++qi;
+//                        ++pi;
+//                    }
+//                }
             }
         }
     }
 
 public:
-    CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), switchValuesN(queues.size()) {}
+    CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), switchValuesN(queues.size()), firstTaskEndTimeN(queues.size()) {}
 };
 
 

@@ -133,15 +133,9 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 
 // Configuration object
 void StarsNode::Configuration::setup(const Properties & property) {
-    minCPU = property("min_cpu", 1000.0);
-    maxCPU = property("max_cpu", 3000.0);
-    stepCPU = property("step_cpu", 200.0);
-    minMem = property("min_mem", 256);
-    maxMem = property("max_mem", 4096);
-    stepMem = property("step_mem", 256);
-    minDisk = property("min_disk", 64);
-    maxDisk = property("max_disk", 1000);
-    stepDisk = property("step_disk", 100);
+    cpuVar = DiscreteParetoVariable(property("min_cpu", 1000.0), property("max_cpu", 3000.0), property("step_cpu", 200.0), 1.0);
+    memVar = DiscreteUniformVariable(property("min_mem", 256), property("max_mem", 4096), property("step_mem", 256));
+    diskVar = DiscreteUniformVariable(property("min_disk", 64), property("max_disk", 1000), property("step_disk", 100));
     inFileName = property("in_file", string(""));
     outFileName = property("out_file", string(""));
     string s = property("policy", string(""));
@@ -198,9 +192,9 @@ void StarsNode::setup(unsigned int addr) {
     localAddress = CommAddress(addr, ConfigurationManager::getInstance().getPort());
     Configuration & cfg = Configuration::getInstance();
     // Execution power follows discretized pareto distribution, with k=1
-    power = Simulator::discretePareto(cfg.minCPU, cfg.maxCPU, cfg.stepCPU, 1.0);
-    mem = Simulator::uniform(cfg.minMem, cfg.maxMem, cfg.stepMem);
-    disk = Simulator::uniform(cfg.minDisk, cfg.maxDisk, cfg.stepDisk);
+    power = cfg.cpuVar();
+    mem = cfg.memVar();
+    disk = cfg.diskVar();
 
     createServices();
     // Load service state if needed

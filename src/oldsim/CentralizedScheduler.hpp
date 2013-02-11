@@ -40,6 +40,9 @@ public:
         bool running;
         bool operator<(const TaskDesc & rt) const { return running || (!rt.running && d <= rt.d); }
         TaskDesc(boost::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
+        friend std::ostream & operator<<(std::ostream & os, const TaskDesc & t) {
+            return os << '(' << (t.running ? 'r' : 'p') << ' ' << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
+        }
     };
 
     virtual ~CentralizedScheduler();

@@ -84,7 +84,7 @@ public:
     /**
      * Sets the state of the accepted tasks to executing, and records the execution node address
      */
-    void acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid);
+    unsigned int acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid);
 
     /**
      * Checks that a task belongs to a request

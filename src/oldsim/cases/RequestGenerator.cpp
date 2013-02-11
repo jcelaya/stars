@@ -26,6 +26,7 @@
 #include "Simulator.hpp"
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
+#include "Variables.hpp"
 using namespace std;
 using namespace boost;
 
@@ -112,9 +113,9 @@ DispatchCommandMsg * RequestGenerator::generate(StarsNode & client, Time release
     DispatchCommandMsg * dcm = new DispatchCommandMsg;
     // Create application
     TaskDescription minReq;
-    SWFAppDescription & ad = descriptions[floor(appDistribution.inverse(Simulator::uniform01()))];
-    minReq.setMaxMemory(ad.maxMemory == -1 ? taskMemory.inverse(Simulator::uniform01()) : ad.maxMemory / 1024);
-    minReq.setMaxDisk(taskDisk.inverse(Simulator::uniform01()));
+    SWFAppDescription & ad = descriptions[floor(appDistribution.inverse(uniform01()))];
+    minReq.setMaxMemory(ad.maxMemory == -1 ? taskMemory.inverse(uniform01()) : ad.maxMemory / 1024);
+    minReq.setMaxDisk(taskDisk.inverse(uniform01()));
     minReq.setNumTasks(ad.numTasks);
     minReq.setLength(ad.length);
     minReq.setInputSize(input);

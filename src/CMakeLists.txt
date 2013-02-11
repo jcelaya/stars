@@ -1,5 +1,5 @@
 add_subdirectory(lib)
 add_subdirectory(test)
-add_subdirectory(sim)
+#add_subdirectory(sim)
 add_subdirectory(oldsim)
 add_subdirectory(tools)

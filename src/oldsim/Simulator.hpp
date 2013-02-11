@@ -41,6 +41,7 @@
 #include "PerformanceStatistics.hpp"
 #include "TrafficStatistics.hpp"
 #include "FailureGenerator.hpp"
+#include "Variables.hpp"
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 class CentralizedScheduler;
@@ -140,49 +141,6 @@ public:
 
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
 
-    // Return a random double in interval (0, 1]
-    static double uniform01() {
-        double r = (std::rand() + 1.0) / (RAND_MAX + 1.0);
-        return r;
-    }
-
-    // Return a random double in interval (min, max]
-    static double uniform(double min, double max) {
-        double r = min + (max - min) * uniform01();
-        return r;
-    }
-
-    static double exponential(double mean) {
-        double r = - std::log(uniform01()) * mean;
-        return r;
-    }
-
-    static double pareto(double xm, double k, double max) {
-        // xm > 0 and k > 0
-        double r;
-        do
-            r = xm / std::pow(uniform01(), 1.0 / k);
-        while (r > max);
-        return r;
-    }
-
-    static double normal(double mu, double sigma) {
-        const double pi = 3.14159265358979323846;   //approximate value of pi
-        double r = mu + sigma * std::sqrt(-2.0 * std::log(uniform01())) * std::cos(2.0 * pi * uniform01());
-        return r;
-    }
-
-    static int discretePareto(int min, int max, int step, double k) {
-        int r = min + step * ((int)std::floor(pareto(step, k, max - min) / step) - 1);
-        return r;
-    }
-
-    // Return a random int in interval [min, max] with step
-    static int uniform(int min, int max, int step = 1) {
-        int r = min + step * ((int)std::ceil(std::floor((double)(max - min) / (double)step + 1.0) * uniform01()) - 1);
-        return r;
-    }
-
 private:
     class ptrCompare {
     public:
@@ -201,11 +159,11 @@ private:
     Event * p;
     StarsNode * currentNode;
     std::list<Event *> generatedEvents;
-    double minDelay;   // network min delay
-    double maxDelay;   // network max delay
+    ParetoVariable netDelay; // network delay
     fs::path resultDir;
     fs::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
+    StarsNode * debugNode;
     boost::shared_ptr<CentralizedScheduler> cs;
     FailureGenerator fg;
 

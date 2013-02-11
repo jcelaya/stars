@@ -27,13 +27,14 @@
 #include "Time.hpp"
 #include "DispatchCommandMsg.hpp"
 #include "TaskBagAppDatabase.hpp"
-#include "../sim/SimTask.hpp"
+#include "SimTask.hpp"
 #include "RequestGenerator.hpp"
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
 #include "RequestTimeout.hpp"
 #include "DPAvailabilityInformation.hpp"
-#include "../sim/Distributions.hpp"
+#include "Distributions.hpp"
+#include "Variables.hpp"
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
@@ -48,9 +49,10 @@ class poissonProcess : public SimulationCase {
     double meanTime;
     RequestGenerator rg;
     bool generateTraceOnly;
+    DiscreteUniformVariable clientVar;
 
 public:
-    poissonProcess(const Properties & p) : SimulationCase(p), rg(p) {
+    poissonProcess(const Properties & p) : SimulationCase(p), rg(p), clientVar(0, 1) {
         // Prepare the properties
     }
 
@@ -59,6 +61,7 @@ public:
     void preStart() {
         Simulator & sim = Simulator::getInstance();
         // Before running simulation
+        clientVar = DiscreteUniformVariable(0, sim.getNumNodes() - 1);
 
         // Simulation limit
         numInstances = property("num_searches", 1);
@@ -69,7 +72,7 @@ public:
         generateTraceOnly = property("generate_trace_only", false);
 
         // Send first request
-        uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
+        uint32_t client = clientVar();
         shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), Time()));
         // Send this message to the client
         sim.injectMessage(client, client, dcm, Duration());
@@ -81,9 +84,9 @@ public:
         if (typeid(msg) == typeid(DispatchCommandMsg) && nextInstance < numInstances) {
             // Calculate next send
             Simulator & sim = Simulator::getInstance();
-            Duration timeToNext(Simulator::exponential(meanTime));
+            Duration timeToNext(exponential(meanTime));
 
-            uint32_t client = Simulator::uniform(0, sim.getNumNodes() - 1);
+            uint32_t client = clientVar();
             shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), sim.getCurrentTime() + timeToNext));
             // Send this message to the client
             sim.injectMessage(client, client, dcm, timeToNext);
@@ -284,16 +287,15 @@ class siteLevel : public SimulationCase {
         bool daytime, weekdays;
         Duration wDelta;
         static Duration morning, night;
+        static UniformVariable deltaVariable;
 
         void setup(double p) {
             repeat = 0;
-            daytime = Simulator::uniform01() > 0.3;
-            weekdays = Simulator::uniform01() > 0.2;
-            wDelta = Duration(Simulator::uniform(-3600.0, 3600.0));
+            daytime = uniform01() > 0.3;
+            weekdays = uniform01() > 0.2;
+            wDelta = Duration(deltaVariable());
             perceivedSpeed = p;
         }
-
-
 
         bool isWtime(Time now) const {
             greg_weekday today = now.to_posix_time().date().day_of_week();
@@ -341,25 +343,25 @@ class siteLevel : public SimulationCase {
     void generateWorkload(uint32_t u) {
         Simulator & sim = Simulator::getInstance();
         User & user = users[u];
-        user.batchSize = batchCDF.inverse(Simulator::uniform01());
+        user.batchSize = batchCDF.inverse(uniform01());
         Duration when(0.0);
         LogMsg("Sim.Site", INFO) << "User " << u << " creates a batch of size " << user.batchSize;
         for (unsigned int i = 0; i < user.batchSize; i++) {
             sim.injectMessage(u, u, sendCmd, when);
-            when += Duration(interBatchTimeCDF.inverse(Simulator::uniform01()));
+            when += Duration(interBatchTimeCDF.inverse(uniform01()));
         }
         user.state = User::WAIT_JOB_FINISH;
     }
 
     void generateThinkTime(uint32_t u, Duration rt) {
         Duration tt;
-        if (Simulator::uniform01() <= 0.8 / ((0.05 * rt.seconds()) / 60.0 + 1.0)) {
+        if (uniform01() <= 0.8 / ((0.05 * rt.seconds()) / 60.0 + 1.0)) {
             // Calculate think time
-            tt = Duration(thinkTimeCDF.inverse(Simulator::uniform01()));
+            tt = Duration(thinkTimeCDF.inverse(uniform01()));
             LogMsg("Sim.Site", INFO) << "User " << u << " thinks for " << tt << " seconds";
         } else {
             // Calculate break
-            tt = Duration(breakTimeCDF.inverse(Simulator::uniform01()));
+            tt = Duration(breakTimeCDF.inverse(uniform01()));
             LogMsg("Sim.Site", INFO) << "User " << u << " breaks for " << tt << " seconds";
         }
         Simulator::getInstance().injectMessage(u, u, timer, tt);
@@ -438,7 +440,7 @@ public:
             Time now = sim.getCurrentTime();
             if (!u.repeat) {
                 dcm.reset(rg.generate(sim.getNode(dst), now));
-                u.repeat = repeatCDF.inverse(Simulator::uniform01());
+                u.repeat = repeatCDF.inverse(uniform01());
             } else {
                 // Repeat app
                 dcm.reset(new DispatchCommandMsg);
@@ -450,7 +452,7 @@ public:
             // Min time: perceived platform time
             double min = w * deadlineMultiplier / u.perceivedSpeed;
             // Ref time: time to break
-            double ref = 1200.0 * (0.8 / Simulator::uniform01() - 1.0);
+            double ref = 1200.0 * (0.8 / uniform01() - 1.0);
             if (ref < min) ref = min;
             if (ref > max) ref = max;
             Time deadline = now + Duration(ref);
@@ -508,5 +510,6 @@ public:
 REGISTER_SIMULATION_CASE(siteLevel);
 
 Duration siteLevel::User::morning((7*60 + 30) * 60.0), siteLevel::User::night((17*60 + 30) * 60.0);
+UniformVariable siteLevel::User::deltaVariable(3600.0, 3600.0);
 shared_ptr<siteLevel::UserEvent> siteLevel::timer(new UserEvent);
 shared_ptr<siteLevel::SendJobEvent> siteLevel::sendCmd(new SendJobEvent);

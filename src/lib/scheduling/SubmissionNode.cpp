@@ -76,7 +76,6 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         // Schedule the timeout message
         boost::shared_ptr<RequestTimeout> rt(new RequestTimeout);
         rt->setRequestId(reqId);
-        /*timeouts[rt->getRequestId()] = */
         CommLayer::getInstance().setTimer(timeout, rt);
         if (db.startSearch(reqId, timeout)) {
             LogMsg("Sb", INFO) << "Sending request with " << (tbm->getLastTask() - tbm->getFirstTask() + 1) << " tasks of length "
@@ -133,39 +132,38 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
     LogMsg("Sb", INFO) << "Handling AcceptTaskMsg for request " << msg.getRequestId()
     << ", tasks " << msg.getFirstTask() << " to " << msg.getLastTask() << " from " << src;
 
-    // Reject all tasks that do not belong to this request
-    AbortTaskMsg * atm = new AbortTaskMsg;
-    atm->setRequestId(msg.getRequestId());
-    for (unsigned int i = msg.getFirstTask(); i <= msg.getLastTask(); i++) {
-        if (!db.taskInRequest(i, msg.getRequestId())) {
-            LogMsg("Sb", DEBUG) << "Task " << i << " is not in this request, aborting";
-            atm->addTask(i);
-        }
-    }
-    unsigned int numTasks = atm->getNumTasks();
-    if (numTasks > 0)
-        CommLayer::getInstance().sendMessage(src, atm);
-    else delete atm;
+    // Reject all tasks that do not belong to this request?
+//    AbortTaskMsg * atm = new AbortTaskMsg;
+//    atm->setRequestId(msg.getRequestId());
+//    for (unsigned int i = msg.getFirstTask(); i <= msg.getLastTask(); i++) {
+//        if (!db.taskInRequest(i, msg.getRequestId())) {
+//            LogMsg("Sb", DEBUG) << "Task " << i << " is not in this request, aborting";
+//            atm->addTask(i);
+//        }
+//    }
+//    unsigned int numTasks = atm->getNumTasks();
+//    if (numTasks > 0)
+//        CommLayer::getInstance().sendMessage(src, atm);
+//    else delete atm;
 
-    // Accept the rest
-    if (numTasks < msg.getLastTask() - msg.getFirstTask() + 1) {
-        int64_t appId = db.getInstanceId(msg.getRequestId());
-        if (appId != -1) {
-            db.acceptedTasks(src, msg.getRequestId(), msg.getFirstTask(), msg.getLastTask());
+    int64_t appId = db.getInstanceId(msg.getRequestId());
+    if (appId != -1) {
+        unsigned int numAccepted = db.acceptedTasks(src, msg.getRequestId(), msg.getFirstTask(), msg.getLastTask());
+        if (numAccepted) {
             // Reset the number of retries for this instance
             retries[msg.getRequestId()] = 0;
             // Program a heartbeat timeout for this execution node if it does not exist yet
             int & timer = heartbeats.insert(make_pair(src, 0)).first->second;
-            if (timer == 0)
+            if (timer == 0) {
                 timer = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
                         boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
+            }
             // Count tasks
-            remoteTasks[src].insert(make_pair(appId, 0)).first->second += msg.getLastTask() - msg.getFirstTask() + 1 - numTasks;
-            return;
+            remoteTasks[src].insert(make_pair(appId, 0)).first->second += numAccepted;
         }
+    } else {
+        LogMsg("Sb", WARN) << "No application instance for request " << msg.getRequestId();
     }
-    // Reaching here means error
-    LogMsg("Sb", WARN) << "No application instance for request " << msg.getRequestId();
 }
 
 
@@ -175,80 +173,82 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
  * @param msg The msg with the accepted tasks identifiers.
  */
 template<> void SubmissionNode::handle(const CommAddress & src, const RequestTimeout & msg) {
-    LogMsg("Sb", INFO) << "Request " << msg.getRequestId() << " timed out";
-    //timeouts.erase(msg.getRequestId());
-    int prevRetries = retries[msg.getRequestId()];
-    retries.erase(msg.getRequestId());
-
     int64_t appId = db.getInstanceId(msg.getRequestId());
-
     // Ignore a non-existent request
     if (appId != -1) {
+        map<int64_t, int>::iterator prevRetries = retries.find(msg.getRequestId());
         // Change all SEARCHING tasks to READY
         map<int64_t, unsigned int>::iterator it = remainingTasks.find(appId);
         it->second -= db.cancelSearch(msg.getRequestId());
         if (db.getNumReady(appId) > 0
-                && prevRetries < ConfigurationManager::getInstance().getSubmitRetries()) {
+                && prevRetries->second < ConfigurationManager::getInstance().getSubmitRetries()) {
+            LogMsg("Sb", WARN) << "Request " << msg.getRequestId() << " timed out with pending tasks.";
             // Start a new search
-            sendRequest(appId, prevRetries);
+            sendRequest(appId, prevRetries->second);
         } else {
             if (it->second == 0) {
                 finishedApp(it->first);
                 remainingTasks.erase(it);
             }
         }
+        retries.erase(prevRetries);
     }
 }
 
 
 template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonitorMsg & msg) {
     LogMsg("Sb", INFO) << "Handling TaskMonitorMsg from node " << src;
-    map<CommAddress, int>::iterator tout = heartbeats.find(src);
-    if (tout != heartbeats.end()) {
-        // Cancel the heartbeat timeout
-        CommLayer::getInstance().cancelTimer(tout->second);
+    map<int64_t, unsigned int> & tasksPerApp = remoteTasks[src];
+
+    for (unsigned int i = 0; i < msg.getNumTasks(); ++i) {
+        LogMsg("Sb", INFO) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " is in state " << msg.getTaskState(i);
+
+        if (!db.acceptedTasks(src, msg.getRequestId(i), msg.getTaskId(i), msg.getTaskId(i))) {
+            // Task already accepted or non-existent
+        }
+
         // Change state for finished tasks
-        map<int64_t, unsigned int> & tasksPerApp = remoteTasks[src];
-        for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
-            LogMsg("Sb", INFO) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " is in state " << msg.getTaskState(i);
-            if (msg.getTaskState(i) == Task::Finished) {
-                int64_t appId = db.getInstanceId(msg.getRequestId(i));
-                if (db.finishedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
-                    map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
-                    if (it != tasksPerApp.end()) {
-                        if (--(it->second) == 0) {
-                            tasksPerApp.erase(it);
-                        }
-                        it = remainingTasks.find(appId);
-                        if (it != remainingTasks.end() && --(it->second) == 0) {
-                            finishedApp(it->first);
-                            remainingTasks.erase(it);
-                        }
-                    } else
-                        LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
-                }
-            } else if (msg.getTaskState(i) == Task::Aborted) {
-                int64_t appId = db.getInstanceId(msg.getRequestId(i));
-                if (db.abortedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
-                    remainingTasks[appId]--;
-                    map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
-                    if (it != tasksPerApp.end()) {
-                        if (--(it->second) == 0) tasksPerApp.erase(it);
-                        // Try to relaunch application
-                        sendRequest(appId, 0);
-                    } else
-                        LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
-                }
+        if (msg.getTaskState(i) == Task::Finished) {
+            int64_t appId = db.getInstanceId(msg.getRequestId(i));
+            if (db.finishedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
+                map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
+                if (it != tasksPerApp.end()) {
+                    if (--(it->second) == 0) {
+                        tasksPerApp.erase(it);
+                    }
+                    it = remainingTasks.find(appId);
+                    if (it != remainingTasks.end() && --(it->second) == 0) {
+                        finishedApp(it->first);
+                        remainingTasks.erase(it);
+                    }
+                } else
+                    LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
+            }
+        } else if (msg.getTaskState(i) == Task::Aborted) {
+            int64_t appId = db.getInstanceId(msg.getRequestId(i));
+            if (db.abortedTask(src, msg.getRequestId(i), msg.getTaskId(i))) {
+                remainingTasks[appId]--;
+                map<int64_t, unsigned int>::iterator it = tasksPerApp.find(appId);
+                if (it != tasksPerApp.end()) {
+                    if (--(it->second) == 0) tasksPerApp.erase(it);
+                    // Try to relaunch application
+                    sendRequest(appId, 0);
+                    LogMsg("Sb", WARN) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " from app " << appId << " aborted by remote.";
+                } else
+                    LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
             }
         }
-        // If there are still any remote task in that execution node, reprogram a heartbeat timeout
-        if (!tasksPerApp.empty())
-            tout->second = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                    boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
-        else {
-            remoteTasks.erase(src);
-            heartbeats.erase(tout);
-        }
+    }
+
+    int & hb = heartbeats[src];
+    CommLayer::getInstance().cancelTimer(hb);
+    // If there are still any remote task in that execution node, reprogram a heartbeat timeout
+    if (!tasksPerApp.empty())
+        hb = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
+                boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
+    else {
+        remoteTasks.erase(src);
+        heartbeats.erase(src);
     }
 }
 

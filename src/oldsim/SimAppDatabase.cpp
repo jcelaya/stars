@@ -191,25 +191,32 @@ unsigned int TaskBagAppDatabase::cancelSearch(int64_t rid) {
 }
 
 
-void TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid) {
+unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t rid, unsigned int firstRtid, unsigned int lastRtid) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
+    unsigned int accepted = 0;
     if (sdb.findRequest(rid)) {
         SimAppDatabase::Request * request = sdb.requestCache.second;
         LogMsg("Database.Sim", DEBUG) << src << " accepts " << (lastRtid - firstRtid + 1) << " tasks from request " << rid;
-        // Update last search time
-        request->stime = Time::getCurrentTime();
-        request->numNodes++;
         // Check all tasks are in this request
-        for (unsigned int t = firstRtid - 1; t < lastRtid; t++) {
+        for (unsigned int t = firstRtid - 1; t < lastRtid; ++t) {
             if (t >= request->tasks.size() || request->tasks[t] == NULL) {
-                LogMsg("Database.Sim", ERROR) << "No task " << t << " in request with id " << rid;
-                continue;
+                LogMsg("Database.Sim", INFO) << "No task " << t << " in request with id " << rid;
+            } else if (request->tasks[t]->state != SimAppDatabase::RemoteTask::SEARCHING) {
+                LogMsg("Database.Sim", INFO) << "Task " << t << " in request " << rid << " not in searching state.";
+            } else {
+                ++accepted;
+                ++request->acceptedTasks;
+                request->tasks[t]->state = SimAppDatabase::RemoteTask::EXECUTING;
+                request->tasks[t]->host = src;
             }
-            request->acceptedTasks++;
-            request->tasks[t]->state = SimAppDatabase::RemoteTask::EXECUTING;
-            request->tasks[t]->host = src;
+        }
+        if (accepted) {
+            // Update last search time
+            request->stime = Time::getCurrentTime();
+            request->numNodes++;
         }
     }
+    return accepted;
 }
 
 

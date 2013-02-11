@@ -42,13 +42,15 @@ unsigned int MSPAvailabilityInformation::numPieces = 64;
 
 
 void TaskProxy::sort(list<TaskProxy> & curTasks, double slowness) {
-    // Sort the vector, leaving the first task as is
-    list<TaskProxy> tmp;
-    tmp.splice(tmp.begin(), curTasks, curTasks.begin());
-    for (list<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
-        i->setSlowness(slowness);
-    curTasks.sort();
-    curTasks.splice(curTasks.begin(), tmp, tmp.begin());
+    if (curTasks.size() > 1) {
+        // Sort the vector, leaving the first task as is
+        list<TaskProxy> tmp;
+        tmp.splice(tmp.begin(), curTasks, curTasks.begin());
+        for (list<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
+            i->setSlowness(slowness);
+        curTasks.sort();
+        curTasks.splice(curTasks.begin(), tmp, tmp.begin());
+    }
 }
 
 
@@ -61,17 +63,10 @@ bool TaskProxy::meetDeadlines(const list<TaskProxy> & curTasks, double slowness,
 
 
 void TaskProxy::sortMinSlowness(list<TaskProxy> & curTasks, const std::vector<double> & switchValues) {
-    // Trivial cases
-    if (switchValues.empty()) {
-        TaskProxy::sort(curTasks, 1.0);
-        return;
-    }
     Time now = Time::getCurrentTime();
+    // Trivial case, first switch value is minimum slowness so that first task meets deadline
     if (switchValues.size() == 1) {
-        TaskProxy::sort(curTasks, switchValues.front() / 2.0);
-        // For each app, check whether it is going to finish in time or not.
-        if (!TaskProxy::meetDeadlines(curTasks, switchValues.front(), now))
-            TaskProxy::sort(curTasks, switchValues.front() + 1.0);
+        TaskProxy::sort(curTasks, switchValues.front() + 1.0);
         return;
     }
     // Calculate interval by binary search
@@ -86,13 +81,50 @@ void TaskProxy::sortMinSlowness(list<TaskProxy> & curTasks, const std::vector<do
             minLi = medLi;
     }
     // Sort them one last time
-    TaskProxy::sort(curTasks, (switchValues[minLi] + switchValues[minLi + 1]) / 2.0);
-    // If minLi is still 0, check interval 0-lBounds[minLi]
-    if (minLi == 0 && TaskProxy::meetDeadlines(curTasks, switchValues.front(), now))
-        TaskProxy::sort(curTasks, switchValues.front() / 2.0);
     // If maxLi is still size-1, check interval lBounds[maxLi]-infinite
-    else if (maxLi == switchValues.size() - 1 && !TaskProxy::meetDeadlines(curTasks, switchValues.back(), now))
+    if (maxLi == switchValues.size() - 1 && !TaskProxy::meetDeadlines(curTasks, switchValues.back(), now))
         TaskProxy::sort(curTasks, switchValues.back() + 1.0);
+    else
+        TaskProxy::sort(curTasks, (switchValues[minLi] + switchValues[minLi + 1]) / 2.0);
+}
+
+
+void TaskProxy::getSwitchValues(const std::list<TaskProxy> & proxys, std::vector<double> & switchValues) {
+    switchValues.clear();
+    if (!proxys.empty()) {
+        // Minimum switch value is first task slowness
+        Time firstTaskEndTime = Time::getCurrentTime() + Duration(proxys.front().t);
+        switchValues.push_back((firstTaskEndTime - proxys.front().rabs).seconds() / proxys.front().a);
+        // Calculate bounds with the rest of the tasks, except the first
+        for (list<TaskProxy>::const_iterator it = ++proxys.begin(); it != proxys.end(); ++it) {
+            for (list<TaskProxy>::const_iterator jt = it; jt != proxys.end(); ++jt) {
+                if (it->a != jt->a) {
+                    double l = (jt->rabs - it->rabs).seconds() / (it->a - jt->a);
+                    if (l > switchValues.front()) {
+                        switchValues.push_back(l);
+                    }
+                }
+            }
+        }
+        std::sort(switchValues.begin(), switchValues.end());
+        // Remove duplicate values
+        switchValues.erase(std::unique(switchValues.begin(), switchValues.end()), switchValues.end());
+    }
+}
+
+
+double TaskProxy::getSlowness(const std::list<TaskProxy> & proxys) {
+    double minSlowness = 0.0;
+    Time e = Time::getCurrentTime();
+    // For each task, calculate finishing time
+    for (list<TaskProxy>::const_iterator i = proxys.begin(); i != proxys.end(); ++i) {
+        e += Duration(i->t);
+        double slowness = (e - i->rabs).seconds() / i->a;
+        if (slowness > minSlowness)
+            minSlowness = slowness;
+    }
+
+    return minSlowness;
 }
 
 
@@ -110,30 +142,31 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
     Time now = Time::getCurrentTime();
 
     // The new task
-    curTasks.push_back(TaskProxy(minTaskLength, power));
+    curTasks.push_back(TaskProxy(minTaskLength, power, now));
     for (list<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
         i->r = (i->rabs - now).seconds();
 
     while(true) {
         // Order the queue and calculate minimum slowness
         // The new task is at the end of the queue
-        vector<double> svNew;
-        // Add order change values for the new task
-        for (list<TaskProxy>::iterator i = ++curTasks.begin(); i != curTasks.end(); ++i) {
-            // The new task is the last in the vector
-            if (i->a != curTasks.back().a) {
-                double l = i->r / (curTasks.back().a - i->a);
-                if (l > 0.0)
-                    svNew.push_back(l);
+        vector<double> svCur(switchValues);
+        if (!svCur.empty()) {
+            // Add order change values for the new task
+            for (list<TaskProxy>::iterator i = ++curTasks.begin(); i != curTasks.end(); ++i) {
+                // The new task is the last in the vector
+                if (i->a != curTasks.back().a) {
+                    double l = i->r / (curTasks.back().a - i->a);
+                    if (l > svCur.front())
+                        svCur.push_back(l);
+                }
             }
-        }
-        std::sort(svNew.begin(), svNew.end());
-        vector<double> svCur(switchValues.size() + svNew.size());
-        // Merge unique values
-        svCur.erase(std::set_union(switchValues.begin(), switchValues.end(), svNew.begin(), svNew.end(), svCur.begin()), svCur.end());
+            std::sort(svCur.begin(), svCur.end());
+            // Remove duplicate values
+            svCur.erase(std::unique(svCur.begin(), svCur.end()), svCur.end());
 
-        // Sort tasks to minimize the maximum slowness
-        TaskProxy::sortMinSlowness(curTasks, svCur);
+            // Sort tasks to minimize the maximum slowness
+            TaskProxy::sortMinSlowness(curTasks, svCur);
+        }
 
         // Update the index of the task that sets maximum slowness
         list<TaskProxy>::iterator tn, tm = curTasks.begin();
@@ -301,29 +334,30 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
 
 void MSPAvailabilityInformation::LAFunction::modifyReference(Time oldRef, Time newRef) {
-    double difference = (newRef - oldRef).seconds();
-    for (vector<std::pair<double, SubFunction> >::iterator next = pieces.begin(), it = next++;
-            next != pieces.end(); it = next++) {
-        // For every subfunction with x > 0.0, substract (newRef - oldRef)
-        if (it->second.x > 0.0)
-            it->second.x = it->second.x > difference ? it->second.x - difference : 0.0;
-        // Recalculate the limit
-        double alpha = (it->second.y - next->second.y);
-        double b = it->second.z1 - next->second.z1 + it->second.z2 - next->second.z2;
-        double c = it->second.x - next->second.x;
-        if (alpha == 0.0) {
-            if (b != 0)
-                next->first = -c / b + 1.0;
-        } else if (b*b - 4.0*alpha*c >= 0) {
-            if (alpha < 0.0)
-                next->first = (-b - std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-            else
-                next->first = (-b + std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-        }
-        // Calculate the limit only if the function was continuous?
-    }
-    if (pieces.back().second.x > 0.0)
-        pieces.back().second.x = pieces.back().second.x > difference ? pieces.back().second.x - difference : 0.0;
+    // FIXME: It seems better not do anything here...
+//    double difference = (newRef - oldRef).seconds();
+//    for (vector<std::pair<double, SubFunction> >::iterator next = pieces.begin(), it = next++;
+//            next != pieces.end(); it = next++) {
+//        // For every subfunction with x > 0.0, substract (newRef - oldRef)
+//        if (it->second.x > 0.0)
+//            it->second.x = it->second.x > difference ? it->second.x - difference : 0.0;
+//        // Recalculate the limit
+//        double alpha = (it->second.y - next->second.y);
+//        double b = it->second.z1 - next->second.z1 + it->second.z2 - next->second.z2;
+//        double c = it->second.x - next->second.x;
+//        if (alpha == 0.0) {
+//            if (b != 0)
+//                next->first = -c / b + 1.0;
+//        } else if (b*b - 4.0*alpha*c >= 0) {
+//            if (alpha < 0.0)
+//                next->first = (-b - std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
+//            else
+//                next->first = (-b + std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
+//        }
+//        // Calculate the limit only if the function was continuous?
+//    }
+//    if (pieces.back().second.x > 0.0)
+//        pieces.back().second.x = pieces.back().second.x > difference ? pieces.back().second.x - difference : 0.0;
 }
 
 
@@ -604,33 +638,37 @@ double MSPAvailabilityInformation::LAFunction::getSlowness(uint64_t a) const {
 
 double MSPAvailabilityInformation::LAFunction::estimateSlowness(uint64_t a, unsigned int n) const {
     vector<std::pair<double, SubFunction> >::const_iterator next = pieces.begin(), it = next++;
-    while (next != pieces.end()) {
-        // Recalculate the limit
-        double alpha = n * (it->second.y - next->second.y);
-        double b = n * (it->second.z1 - next->second.z1) + it->second.z2 - next->second.z2;
-        double c = it->second.x - next->second.x;
-        double limit = next->first;
-        if (alpha == 0.0) {
-            if (b != 0)
-                limit = -c / b + 1.0;
-        } else if (b*b - 4.0*alpha*c >= 0) {
-            if (alpha < 0.0)
-                limit = (-b - std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-            else
-                limit = (-b + std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-        }
-        // Calculate the limit only if the function was continuous?
-        // If the limit is still before a, advance
-        if (limit < a)
-            it = next++;
-        else break;
-    }
+    while (next != pieces.end() && next->first < a) it = next++;
+    // FIXME: Since functions do not need to be continuous, limits are not adjusted
+//    while (next != pieces.end()) {
+//        // Recalculate the limit
+//        double alpha = n * (it->second.y - next->second.y);
+//        double b = n * (it->second.z1 - next->second.z1) + it->second.z2 - next->second.z2;
+//        double c = it->second.x - next->second.x;
+//        double limit = next->first;
+//        if (alpha == 0.0) {
+//            if (b != 0)
+//                limit = -c / b + 1.0;
+//        } else if (b*b - 4.0*alpha*c >= 0) {
+//            if (alpha < 0.0)
+//                limit = (-b - std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
+//            else
+//                limit = (-b + std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
+//        }
+//        // Calculate the limit only if the function was continuous?
+//        // If the limit is still before a, advance
+//        if (limit < a)
+//            it = next++;
+//        else break;
+//    }
     return it->second.value(a, n);
 }
 
 
 void MSPAvailabilityInformation::LAFunction::update(uint64_t length, unsigned int n) {
     // TODO
+//    for (size_t i = 0; i < pieces.size(); ++i)
+//        pieces[i].second.z2 += length * n * pieces[i].second.y;
 }
 
 

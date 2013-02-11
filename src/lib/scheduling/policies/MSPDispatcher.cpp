@@ -47,16 +47,16 @@ void MSPDispatcher::recomputeInfo() {
         LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for left child.";
         // TODO: send full information, based on configuration switch
         if (father.availInfo.get()) {
-            double fatherMinSlowness = father.availInfo->getMinimumSlowness();
+            double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
             leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
             if (rightChild.availInfo.get()) {
-                double rightMinSlowness = rightChild.availInfo->getMinimumSlowness();
-                leftChild.waitingInfo->setMinimumSlowness(fatherMinSlowness > rightMinSlowness ? fatherMinSlowness : rightMinSlowness);
+                double rightMaxSlowness = rightChild.availInfo->getMaximumSlowness();
+                leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > rightMaxSlowness ? fatherMaxSlowness : rightMaxSlowness);
             } else
-                leftChild.waitingInfo->setMinimumSlowness(fatherMinSlowness);
+                leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
         } else if (rightChild.availInfo.get()) {
             leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
-            leftChild.waitingInfo->setMinimumSlowness(rightChild.availInfo->getMinimumSlowness());
+            leftChild.waitingInfo->setMaximumSlowness(rightChild.availInfo->getMaximumSlowness());
         } else
             leftChild.waitingInfo.reset();
     }
@@ -65,16 +65,16 @@ void MSPDispatcher::recomputeInfo() {
         LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for right child.";
         // TODO: send full information, based on configuration switch
         if (father.availInfo.get()) {
-            double fatherMinSlowness = father.availInfo->getMinimumSlowness();
+            double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
             rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
             if (leftChild.availInfo.get()) {
-                double leftMinSlowness = leftChild.availInfo->getMinimumSlowness();
-                rightChild.waitingInfo->setMinimumSlowness(fatherMinSlowness > leftMinSlowness ? fatherMinSlowness : leftMinSlowness);
+                double leftMaxSlowness = leftChild.availInfo->getMaximumSlowness();
+                rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > leftMaxSlowness ? fatherMaxSlowness : leftMaxSlowness);
             } else
-                rightChild.waitingInfo->setMinimumSlowness(fatherMinSlowness);
+                rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
         } else if (leftChild.availInfo.get()) {
             rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
-            rightChild.waitingInfo->setMinimumSlowness(leftChild.availInfo->getMinimumSlowness());
+            rightChild.waitingInfo->setMaximumSlowness(leftChild.availInfo->getMaximumSlowness());
         } else
             rightChild.waitingInfo.reset();
     }
@@ -179,12 +179,10 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
         // Compare the slowness reached by the new application with the one in the rest of the tree,
         double slownessLimit = 0.0;
-        if (father.availInfo.get())
-            slownessLimit = father.availInfo->getMinimumSlowness();
-        else if (zoneInfo.get())
-            slownessLimit = zoneInfo->getMinimumSlowness();
-        LogMsg("Dsp.MS", DEBUG) << "The minimum slowness in the rest of the tree is " << slownessLimit;
-        slownessLimit *= beta;
+        if (father.availInfo.get()) {
+            slownessLimit = father.availInfo->getMaximumSlowness();
+            LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in the rest of the tree is " << slownessLimit;
+        }
         if (zoneInfo.get()) {
             LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << zoneInfo->getMaximumSlowness();
             if (zoneInfo->getMaximumSlowness() > slownessLimit)
@@ -193,6 +191,7 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             if (zoneInfo->getSlowestMachine() > slownessLimit)
                 slownessLimit = zoneInfo->getSlowestMachine();
         }
+        slownessLimit *= beta;
         if (minSlowness > slownessLimit) {
             LogMsg("Dsp.MS", INFO) << "Not enough information to route this request, sending to the father.";
             CommLayer::getInstance().sendMessage(father.addr, msg.clone());

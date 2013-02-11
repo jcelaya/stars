@@ -26,57 +26,38 @@ using std::vector;
 using std::list;
 
 
-double MSPScheduler::sortMinSlowness(list<TaskProxy> & proxys, const vector<double> & lBounds, list<boost::shared_ptr<Task> > & tasks) {
+double MSPScheduler::sortMinSlowness(list<TaskProxy> & proxys, const vector<double> & switchValues, list<boost::shared_ptr<Task> > & tasks) {
     if (!proxys.empty()) {
-        TaskProxy::sortMinSlowness(proxys, lBounds);
+        TaskProxy::sortMinSlowness(proxys, switchValues);
 
-        // Reconstruct task list and calculate minimum slowness
+        // Reconstruct task list
         tasks.clear();
-        double minSlowness = 0.0;
-        Time e = Time::getCurrentTime();
-        // For each task, calculate finishing time
         for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
             tasks.push_back(i->origin);
-            e += Duration(i->t);
-            double slowness = (e - i->rabs).seconds() / i->a;
-            if (slowness > minSlowness)
-                minSlowness = slowness;
         }
 
-        return minSlowness;
+        return TaskProxy::getSlowness(proxys);
     } else return 0.0;
 }
 
 
 void MSPScheduler::reschedule() {
+    if (!proxys.empty()) {
+        // Adjust the time of the first task
+        proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
+    }
+
     double minSlowness = 0.0;
-//    vector<double> svCur(switchValues.size());
-//    for (size_t i = 0; i < svCur.size(); ++i) svCur[i] = switchValues[i].first;
     if (dirty) {
-        switchValues.clear();
-        // Calculate bounds with the rest of the tasks, except the first
-        for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-            for (list<TaskProxy>::iterator jt = it; jt != proxys.end(); ++jt)
-                if (it->a != jt->a) {
-                    double l = (jt->rabs - it->rabs).seconds() / (it->a - jt->a);
-                    if (l > 0.0) {
-                        switchValues.push_back(l);
-                    }
-                }
-        std::sort(switchValues.begin(), switchValues.end());
-        // Remove duplicate values
-        vector<double>::iterator last = std::unique(switchValues.begin(), switchValues.end());
-        switchValues.resize(last - switchValues.begin());
+        TaskProxy::getSwitchValues(proxys, switchValues);
         dirty = false;
     }
 
     if (!proxys.empty()) {
-        // Adjust the time of the first task
-        proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
         minSlowness = sortMinSlowness(proxys, switchValues, tasks);
     }
 
-    LogMsg("Ex.Sch.MS", DEBUG) << "Current minimum slowness: " << minSlowness;
+    LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << minSlowness;
 
     info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
             proxys, switchValues, backend.impl->getAveragePower(), minSlowness);
@@ -103,42 +84,13 @@ unsigned int MSPScheduler::acceptable(const TaskBagMsg & msg) {
 
 void MSPScheduler::removeTask(const boost::shared_ptr<Task> & task) {
     // Look for the proxy
-    list<TaskProxy>::iterator p = proxys.begin();
-    while (p != proxys.end() && p->id != task->getTaskId()) ++p;
-    if (p != proxys.end()) {
-//        vector<double> svOld;
-//        // Calculate bounds with the rest of the tasks, except the first
-//        for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-//            if (it->a != p->a) {
-//                double l = (p->rabs - it->rabs).seconds() / (it->a - p->a);
-//                if (l > 0.0) {
-//                    svOld.push_back(l);
-//                }
-//            }
-//        std::sort(svOld.begin(), svOld.end());
-//        // Create a new list of switch values without the removed ones, counting occurrences
-//        vector<std::pair<double, int> > svCur(switchValues.size());
-//        vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
-//        vector<double>::iterator in2 = svOld.begin();
-//        while (in1 != switchValues.end() && in2 != svOld.end()) {
-//            if (in1->first != *in2) *out++ = *in1++;
-//            else {
-//                if (in1->second > 1) {
-//                    out->first = in1->first;
-//                    (out++)->second = in1->second - 1;
-//                }
-//                ++in1;
-//                ++in2;
-//            }
-//        }
-//        if (in2 == svOld.end())
-//            out = std::copy(in1, switchValues.end(), out);
-//        if (out != svCur.end())
-//            svCur.erase(out, svCur.end());
-//        switchValues.swap(svCur);
-        // Remove the proxy
-        proxys.erase(p);
-        dirty = true;
+    for (list<TaskProxy>::iterator p = proxys.begin(); p != proxys.end(); ++p) {
+        if (p->id == task->getTaskId()) {
+            // Remove the proxy
+            proxys.erase(p);
+            dirty = true;
+            break;
+        }
     }
 }
 
@@ -147,34 +99,4 @@ void MSPScheduler::acceptTask(const boost::shared_ptr<Task> & task) {
     // Add a new proxy for this task
     proxys.push_back(TaskProxy(task));
     dirty = true;
-//    vector<double> svNew;
-//    // Calculate bounds with the rest of the tasks, except the first
-//    for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-//        if (it->a != proxys.back().a) {
-//            double l = (proxys.back().rabs - it->rabs).seconds() / (it->a - proxys.back().a);
-//            if (l > 0.0) {
-//                svNew.push_back(l);
-//            }
-//        }
-//    std::sort(svNew.begin(), svNew.end());
-//    // Create new vector of values, counting occurrences
-//    vector<std::pair<double, int> > svCur(switchValues.size() + svNew.size());
-//    vector<std::pair<double, int> >::iterator in1 = switchValues.begin(), out = svCur.begin();
-//    vector<double>::iterator in2 = svNew.begin();
-//    while (in1 != switchValues.end() && in2 != svNew.end()) {
-//        if (in1->first < *in2) *out++ = *in1++;
-//        else if (in1->first > *in2) *out++ = std::make_pair(*in2++, 1);
-//        else {
-//            out->first = in1->first;
-//            (out++)->second = (in1++)->second + 1;
-//            ++in2;
-//        }
-//    }
-//    if (in1 == switchValues.end())
-//        while (in2 != svNew.end()) *out++ = std::make_pair(*in2++, 1);
-//    if (in2 == svNew.end())
-//        out = std::copy(in1, switchValues.end(), out);
-//    if (out != svCur.end())
-//        svCur.erase(out, svCur.end());
-//    switchValues.swap(svCur);
 }

@@ -48,7 +48,7 @@ int Simulator::Event::lastEventId = 0;
 
 
 bool Simulator::isLogEnabled(const std::string & category, int priority) {
-    return debugFile.is_open() && Category::getInstance(category).isPriorityEnabled(priority);
+    return debugFile.is_open() && Category::getInstance(category).isPriorityEnabled(priority) && (!debugNode || currentNode == debugNode);
 }
 
 
@@ -67,7 +67,7 @@ void LogMsg::log(const char * category, int priority, AbstractTypeContainer * va
             Time curTime = sim.getCurrentTime();
             debugArchive << realTime << ' ' << curTime << ' ';
             if(sim.inEvent())
-                debugArchive << sim.getCurrentNode().getLocalAddress() << ',';
+                debugArchive << sim.getCurrentNode().getLocalAddress() << ' ';
             else
                 debugArchive << "sim.control ";
             debugArchive << category << '(' << priority << ')' << ' ';
@@ -109,6 +109,9 @@ int main(int argc, char * argv[]) {
     int bits = 32;
 #endif
     cout << "STaRS simple simulator, build " << STARS_BUILD_TYPE << " " << bits << "bits #" << getpid() << endl;
+#ifndef NDEBUG
+    cout << "NOTE: Debug versions of STaRS simulator do not account for computation time." << endl;
+#endif
     if (argc != 2) {
         cout << "Usage: stars-oldsim config_file" << endl;
         return 1;
@@ -257,19 +260,17 @@ void Simulator::setProperties(Properties & property) {
     maxMemUsage = property("max_mem", 0U);
     srand(property("seed", defaultSeed));
     showStep = property("show_step", 100000);
-    minDelay = property("min_delay", 0.05);  // 50ms min delay
-    maxDelay = property("max_delay", 0.3);   // 300ms max delay
+    // Network delay in (50ms, 300ms) by default
+    // Delay follows pareto distribution of k=2
+    static const double kDelay = 2.0;
+    netDelay = ParetoVariable(property("min_delay", 0.05), property("max_delay", 0.3), kDelay);
     unsigned int numNodes = property("num_nodes", (unsigned int)0);
     iface.resize(numNodes);
-    double minInBW = property("min_down_bw", 125000.0),
-        maxInBW = property("max_down_bw", 125000.0),
-        stepInBW = property("step_down_bw", 1),
-        minOutBW = property("min_up_bw", 125000.0),
-        maxOutBW = property("max_up_bw", 125000.0),
-        stepOutBW = property("step_up_bw", 1);
+    DiscreteUniformVariable inBWVar(property("min_down_bw", 125000.0), property("max_down_bw", 125000.0), property("step_down_bw", 1)),
+        outBWVar(property("min_up_bw", 125000.0), property("max_up_bw", 125000.0), property("step_up_bw", 1));
     for (unsigned int i = 0; i < numNodes; i++) {
-        iface[i].inBW = Simulator::uniform(minInBW, maxInBW, stepInBW);
-        iface[i].outBW = Simulator::uniform(minOutBW, maxOutBW, stepOutBW);
+        iface[i].inBW = inBWVar();
+        iface[i].outBW = outBWVar();
     }
 
     // Library config
@@ -286,6 +287,8 @@ void Simulator::setProperties(Properties & property) {
         currentNode = &routingTable[i];
         currentNode->setup(i);
     }
+
+    debugNode = property.count("debug_node") ? &routingTable[0] + property("debug_node", 0) : NULL;
 
     // Centralized scheduler
     cs = CentralizedScheduler::createScheduler(property("cent_scheduler", string("")));
@@ -423,11 +426,12 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<Basic
     if (cs.get() && cs->blockMessage(msg)) return 0;
 
     numMsgSent++;
-    // Delay follows pareto distribution of k=2
-    static const double kDelay = 2.0;     // k = 2 for Pareto distribution
 
+    Duration opDuration;
+#ifdef NDEBUG
     // Measure operation duration, only if inEvent().
-    Duration opDuration((int64_t)(inEvent() ? (microsec_clock::local_time() - opStart).total_microseconds() : 0));
+    opDuration = Duration((int64_t)(inEvent() ? (microsec_clock::local_time() - opStart).total_microseconds() : 0));
+#endif
 
     Event * event;
     unsigned long int size = 0;
@@ -441,7 +445,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<Basic
             srcIface.outQueueFreeTime = time;
         }
         Duration txTime(size / (srcIface.outBW < dstIface.inBW ? srcIface.outBW : dstIface.inBW));
-        event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, Duration(pareto(minDelay, kDelay, maxDelay)), msg, size);
+        event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, Duration(netDelay()), msg, size);
         srcIface.outQueueFreeTime += txTime;
         tstats.msgSent(src, dst, size, srcIface.outBW, srcIface.outQueueFreeTime + txTime, *msg);
     } else {
@@ -464,8 +468,10 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, shared_ptr<Bas
     if (src != dst && measureSize) {
         size = getMsgSize(msg);
     }
+#ifdef NDEBUG
     if (withOpDuration)
         d += Duration((microsec_clock::local_time() - opStart).total_microseconds());
+#endif
     Event * event = new Event(time + d, Duration(), msg, size);
     event->to = dst;
     event->from = src;

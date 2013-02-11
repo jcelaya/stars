@@ -41,7 +41,7 @@ struct TaskProxy {
     double a;
     double r, t, tsum;
     TaskProxy() {}
-    TaskProxy(double _a, double power) : id(-1), rabs(Time::getCurrentTime()), a(_a), t(a / power){}
+    TaskProxy(double _a, double power, Time r) : id(-1), rabs(r), a(_a), t(a / power){}
     TaskProxy(const boost::shared_ptr<Task> & task) : origin(task), id(task->getTaskId()), rabs(task->getCreationTime()),
             a(task->getDescription().getLength()), t(task->getEstimatedDuration().seconds()) {}
     Time getDeadline(double L) const { return rabs + Duration(L * a); }
@@ -49,7 +49,7 @@ struct TaskProxy {
     bool operator<(const TaskProxy & rapp) const { return d < rapp.d || (d == rapp.d && a < rapp.a); }
 
     friend std::ostream & operator<<(std::ostream & os, const TaskProxy & o) {
-        return os << "a=" << o.a << " r=" << o.r;
+        return os << '(' << o.rabs.getRawDate() << '-' << o.t << '-' << o.d.getRawDate() << ')';
     }
 
     static void sort(std::list<TaskProxy> & curTasks, double slowness);
@@ -57,6 +57,10 @@ struct TaskProxy {
     static bool meetDeadlines(const std::list<TaskProxy> & curTasks, double slowness, Time e);
 
     static void sortMinSlowness(std::list<TaskProxy> & curTasks, const std::vector<double> & switchValues);
+
+    static void getSwitchValues(const std::list<TaskProxy> & proxys, std::vector<double> & switchValues);
+
+    static double getSlowness(const std::list<TaskProxy> & proxys);
 };
 
 
@@ -326,7 +330,7 @@ public:
      * Comparison operator.
      */
     bool operator==(const MSPAvailabilityInformation & r) const {
-        return summary == r.summary;
+        return summary == r.summary && minimumSlowness == r.minimumSlowness && maximumSlowness == r.maximumSlowness;
     }
 
     /**
