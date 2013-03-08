@@ -57,6 +57,16 @@ void MSPScheduler::reschedule() {
         minSlowness = sortMinSlowness(proxys, switchValues, tasks);
     }
 
+    // DEBUG
+//    if (currentTbm && currentTbm->getMinRequirements().getLength() <= 10000) {
+//        unsigned int numTasks = currentTbm->getLastTask() - currentTbm->getFirstTask() + 1;
+//        unsigned int a = currentTbm->getMinRequirements().getLength();
+//        LogMsg("Ex.Sch.MS", WARN) << "Added " << numTasks << " tasks with length " << a << ", result minimum slowness " << minSlowness;
+//    }
+//    if (currentTbm && currentTbm->slowness < minSlowness) {
+//        LogMsg("Ex.Sch.MS", WARN) << *currentTbm << ", " << minSlowness << " with " << seqNum << ", " << currentTbm->slowness << " with " << currentTbm->seq << " by source.";
+//    }
+
     LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << minSlowness;
 
     info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),

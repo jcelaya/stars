@@ -92,7 +92,7 @@ private:
 // Return a random int in interval [min, max] with step
 class DiscreteUniformVariable {
 public:
-    DiscreteUniformVariable(int min, int max, int s = 1) : minimum(min - step), diff((int)std::floor((max - min) / (double)step + 1.0)), step(s) {}
+    DiscreteUniformVariable(int min, int max, int s = 1) : minimum(min - s), diff((int)std::floor((max - min) / (double)s + 1.0)), step(s) {}
     double operator()() {
         return minimum + step * (int)std::ceil(diff * uniform01());
     }

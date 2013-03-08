@@ -334,7 +334,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
 
 void MSPAvailabilityInformation::LAFunction::modifyReference(Time oldRef, Time newRef) {
-    // FIXME: It seems better not do anything here...
+    // FIXME: It seems better not doing anything here...
 //    double difference = (newRef - oldRef).seconds();
 //    for (vector<std::pair<double, SubFunction> >::iterator next = pieces.begin(), it = next++;
 //            next != pieces.end(); it = next++) {
@@ -666,6 +666,9 @@ double MSPAvailabilityInformation::LAFunction::estimateSlowness(uint64_t a, unsi
 
 
 void MSPAvailabilityInformation::LAFunction::update(uint64_t length, unsigned int n) {
+    // Invalidate?
+    pieces.clear();
+    pieces.push_back(make_pair((double)minTaskLength, SubFunction(0.0, INFINITY, 0.0, 0.0)));
     // TODO
 //    for (size_t i = 0; i < pieces.size(); ++i)
 //        pieces[i].second.z2 += length * n * pieces[i].second.y;

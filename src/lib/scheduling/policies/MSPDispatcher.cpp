@@ -27,6 +27,7 @@ using std::vector;
 
 
 double MSPDispatcher::beta = 2.0;
+//int MSPDispatcher::estimations = 0;
 
 
 void MSPDispatcher::recomputeInfo() {
@@ -91,9 +92,18 @@ struct SlownessTasks {
 
 
 void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
-    // TODO: Check that we are not in a change
     if (msg.isForEN()) return;
-    LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src;
+
+    const TaskDescription & req = msg.getMinRequirements();
+    unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
+    uint64_t a = req.getLength();
+
+    // TODO: Check that we are not in a change
+    if (!msg.isFromEN() && src == father.addr) {
+        LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src << " (father)";
+    } else {
+        LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src << " (" << (src == leftChild.addr ? "left child)" : "right child)");
+    }
     if (!branch.inNetwork()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
@@ -104,9 +114,6 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         return;
     }
 
-    const TaskDescription & req = msg.getMinRequirements();
-    unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
-    uint64_t a = req.getLength();
     LogMsg("Dsp.MS", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasks << " tasks with requirements:";
     LogMsg("Dsp.MS", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
 
@@ -150,6 +157,11 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
                     double slowness = currentTpn == 1 ?
                             functions[f].first->getSlowness(a)
                             : functions[f].first->estimateSlowness(a, currentTpn);
+                    // Check that it is not under the minimum of its branch
+                    double branchSlowness = (f < rfStart ? leftChild.availInfo : rightChild.availInfo)->getMinimumSlowness();
+                    if (slowness < branchSlowness) {
+                        slowness = branchSlowness;
+                    }
                     // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
                     if (totalTasks < numTasks || slowness < slownessHeap.front().first) {
                         slownessHeap.push_back(std::make_pair(slowness, f));
@@ -173,24 +185,30 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         minSlowness = slownessHeap.front().first;
     }
 
-    LogMsg("Dsp.MS", DEBUG) << "Result minimum slowness is " << minSlowness;
+    LogMsg("Dsp.MS", INFO) << "Result minimum slowness is " << minSlowness;
+
+//    // DEBUG
+//    // If the message comes from the father, compare slowness
+//    if (!msg.isFromEN() && father.addr != CommAddress() && father.addr == src) {
+//        ++estimations;
+//        if (minSlowness > msg.slowness) {
+//            uint32_t seq = father.notifiedInfo.get() ? father.notifiedInfo->getSeq() : 0;
+//            LogMsg("Dsp.MS", WARN) << msg << ", " << minSlowness << " with " << seq << ", " << msg.slowness << " with " << msg.seq << " by source.";
+//        }
+//    }
 
     // if we are not the root and the message does not come from the father
     if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
         // Compare the slowness reached by the new application with the one in the rest of the tree,
-        double slownessLimit = 0.0;
+        double slownessLimit = zoneInfo->getMaximumSlowness();
+        LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << slownessLimit;
         if (father.availInfo.get()) {
             slownessLimit = father.availInfo->getMaximumSlowness();
             LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in the rest of the tree is " << slownessLimit;
         }
-        if (zoneInfo.get()) {
-            LogMsg("Dsp.MS", DEBUG) << "The maximum slowness in this branch is " << zoneInfo->getMaximumSlowness();
-            if (zoneInfo->getMaximumSlowness() > slownessLimit)
-                slownessLimit = zoneInfo->getMaximumSlowness();
-            LogMsg("Dsp.MS", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
-            if (zoneInfo->getSlowestMachine() > slownessLimit)
-                slownessLimit = zoneInfo->getSlowestMachine();
-        }
+        LogMsg("Dsp.MS", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
+        if (zoneInfo->getSlowestMachine() > slownessLimit)
+            slownessLimit = zoneInfo->getSlowestMachine();
         slownessLimit *= beta;
         if (minSlowness > slownessLimit) {
             LogMsg("Dsp.MS", INFO) << "Not enough information to route this request, sending to the father.";
@@ -199,13 +217,22 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
     }
 
-    // Count tasks per branch and update functions
+    // Count tasks per branch and update minimum branch slowness
     unsigned int leftTasks = 0, rightTasks = 0;
+    double leftSlowness = leftChild.availInfo->getMinimumSlowness(),
+            rightSlowness = rightChild.availInfo->getMinimumSlowness();
     for (size_t i = 0; i < rfStart; ++i) {
         if (tpn[i]) {
+            double slowness = tpn[i] == 1 ?
+                    functions[i].first->getSlowness(a)
+                    : functions[i].first->estimateSlowness(a, tpn[i]);
+            if (leftSlowness < slowness) {
+                leftSlowness = slowness;
+            }
             unsigned int tasksToCluster = tpn[i] * functions[i].second;
-            if (i == slownessHeap.front().second)
+            if (i == slownessHeap.front().second) {
                 tasksToCluster -= totalTasks - numTasks;
+            }
             leftTasks += tasksToCluster;
             functions[i].first->update(a, tpn[i]);
         }
@@ -213,6 +240,12 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     for (size_t i = rfStart; i < tpn.size(); ++i) {
         if (tpn[i]) {
+            double slowness = tpn[i] == 1 ?
+                    functions[i].first->getSlowness(a)
+                    : functions[i].first->estimateSlowness(a, tpn[i]);
+            if (rightSlowness < slowness) {
+                rightSlowness = slowness;
+            }
             unsigned int tasksToCluster = tpn[i] * functions[i].second;
             if (i == slownessHeap.front().second)
                 tasksToCluster -= totalTasks - numTasks;
@@ -221,13 +254,56 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
     }
 
+    leftChild.availInfo->setMinimumSlowness(leftSlowness);
+    if (leftChild.availInfo->getMaximumSlowness() < leftSlowness) {
+        leftChild.availInfo->setMaximumSlowness(leftSlowness);
+    }
+    rightChild.availInfo->setMinimumSlowness(rightSlowness);
+    if (rightChild.availInfo->getMaximumSlowness() < rightSlowness) {
+        rightChild.availInfo->setMaximumSlowness(rightSlowness);
+    }
+
+    LogMsg("Dsp.MS", DEBUG) << "Sending " << leftTasks << " tasks to left child (" << leftChild.addr << ")"
+            " and " << rightTasks << " tasks to right child (" << rightChild.addr << ")";
+
     // We are going down!
     // Each branch is sent its accounted number of tasks
     sendTasks(msg, leftTasks, rightTasks, false);
 
+//    // DEBUG
+//    // Now create and send the messages
+//    unsigned int nextTask = msg.getFirstTask();
+//    if (leftTasks > 0) {
+//        LogMsg("Dsp", INFO) << "Sending " << leftTasks << " tasks to the left child";
+//        // Create the message
+//        TaskBagMsg * tbm = msg.clone();
+//        tbm->setForEN(branch.isLeftLeaf());
+//        tbm->setFromEN(false);
+//        tbm->setFirstTask(nextTask);
+//        nextTask += leftTasks;
+//        tbm->setLastTask(nextTask - 1);
+//        tbm->slowness = leftSlowness;
+//        tbm->seq = leftChild.availInfo->getSeq();
+//        CommLayer::getInstance().sendMessage(leftChild.addr, tbm);
+//    }
+//
+//    if (rightTasks > 0) {
+//        LogMsg("Dsp", INFO) << "Sending " << rightTasks << " tasks to the right child";
+//        // Create the message
+//        TaskBagMsg * tbm = msg.clone();
+//        tbm->setForEN(branch.isRightLeaf());
+//        tbm->setFromEN(false);
+//        tbm->setFirstTask(nextTask);
+//        nextTask += rightTasks;
+//        tbm->setLastTask(nextTask - 1);
+//        tbm->slowness = rightSlowness;
+//        tbm->seq = rightChild.availInfo->getSeq();
+//        CommLayer::getInstance().sendMessage(rightChild.addr, tbm);
+//    }
+
     recomputeInfo();
     // Only notify the father if the message does not come from it
-    if (father.addr != CommAddress() && father.addr != src) {
+    if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
         notify();
     }
 }

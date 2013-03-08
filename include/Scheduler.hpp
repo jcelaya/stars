@@ -80,7 +80,7 @@ public:
                 int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };
 
-    Scheduler(OverlayLeaf & l) : leaf(l), seqNum(0), inChange(false), dirty(false),
+    Scheduler(OverlayLeaf & l) : leaf(l), seqNum(0), currentTbm(NULL), inChange(false), dirty(false),
             rescheduleTimer(0), monitorTimer(0), tasksExecuted(0) {
         leaf.registerObserver(this);
     }
@@ -106,6 +106,7 @@ public:
     virtual unsigned int acceptable(const TaskBagMsg & msg) = 0;
 
     unsigned int accept(const TaskBagMsg & msg) {
+        currentTbm = &msg;
         unsigned int numAccepted = acceptable(msg);
         // Now create the tasks and add them to the list
         for (unsigned int i = 0; i < numAccepted; i++) {
@@ -114,6 +115,7 @@ public:
             acceptTask(tasks.back());
         }
         if (numAccepted) reschedule();
+        currentTbm = NULL;
         return numAccepted;
     }
 
@@ -147,6 +149,7 @@ protected:
     uint32_t seqNum;                   ///< Sequence number for the AvailabilityInformation message
     /// Hidden implementation of the execution environment
     ExecutionEnvironmentImpl backend;
+    const TaskBagMsg * currentTbm;
 
     /**
      * Programs a new reschedule timer, canceling the previous one.

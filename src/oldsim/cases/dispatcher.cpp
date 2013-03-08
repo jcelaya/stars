@@ -313,6 +313,8 @@ class siteLevel : public SimulationCase {
         }
 
         Duration getWakeTime(Time now) const {
+            static int weekDaysDelta[] = { 1, 0, 0, 0, 0, 0, 2 };
+            static int weekendDaysDelta[] = { 0, 5, 4, 3, 2, 1, 0 };
             // Return the time at which this user should wake if it goes to sleep now.
             // Calculate the time for today or tomorrow
             Duration wake = (daytime ? morning : night) + wDelta;
@@ -320,21 +322,22 @@ class siteLevel : public SimulationCase {
             // Calculate the day from today that will wake
             // If the wake time is before now, it will be tomorrow, at least
             int daysDelta = wake < nowDelta ? 1 : 0;
-            greg_weekday today = (now.to_posix_time().date() + days(daysDelta)).day_of_week();
-            if (weekdays) {
-                switch (today) {
-                case Saturday: daysDelta++;
-                case Sunday: daysDelta++;
-                }
-            } else {
-                switch (today) {
-                case Monday: daysDelta++;
-                case Tuesday: daysDelta++;
-                case Wednesday: daysDelta++;
-                case Thursday: daysDelta++;
-                case Friday: daysDelta++;
-                }
-            }
+            int today = (now.to_posix_time().date() + days(daysDelta)).day_of_week().as_number();
+            daysDelta += weekdays ? weekDaysDelta[today] : weekendDaysDelta[today];
+//            if (weekdays) {
+//                switch (today) {
+//                case Saturday: daysDelta++;
+//                case Sunday: daysDelta++;
+//                }
+//            } else {
+//                switch (today) {
+//                case Monday: daysDelta++;
+//                case Tuesday: daysDelta++;
+//                case Wednesday: daysDelta++;
+//                case Thursday: daysDelta++;
+//                case Friday: daysDelta++;
+//                }
+//            }
 
             return wake + Duration(daysDelta * 86400.0) - nowDelta;
         }
@@ -510,6 +513,6 @@ public:
 REGISTER_SIMULATION_CASE(siteLevel);
 
 Duration siteLevel::User::morning((7*60 + 30) * 60.0), siteLevel::User::night((17*60 + 30) * 60.0);
-UniformVariable siteLevel::User::deltaVariable(3600.0, 3600.0);
+UniformVariable siteLevel::User::deltaVariable(-3600.0, 3600.0);
 shared_ptr<siteLevel::UserEvent> siteLevel::timer(new UserEvent);
 shared_ptr<siteLevel::SendJobEvent> siteLevel::sendCmd(new SendJobEvent);

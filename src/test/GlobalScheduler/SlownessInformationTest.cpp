@@ -133,8 +133,6 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
     Time now = Time::getCurrentTime();
     for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
         // Add a new task of length a
-        TaskDescription desc;
-        desc.setLength(a);
         if (!proxys.empty()) {
             vector<double> lBoundsTmp(lBounds);
             for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
@@ -176,6 +174,46 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
         }
         os << endl;
     }
+}
+
+double maxDifference(list<TaskProxy> proxys, const vector<double> & lBounds, double power, double ah, const MSPAvailabilityInformation::LAFunction & f) {
+    uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
+    Time now = Time::getCurrentTime();
+    double maxDiff = 1.0;
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+        // Add a new task of length a
+        if (!proxys.empty()) {
+            vector<double> lBoundsTmp(lBounds);
+            for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+                if (it->a != a) {
+                    double l = (now - it->rabs).seconds() / (it->a - a);
+                    if (l > 0.0) {
+                        lBoundsTmp.push_back(l);
+                    }
+                }
+            std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
+            proxys.push_back(TaskProxy(a, power, now));
+            TaskProxy::sortMinSlowness(proxys, lBoundsTmp);
+        } else
+            proxys.push_back(TaskProxy(a, power, now));
+        double estimate = f.estimateSlowness(a, 1), real = 0.0;
+        Time e = Time::getCurrentTime();
+        // For each task, calculate finishing time
+        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+            e += Duration(i->t);
+            double slowness = (e - i->rabs).seconds() / i->a;
+            if (slowness > real)
+                real = slowness;
+        }
+        double difference = real / estimate;
+        if (difference > maxDiff) maxDiff = difference;
+        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end();) {
+            if (i->id == (unsigned int)-1)
+                proxys.erase(i++);
+            else ++i;
+        }
+    }
+    return maxDiff;
 }
 
 bool isMax(const MSPAvailabilityInformation::LAFunction & f1,
@@ -261,6 +299,16 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         ah *= 1.2;
         uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
 
+        Time now = Time::getCurrentTime();
+        if (!proxys11.empty()) {
+            double d = proxys11.front().t;
+            proxys11.front().t = 0;
+            TestHost::getInstance().setCurrentTime(now + Duration(d));
+            BOOST_CHECK_LE(maxDifference(proxys11, lBounds11, f11power, ah, f11), 1.01);
+            proxys11.front().t = d;
+        }
+        TestHost::getInstance().setCurrentTime(now);
+
         MSPAvailabilityInformation::LAFunction min, max;
         min.min(f11, f12);
         min.min(min, f13);
@@ -334,7 +382,20 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         ofs << "# Functions " << i << endl;
         of << "# F" << i << " f11: " << f11 << endl << plot(f11, ah) << ", \"laf_test.stat\" i " << i << " e :::0::0 w lines" << endl;
         ofs << "# F" << i << " f11: " << f11 << endl;
-        for (int n = 1; n < 6; ++n) {
+        ofs << "# Estimation with 1 task" << endl;
+        plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, 1, f11, ofs);
+        ofs << endl;
+        if (!proxys11.empty()) {
+            double d = proxys11.front().t;
+            proxys11.front().t = 0;
+            TestHost::getInstance().setCurrentTime(now + Duration(d));
+            ofs << "# Estimation with 1 task at the end of first task" << endl;
+            plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, 1, f11, ofs);
+            ofs << endl;
+            proxys11.front().t = d;
+        }
+        TestHost::getInstance().setCurrentTime(now);
+        for (int n = 2; n < 6; ++n) {
             ofs << "# Estimation with " << n << " tasks" << endl;
             plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, n, f11, ofs);
             ofs << endl;

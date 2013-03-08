@@ -37,11 +37,7 @@ class TaskBagMsg : public BasicMsg {
 public:
     MESSAGE_SUBCLASS(TaskBagMsg);
 
-    /// Default constructor
-    TaskBagMsg() {}
-    /// Copy constructor
-    TaskBagMsg(const TaskBagMsg & copy) : BasicMsg(copy), requester(copy.requester), requestId(copy.requestId),
-            firstTask(copy.firstTask), lastTask(copy.lastTask), minRequirements(copy.minRequirements), forEN(copy.forEN), fromEN(copy.fromEN) {}
+    //TaskBagMsg() : slowness(0.0) {}
 
     // Getters and Setters
 
@@ -155,7 +151,10 @@ public:
         // os << *minRequirements;
     }
 
-    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+    MSGPACK_DEFINE(/*slowness, seq,*/ requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+
+//    double slowness;
+//    uint32_t seq;
 private:
     CommAddress requester;             ///< Requester's address
     int64_t requestId;                 ///< Request ID relative to the requester

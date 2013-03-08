@@ -24,6 +24,7 @@
 #include "StarsNode.hpp"
 #include "Scheduler.hpp"
 #include "CentralizedScheduler.hpp"
+#include "MSPDispatcher.hpp"
 
 
 LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
@@ -309,6 +310,7 @@ void LibStarsStatistics::finishAppStatistics() {
     // Finished percentages
     appos << "# " << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
         << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl;
+    //appos << "# " << MSPDispatcher::estimations << " total estimations (if MSP)." << std::endl;
 
     slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
         << std::setprecision(8) << maxSlowness << std::endl;

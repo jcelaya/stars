@@ -45,6 +45,9 @@ public:
 
     static void setBeta(double b) { beta = b; }
 
+//    // DEBUG
+//    static int estimations;
+
 private:
     static double beta;
 
