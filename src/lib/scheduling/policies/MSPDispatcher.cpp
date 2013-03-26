@@ -219,8 +219,8 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // Count tasks per branch and update minimum branch slowness
     unsigned int leftTasks = 0, rightTasks = 0;
-    double leftSlowness = leftChild.availInfo->getMinimumSlowness(),
-            rightSlowness = rightChild.availInfo->getMinimumSlowness();
+    double leftSlowness = leftChild.availInfo.get() ? leftChild.availInfo->getMinimumSlowness() : 0,
+            rightSlowness = rightChild.availInfo.get() ? rightChild.availInfo->getMinimumSlowness() : 0;
     for (size_t i = 0; i < rfStart; ++i) {
         if (tpn[i]) {
             double slowness = tpn[i] == 1 ?
@@ -254,13 +254,17 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
     }
 
-    leftChild.availInfo->setMinimumSlowness(leftSlowness);
-    if (leftChild.availInfo->getMaximumSlowness() < leftSlowness) {
-        leftChild.availInfo->setMaximumSlowness(leftSlowness);
+    if (leftChild.availInfo.get()) {
+        leftChild.availInfo->setMinimumSlowness(leftSlowness);
+        if (leftChild.availInfo->getMaximumSlowness() < leftSlowness) {
+            leftChild.availInfo->setMaximumSlowness(leftSlowness);
+        }
     }
-    rightChild.availInfo->setMinimumSlowness(rightSlowness);
-    if (rightChild.availInfo->getMaximumSlowness() < rightSlowness) {
-        rightChild.availInfo->setMaximumSlowness(rightSlowness);
+    if (rightChild.availInfo.get()) {
+        rightChild.availInfo->setMinimumSlowness(rightSlowness);
+        if (rightChild.availInfo->getMaximumSlowness() < rightSlowness) {
+            rightChild.availInfo->setMaximumSlowness(rightSlowness);
+        }
     }
 
     LogMsg("Dsp.MS", DEBUG) << "Sending " << leftTasks << " tasks to left child (" << leftChild.addr << ")"

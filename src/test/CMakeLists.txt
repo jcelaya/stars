@@ -13,9 +13,6 @@ add_subdirectory(GlobalScheduler)
 add_subdirectory(StructureManager)
 #add_subdirectory(SubmissionManager)
 
-set(STARS_LIBRARIES stars${BIN_SUFFIX})
-set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
-
 # add the executable
 add_executable(stars-test${BIN_SUFFIX} TestSuite.cpp ${starstest_sources})
 target_link_libraries(stars-test${BIN_SUFFIX}

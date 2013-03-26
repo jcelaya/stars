@@ -12,10 +12,8 @@ add_subdirectory(scheduling)
 add_subdirectory(ui)
 
 # add the libraries
-set(STARS_LIBRARIES stars${BIN_SUFFIX})
 add_library(${STARS_LIBRARIES} SHARED ${stars_sources})
 add_library(${STARS_LIBRARIES}_static STATIC ${stars_sources})
-set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
 add_library(${STARS_DB_LIBRARIES} SHARED ${stars_db_sources})
 
 # add the executable

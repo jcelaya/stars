@@ -13,9 +13,6 @@ target_link_libraries(sweeperdaemon ${Boost_LIBRARIES})
 add_executable(cdf cdf.cpp ../sim/Distributions.cpp)
 target_link_libraries(cdf ${Boost_LIBRARIES})
 
-set(STARS_LIBRARIES stars${BIN_SUFFIX})
-set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
-
 add_executable(aggrtest aggrtest.cpp)
 target_link_libraries(aggrtest
     ${STARS_LIBRARIES}

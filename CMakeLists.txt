@@ -35,4 +35,13 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL Release)
     set (BIN_SUFFIX -${CMAKE_BUILD_TYPE})
 endif (NOT CMAKE_BUILD_TYPE STREQUAL Release)
 
+# Common names
+set(STARS_LIBRARIES stars${BIN_SUFFIX})
+set(STARS_DB_LIBRARIES stars_db${BIN_SUFFIX})
+# Web UI library
+if (Wt_FOUND)
+    set (STARS_UI_LIBRARIES stars_ui${BIN_SUFFIX})
+endif (Wt_FOUND)
+
+
 add_subdirectory(src)

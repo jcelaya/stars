@@ -26,8 +26,6 @@ set(oldsim_sources
     SimOverlayLeaf.cpp
     ${cases_sources})
 
-set(STARS_LIBRARIES stars${BIN_SUFFIX})
-
 # add the executable
 add_executable(stars-oldsim${BIN_SUFFIX} ${oldsim_sources})
 target_link_libraries(stars-oldsim${BIN_SUFFIX}
