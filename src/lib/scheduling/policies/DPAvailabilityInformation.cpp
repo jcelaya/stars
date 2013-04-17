@@ -352,120 +352,123 @@ void DPAvailabilityInformation::ATFunction::lc(const ATFunction & l, const ATFun
 struct ResultCost {
     DPAvailabilityInformation::ATFunction result;
     double cost;
-    ResultCost() {}
+    ResultCost() : cost(0.0) {}
     ResultCost(const DPAvailabilityInformation::ATFunction & r, double c) : result(r), cost(c) {}
     bool operator<(const ResultCost & r) {
         return cost < r.cost;
     }
 };
 
+
+// FIXME: This method does not work well... why?
 double DPAvailabilityInformation::ATFunction::reduceMin(unsigned int v, ATFunction & c,
         const Time & ref, const Time & h, unsigned int quality) {
-    if (points.size() > DPAvailabilityInformation::numRefPoints) {
-        const ATFunction * f[] = {this, NULL, &c};
-        list<ResultCost> candidates(1);
-        candidates.front().result = *this;
-        candidates.front().cost = 0.0;
-        while (candidates.front().result.points.size() > DPAvailabilityInformation::numRefPoints) {
-            // Take next candidate and compute possibilities
-            ATFunction best;
-            best.transfer(candidates.front().result);
-            candidates.pop_front();
-            double prevm = 0.0, curm = 0.0;
-            vector<pair<Time, uint64_t> >::iterator next = best.points.begin(), cur = next++, prev = cur;
-            while (next != best.points.end()) {
-                double nextm = (next->second - (double)cur->second) / (next->first - cur->first).seconds();
-                // Type of point
-                if (nextm <= curm || (nextm > curm && curm > prevm)) {
-                    ATFunction func;
-                    func.slope = slope;
-                    if (nextm <= curm) {
-                        // concave, reduce it
-                        func.points.assign(best.points.begin(), cur);
-                        func.points.insert(func.points.end(), next, best.points.end());
-                    } else {
-                        // convex, reduce it
-                        func.points.assign(best.points.begin(), prev);
-                        double diffx = (prev->second + nextm * (cur->first - prev->first).seconds() - cur->second) / (nextm - prevm);
-                        func.points.push_back(make_pair(prev->first + Duration(diffx), prev->second + prevm * diffx));
-                        func.points.insert(func.points.end(), next, best.points.end());
-                    }
-                    f[1] = &func;
-                    TCISteps::lossStep ls(v, 0, ref);
-                    stepper(f, ref, h, ls);
-                    // Retain only K best candidates, to reduce the exponential explosion of possibilities
-                    candidates.push_back(ResultCost());
-                    candidates.back().result.transfer(func);
-                    candidates.back().cost = ls.s.result;
-                    candidates.sort();
-                    if (candidates.size() > quality)
-                        candidates.pop_back();
-                }
-                prevm = curm;
-                curm = nextm;
-                prev = cur;
-                cur = next++;
-            }
-            // TODO: why this happens...
-            if (candidates.empty()) return 0;
-        }
-        transfer(candidates.front().result);
-        return candidates.front().cost;
-    }
+//    if (points.size() > DPAvailabilityInformation::numRefPoints) {
+//        const ATFunction * f[] = {this, NULL, &c};
+//        list<ResultCost> candidates(1);
+//        candidates.front().result = *this;
+//        candidates.front().cost = 0.0;
+//        while (candidates.front().result.points.size() > DPAvailabilityInformation::numRefPoints) {
+//            // Take next candidate and compute possibilities
+//            ATFunction best;
+//            best.transfer(candidates.front().result);
+//            candidates.pop_front();
+//            double prevm = 0.0, curm = 0.0;
+//            vector<pair<Time, uint64_t> >::iterator next = best.points.begin(), cur = next++, prev = cur;
+//            while (next != best.points.end()) {
+//                double nextm = (next->second - (double)cur->second) / (next->first - cur->first).seconds();
+//                // Type of point
+//                if (nextm <= curm || (nextm > curm && curm > prevm)) {
+//                    ATFunction func;
+//                    func.slope = slope;
+//                    if (nextm <= curm) {
+//                        // concave, reduce it
+//                        func.points.assign(best.points.begin(), cur);
+//                        func.points.insert(func.points.end(), next, best.points.end());
+//                    } else {
+//                        // convex, reduce it
+//                        func.points.assign(best.points.begin(), prev);
+//                        double diffx = (prev->second + nextm * (cur->first - prev->first).seconds() - cur->second) / (nextm - prevm);
+//                        func.points.push_back(make_pair(prev->first + Duration(diffx), prev->second + prevm * diffx));
+//                        func.points.insert(func.points.end(), next, best.points.end());
+//                    }
+//                    f[1] = &func;
+//                    TCISteps::lossStep ls(v, 0, ref);
+//                    stepper(f, ref, h, ls);
+//                    // Retain only K best candidates, to reduce the exponential explosion of possibilities
+//                    candidates.push_back(ResultCost());
+//                    candidates.back().result.transfer(func);
+//                    candidates.back().cost = ls.s.result;
+//                    candidates.sort();
+//                    if (candidates.size() > quality)
+//                        candidates.pop_back();
+//                }
+//                prevm = curm;
+//                curm = nextm;
+//                prev = cur;
+//                cur = next++;
+//            }
+//            // TODO: why this happens...
+//            if (candidates.empty()) return 0;
+//        }
+//        transfer(candidates.front().result);
+//        return candidates.front().cost;
+//    }
     return 0.0;
 }
 
 
+// FIXME: This method does not work well... why?
 double DPAvailabilityInformation::ATFunction::reduceMax(const Time & ref, const Time & h, unsigned int quality) {
-    if (points.size() > DPAvailabilityInformation::numRefPoints) {
-        const ATFunction * f[] = {NULL, this};
-        list<ResultCost> candidates(1);
-        candidates.front().result = *this;
-        candidates.front().cost = 0.0;
-        while (candidates.front().result.points.size() > DPAvailabilityInformation::numRefPoints) {
-            // Take next candidate and compute possibilities
-            ATFunction best;
-            best.transfer(candidates.front().result);
-            candidates.pop_front();
-            vector<pair<Time, uint64_t> >::iterator next = ++best.points.begin(), cur = next++, prev = best.points.begin();
-            double prevm = 0.0, curm = (cur->second - prev->second) / (cur->first - prev->first).seconds();
-            while (next != best.points.end()) {
-                double nextm = (next->second - (double)cur->second) / (next->first - cur->first).seconds();
-                // Type of point
-                if (nextm > curm || (nextm <= curm && curm <= prevm)) {
-                    ATFunction func;
-                    func.slope = slope;
-                    if (nextm <= curm) {
-                        // concave, reduce it
-                        func.points.assign(best.points.begin(), prev);
-                        double diffx = (cur->second - nextm * (cur->first - prev->first).seconds() - prev->second) / (prevm - nextm);
-                        func.points.push_back(make_pair(prev->first + Duration(diffx), prev->second + prevm * diffx));
-                        func.points.insert(func.points.end(), next, best.points.end());
-                    } else {
-                        // convex, reduce it
-                        func.points.assign(best.points.begin(), cur);
-                        func.points.insert(func.points.end(), next, best.points.end());
-                    }
-                    f[0] = &func;
-                    TCISteps::sqdiffStep ls(1, 0, ref);
-                    stepper(f, ref, h, ls);
-                    // Retain only K best candidates, to reduce the exponential explosion of possibilities
-                    candidates.push_back(ResultCost());
-                    candidates.back().result.transfer(func);
-                    candidates.back().cost = ls.result;
-                    candidates.sort();
-                    if (candidates.size() > quality)
-                        candidates.pop_back();
-                }
-                prevm = curm;
-                curm = nextm;
-                prev = cur;
-                cur = next++;
-            }
-        }
-        transfer(candidates.front().result);
-        return candidates.front().cost;
-    }
+//    if (points.size() > DPAvailabilityInformation::numRefPoints) {
+//        const ATFunction * f[] = {NULL, this};
+//        list<ResultCost> candidates(1);
+//        candidates.front().result = *this;
+//        candidates.front().cost = 0.0;
+//        while (candidates.front().result.points.size() > DPAvailabilityInformation::numRefPoints) {
+//            // Take next candidate and compute possibilities
+//            ATFunction best;
+//            best.transfer(candidates.front().result);
+//            candidates.pop_front();
+//            vector<pair<Time, uint64_t> >::iterator next = ++best.points.begin(), cur = next++, prev = best.points.begin();
+//            double prevm = 0.0, curm = (cur->second - prev->second) / (cur->first - prev->first).seconds();
+//            while (next != best.points.end()) {
+//                double nextm = (next->second - (double)cur->second) / (next->first - cur->first).seconds();
+//                // Type of point
+//                if (nextm > curm || (nextm <= curm && curm <= prevm)) {
+//                    ATFunction func;
+//                    func.slope = slope;
+//                    if (nextm <= curm) {
+//                        // concave, reduce it
+//                        func.points.assign(best.points.begin(), prev);
+//                        double diffx = (cur->second - nextm * (cur->first - prev->first).seconds() - prev->second) / (prevm - nextm);
+//                        func.points.push_back(make_pair(prev->first + Duration(diffx), prev->second + prevm * diffx));
+//                        func.points.insert(func.points.end(), next, best.points.end());
+//                    } else {
+//                        // convex, reduce it
+//                        func.points.assign(best.points.begin(), cur);
+//                        func.points.insert(func.points.end(), next, best.points.end());
+//                    }
+//                    f[0] = &func;
+//                    TCISteps::sqdiffStep ls(1, 0, ref);
+//                    stepper(f, ref, h, ls);
+//                    // Retain only K best candidates, to reduce the exponential explosion of possibilities
+//                    candidates.push_back(ResultCost());
+//                    candidates.back().result.transfer(func);
+//                    candidates.back().cost = ls.result;
+//                    candidates.sort();
+//                    if (candidates.size() > quality)
+//                        candidates.pop_back();
+//                }
+//                prevm = curm;
+//                curm = nextm;
+//                prev = cur;
+//                cur = next++;
+//            }
+//        }
+//        transfer(candidates.front().result);
+//        return candidates.front().cost;
+//    }
     return 0.0;
 }
 
@@ -482,7 +485,8 @@ uint64_t DPAvailabilityInformation::ATFunction::getAvailabilityBefore(Time d) co
         if (next == points.end()) {
             return prev->second + (d - prev->first).seconds() * slope;
         } else {
-            return prev->second + (d - prev->first).seconds() * (next->second - prev->second) / (next->first - prev->first).seconds();
+            double intervalSlope = next->first != prev->first ? (next->second - prev->second) / (next->first - prev->first).seconds() : 0.0;
+            return prev->second + (d - prev->first).seconds() * intervalSlope;
         }
     }
 }
@@ -572,14 +576,14 @@ double DPAvailabilityInformation::MDFCluster::distance(const MDFCluster & r, MDF
     if (reference) {
         if (reference->memRange) {
             double loss = ((double)sum.accumMsq / (sum.value * reference->memRange * reference->memRange));
-            if (((minM - reference->minM) * numIntervals / reference->memRange) != ((r.minM - reference->minM) * numIntervals / reference->memRange))
-                loss += 100.0;
+//            if (((minM - reference->minM) * numIntervals / reference->memRange) != ((r.minM - reference->minM) * numIntervals / reference->memRange))
+//                loss += 100.0;
             result += loss;
         }
         if (reference->diskRange) {
             double loss = ((double)sum.accumDsq / (sum.value * reference->diskRange * reference->diskRange));
-            if (((minD - reference->minD) * numIntervals / reference->diskRange) != ((r.minD - reference->minD) * numIntervals / reference->diskRange))
-                loss += 100.0;
+//            if (((minD - reference->minD) * numIntervals / reference->diskRange) != ((r.minD - reference->minD) * numIntervals / reference->diskRange))
+//                loss += 100.0;
             result += loss;
         }
         if (reference->availRange) {

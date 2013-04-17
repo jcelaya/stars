@@ -690,22 +690,15 @@ double MSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MD
     if (reference) {
         if (reference->memRange) {
             double loss = ((double)sum.accumMsq / (sum.value * reference->memRange * reference->memRange));
-            if (((minM - reference->minM) * numIntervals / reference->memRange) != ((r.minM - reference->minM) * numIntervals / reference->memRange))
-                loss += 100.0;
             result += loss;
         }
         if (reference->diskRange) {
             double loss = ((double)sum.accumDsq / (sum.value * reference->diskRange * reference->diskRange));
-            if (((minD - reference->minD) * numIntervals / reference->diskRange) != ((r.minD - reference->minD) * numIntervals / reference->diskRange))
-                loss += 100.0;
             result += loss;
         }
         if (reference->slownessRange) {
             double sqrange = reference->slownessRange * reference->slownessRange;
             double loss = (sum.accumLsq / (sum.value * sqrange));
-            if ((maxL.sqdiff(reference->minL, reference->lengthHorizon) * numIntervals / sqrange) !=
-                    (r.maxL.sqdiff(r.reference->minL, reference->lengthHorizon) * numIntervals / sqrange))
-                loss += 100.0;
             result += loss;
         }
     }
@@ -722,14 +715,12 @@ bool MSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
         if (((minD - reference->minD) * numIntervals / reference->diskRange) != ((r.minD - reference->minD) * numIntervals / reference->diskRange))
             return true;
     }
-// TODO
-//	if (minA.isFree() != r.minA.isFree()) return true;
-//	if (reference->availRange) {
-//		if (floor(minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)
-//				!= floor(r.minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)) {
-//			return true;
-//		}
-//	}
+    if (reference->slownessRange) {
+        double sqrange = reference->slownessRange * reference->slownessRange;
+        if ((maxL.sqdiff(reference->minL, reference->lengthHorizon) * numIntervals / sqrange) !=
+                (r.maxL.sqdiff(r.reference->minL, reference->lengthHorizon) * numIntervals / sqrange))
+            return true;
+    }
     return false;
 }
 
@@ -757,14 +748,13 @@ void MSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & l, con
     LAFunction newMaxL;
     accumLsq = l.accumLsq + r.accumLsq
             + newMaxL.maxAndLoss(l.maxL, r.maxL, l.value, r.value, l.accumMaxL, r.accumMaxL, reference->lengthHorizon);
-    //accumMaxL.max(l.accumMaxL, r.accumMaxL);
     accumMaxL.maxDiff(l.maxL, r.maxL, l.value, r.value, l.accumMaxL, r.accumMaxL);
 
     minM = newMinM;
     minD = newMinD;
     maxL.swap(newMaxL);
     value = l.value + r.value;
-    // Reduce the max function to avoid piece explosion
+    // TODO: Reduce the max function to avoid piece explosion
     //accumLsq += value * maxL.reduceMax(reference->lengthHorizon);
 }
 

@@ -20,24 +20,18 @@
 
 #include <sstream>
 #include <boost/test/unit_test.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include "CheckMsg.hpp"
 #include "TestHost.hpp"
-#include "AggregationTest.hpp"
 #include "../ExecutionManager/TestTask.hpp"
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
-using std::list;
-
-
-template<> struct Priv<MSPAvailabilityInformation> {
-    MSPAvailabilityInformation::LAFunction totalAvail;
-    MSPAvailabilityInformation::LAFunction maxAvail;
-};
+using namespace std;
+using namespace boost::random;
 
 
 namespace {
-MSPAvailabilityInformation::LAFunction dummy;
-
 
 bool orderById(const TaskProxy & l, const TaskProxy & r) {
     return l.id < r.id;
@@ -53,61 +47,51 @@ void getProxys(const list<shared_ptr<Task> > & tasks, list<TaskProxy> & result, 
 }
 
 
-double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, list<TaskProxy> & proxys, vector<double> & lBounds) {
+double createRandomQueue(mt19937 & gen, double power, list<TaskProxy> & proxys, vector<double> & lBounds) {
+    static unsigned int id = 0;
+
     Time now = TestHost::getInstance().getCurrentTime();
-    list<shared_ptr<Task> > tasks;
+    proxys.clear();
 
     // Add a random number of applications, with random length and number of tasks
-    for(int appid = 0; AggregationTest<MSPAvailabilityInformation>::uniform(1, 3) != 1; ++appid) {
-        double r = AggregationTest<MSPAvailabilityInformation>::uniform(-1000, 0);
-        TaskDescription desc;
+    for(int appid = 0; uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
+        double r = uniform_int_distribution<>(-1000, 0)(gen);
+        unsigned int numTasks = uniform_int_distribution<>(1, 10)(gen);
         // Applications between 1-4h on a 1000 MIPS computer
-        int w = AggregationTest<MSPAvailabilityInformation>::uniform(600000, 14400000);
-        desc.setNumTasks(AggregationTest<MSPAvailabilityInformation>::uniform(1, 10));
-        //desc.setNumTasks(1);
-        desc.setLength(w / desc.getNumTasks());
-        desc.setMaxMemory(AggregationTest<MSPAvailabilityInformation>::uniform(1, maxmem));
-        desc.setMaxDisk(AggregationTest<MSPAvailabilityInformation>::uniform(1, maxdisk));
-        TestHost::getInstance().setCurrentTime(now + Duration(r));
-        for (unsigned int taskid = 0; taskid < desc.getNumTasks(); ++taskid)
-            tasks.push_back(shared_ptr<Task>(new TestTask(CommAddress(), appid, taskid, desc, power)));
+        int a = uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
+        for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
+            proxys.push_back(TaskProxy(a, power, now + Duration(r)));
+            proxys.back().id = id++;
+        }
     }
 
-    TestHost::getInstance().setCurrentTime(now);
-    if (!tasks.empty())
-        tasks.front()->run();
-
-    getProxys(tasks, proxys, lBounds);
-
-    return MSPScheduler::sortMinSlowness(proxys, lBounds, tasks);
+    if (!proxys.empty()) {
+        TaskProxy::getSwitchValues(proxys, lBounds);
+        TaskProxy::sortMinSlowness(proxys, lBounds);
+        return TaskProxy::getSlowness(proxys);
+    } else return 0.0;
 }
 
 
-double createNLengthQueue(unsigned int maxmem, unsigned int maxdisk, double power, list<TaskProxy> & proxys, vector<double> & lBounds, int n) {
+double createNLengthQueue(mt19937 & gen, double power, list<TaskProxy> & proxys, vector<double> & lBounds, int n) {
+    static unsigned int id = 0;
     Time now = TestHost::getInstance().getCurrentTime();
-    list<shared_ptr<Task> > tasks;
+    proxys.clear();
 
     // Add n tasks with random length
     for(int appid = 0; appid < n; ++appid) {
-        double r = AggregationTest<MSPAvailabilityInformation>::uniform(-1000, 0);
-        TaskDescription desc;
+        double r = uniform_int_distribution<>(-1000, 0)(gen);
         // Applications between 1-4h on a 1000 MIPS computer
-        int a = AggregationTest<MSPAvailabilityInformation>::uniform(600000, 14400000);
-        desc.setNumTasks(1);
-        desc.setLength(a);
-        desc.setMaxMemory(maxmem);
-        desc.setMaxDisk(maxdisk);
-        TestHost::getInstance().setCurrentTime(now + Duration(r));
-        tasks.push_back(shared_ptr<Task>(new TestTask(CommAddress(), appid, 0, desc, power)));
+        int a = uniform_int_distribution<>(600000, 14400000)(gen);
+        proxys.push_back(TaskProxy(a, power, now + Duration(r)));
+        proxys.back().id = id++;
     }
 
-    TestHost::getInstance().setCurrentTime(now);
-    if (!tasks.empty())
-        tasks.front()->run();
-
-    getProxys(tasks, proxys, lBounds);
-
-    return MSPScheduler::sortMinSlowness(proxys, lBounds, tasks);
+    if (!proxys.empty()) {
+        TaskProxy::getSwitchValues(proxys, lBounds);
+        TaskProxy::sortMinSlowness(proxys, lBounds);
+        return TaskProxy::getSlowness(proxys);
+    } else return 0.0;
 }
 
 
@@ -230,25 +214,6 @@ bool isMax(const MSPAvailabilityInformation::LAFunction & f1,
 }
 
 
-template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
-    list<TaskProxy> proxys;
-    vector<double> lBounds;
-    double minSlowness = createRandomQueue(n.mem, n.disk, n.power, proxys, lBounds);
-    s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
-    totalInfo->join(*s);
-    const MSPAvailabilityInformation::LAFunction & maxL = s->getSummary()[0].maxL;
-    if (privateData.maxAvail == MSPAvailabilityInformation::LAFunction()) {
-        privateData.maxAvail = maxL;
-    } else {
-        privateData.maxAvail.max(privateData.maxAvail, maxL);
-        //privateData.minAvail.reduce();
-    }
-    privateData.totalAvail.maxDiff(dummy, dummy, 1, 1, maxL, privateData.totalAvail);
-    return s;
-}
-
-
 /// Test Cases
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
 
@@ -257,6 +222,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(LAFunction) {
     TestHost::getInstance().reset();
+    mt19937 gen;
 
     // Min/max and sum of several functions
     ofstream of("laf_test.ppl");
@@ -264,18 +230,18 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
     MSPAvailabilityInformation::setNumPieces(3);
     for (int i = 0; i < 100; i++) {
         LogMsg("Test.RI", INFO) << "Function " << i << ": ";
-        double f11power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
-                f12power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
-                f13power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
-                f21power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200),
-                f22power = AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200);
+        double f11power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+                f12power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+                f13power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+                f21power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+                f22power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
         list<TaskProxy> proxys11, proxys12, proxys13, proxys21, proxys22;
         vector<double> lBounds11, lBounds12, lBounds13, lBounds21, lBounds22;
-        createRandomQueue(1024, 512, f11power, proxys11, lBounds11);
-        createRandomQueue(1024, 512, f12power, proxys12, lBounds12);
-        createRandomQueue(1024, 512, f13power, proxys13, lBounds13);
-        createRandomQueue(1024, 512, f21power, proxys21, lBounds21);
-        createRandomQueue(1024, 512, f22power, proxys22, lBounds22);
+        createRandomQueue(gen, f11power, proxys11, lBounds11);
+        createRandomQueue(gen, f12power, proxys12, lBounds12);
+        createRandomQueue(gen, f13power, proxys13, lBounds13);
+        createRandomQueue(gen, f21power, proxys21, lBounds21);
+        createRandomQueue(gen, f22power, proxys22, lBounds22);
         MSPAvailabilityInformation::LAFunction
                 f11(proxys11, lBounds11, f11power),
                 f12(proxys12, lBounds12, f12power),
@@ -426,6 +392,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
 /// SlownessInformation
 BOOST_AUTO_TEST_CASE(siMsg) {
     TestHost::getInstance().reset();
+    mt19937 gen;
 
     // Ctor
     MSPAvailabilityInformation s1;
@@ -441,7 +408,7 @@ BOOST_AUTO_TEST_CASE(siMsg) {
     // TODO: Check other things
     list<TaskProxy> proxys;
     vector<double> lBounds;
-    createRandomQueue(1024, 512, 1000.0, proxys, lBounds);
+    createRandomQueue(gen, 1000.0, proxys, lBounds);
     s1.setAvailability(1024, 512, proxys, lBounds, 1000.0, 0.5);
     LogMsg("Test.RI", INFO) << s1;
 
@@ -453,12 +420,13 @@ BOOST_AUTO_TEST_CASE(siMsg) {
 /// SlownessAlgorithm
 BOOST_AUTO_TEST_CASE(mspAlg) {
     TestHost::getInstance().reset();
+    mt19937 gen;
 
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
             list<TaskProxy> proxys;
             vector<double> lBounds;
-            double slowness = createNLengthQueue(1024, 512, AggregationTest<MSPAvailabilityInformation>::uniform(1000, 3000, 200), proxys, lBounds, i);
+            double slowness = createNLengthQueue(gen, floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200, proxys, lBounds, i);
             ostringstream oss;
             for (list<TaskProxy>::iterator it = proxys.begin(); it != proxys.end(); ++it) {
                 oss << *it;
@@ -484,143 +452,3 @@ BOOST_AUTO_TEST_CASE(mspAlg) {
 BOOST_AUTO_TEST_SUITE_END()   // aiTS
 
 BOOST_AUTO_TEST_SUITE_END()   // Cor
-
-
-
-BOOST_AUTO_TEST_SUITE(Per)   // Performance test suite
-
-BOOST_AUTO_TEST_SUITE(aiTS)
-
-BOOST_AUTO_TEST_CASE(LAFunction) {
-    // Test the cost of the creation of an LAFunction
-    ofstream of("laf_performance.stat");
-    of << "# Number of tasks, time" << endl;
-    double power = 1000.0;
-    for (int i = 0; i < 1000; ++i) {
-        double time = 0.0;
-        for (int j = 0; j < 10; ++j) {
-            ptime start = microsec_clock::universal_time();
-            list<TaskProxy> proxys;
-            vector<double> lBounds;
-            createNLengthQueue(1024, 512, power, proxys, lBounds, i);
-            MSPAvailabilityInformation::LAFunction f(proxys, lBounds, power);
-            time += (microsec_clock::universal_time() - start).total_microseconds();
-        }
-        time /= 10000000.0;
-        of << i << ',' << time << endl;
-        cout << i << " tasks need " << time << endl;
-    }
-}
-
-
-class Field {
-    ostringstream oss;
-    unsigned int width, written;
-public:
-    Field(unsigned int w) : width(w), written(0) {}
-    template<class T> Field & operator<<(const T & t) {
-        oss << t;
-        written = oss.tellp();
-        return *this;
-    }
-    friend ostream & operator<<(ostream & os, const Field & f) {
-        os << f.oss.str();
-        if (f.written < f.width)
-            os << string(f.width - f.written, ' ');
-        return os;
-    }
-};
-
-
-BOOST_AUTO_TEST_CASE(siAggr) {
-    //Time ct = reference;
-    ClusteringVector<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
-    unsigned int numpoints = 8;
-    MSPAvailabilityInformation::setNumPieces(numpoints);
-    ofstream off("asi_test_function.stat");
-    ofstream ofmd("asi_test_mem_disk.stat");
-    AggregationTest<MSPAvailabilityInformation> t;
-    for (int i = 0; i < 10; i++) {
-        for (int nc = 2; nc < 7; nc++) {
-            MSPAvailabilityInformation::setNumClusters(nc * nc * nc);
-            off << "# " << (nc * nc * nc) << " clusters" << endl;
-            ofmd << "# " << (nc * nc * nc) << " clusters" << endl;
-            shared_ptr<MSPAvailabilityInformation> result = t.test(i);
-
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            MSPAvailabilityInformation::LAFunction maxAvail, aggrAvail, treeAvail;
-            MSPAvailabilityInformation::LAFunction & totalAvail = const_cast<MSPAvailabilityInformation::LAFunction &>(t.getPrivateData().totalAvail);
-            maxAvail.maxDiff(t.getPrivateData().maxAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
-
-            unsigned long int aggrMem = 0, aggrDisk = 0;
-            {
-                shared_ptr<MSPAvailabilityInformation> totalInformation = t.getTotalInformation();
-                const ClusteringVector<MSPAvailabilityInformation::MDLCluster> & clusters = totalInformation->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const MSPAvailabilityInformation::MDLCluster & u = clusters[j];
-                    aggrMem += (unsigned long int)u.minM * u.value;
-                    aggrDisk += (unsigned long int)u.minD * u.value;
-                    aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);
-                }
-            }
-
-            unsigned long int treeMem = 0, treeDisk = 0;
-            {
-                const ClusteringVector<MSPAvailabilityInformation::MDLCluster> & clusters = result->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const MSPAvailabilityInformation::MDLCluster & u = clusters[j];
-                    BOOST_CHECK(u.maxL.getPieces().size() <= numpoints);
-                    BOOST_CHECK(u.accumMaxL.getPieces().size() <= numpoints);
-                    treeMem += (unsigned long int)u.minM * u.value;
-                    treeDisk += (unsigned long int)u.minD * u.value;
-                    treeAvail.maxDiff(u.maxL, dummy, u.value, u.value, treeAvail, dummy);
-                }
-            }
-
-            double meanTotalAvail = 0.0, meanAggrAvail = 0.0, meanTreeAvail = 0.0, meanMaxAvail = 0.0;
-
-            off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            double ah = totalAvail.getHorizon() * 1.2;
-            uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
-            for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
-                double t = totalAvail.getSlowness(a),
-                        aa = aggrAvail.getSlowness(a),
-                        at = treeAvail.getSlowness(a),
-                        max = maxAvail.getSlowness(a);
-                meanTotalAvail += t / 100;
-                meanAggrAvail += aa / 100;
-                meanTreeAvail += at / 100;
-                meanMaxAvail += max / 100;
-                off << a << ',' << t
-                        << ',' << max << ',' << (t == 0 ? 100 : max * 100.0 / t)
-                        << ',' << aa << ',' << (t == 0 ? 100 : aa * 100.0 / t)
-                        << ',' << at << ',' << (t == 0 ? 100 : at * 100.0 / t) << endl;
-            }
-            off << endl;
-
-            LogMsg("Test.RI", INFO) << i << ' ' << setw(6) << t.getNumNodes() << ' ' << nc << ' '
-                    << (Field(15) << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()) << "  "
-                    << setiosflags(ios_base::fixed | ios_base::right) << setprecision(2)
-                    << setw(7) << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "% "
-                    << setw(7) << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "% "
-                    << setw(7) << ((meanMaxAvail - meanTreeAvail) * 100.0 / (meanMaxAvail - meanTotalAvail)) << "%   "
-                    << setw(7) << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "% "
-                    << setw(7) << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "% "
-                    << setw(7) << ((meanMaxAvail - meanAggrAvail) * 100.0 / (meanMaxAvail - meanTotalAvail)) << "%";
-
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
-            ofmd << (i + 1) << ',' << nc << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
-            ofmd << endl;
-        }
-        off << endl;
-        ofmd << endl;
-    }
-    off.close();
-    ofmd.close();
-}
-
-BOOST_AUTO_TEST_SUITE_END()   // aiTS
-
-BOOST_AUTO_TEST_SUITE_END()   // Per

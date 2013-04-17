@@ -21,13 +21,15 @@
 #include <list>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <fstream>
 #include "CheckMsg.hpp"
-#include "AggregationTest.hpp"
 #include "DPAvailabilityInformation.hpp"
 #include "TestHost.hpp"
 using namespace std;
 using namespace boost;
+using namespace boost::random;
 
 
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
@@ -52,26 +54,19 @@ BOOST_AUTO_TEST_SUITE_END()   // aiTS
 BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
-template<> struct Priv<DPAvailabilityInformation> {
-    Time ref;
-    DPAvailabilityInformation::ATFunction totalAvail;
-    DPAvailabilityInformation::ATFunction minAvail;
-};
-
-
 namespace {
-    list<Time> createRandomLAF(double power, Time ct) {
+    list<Time> createRandomLAF(mt19937 & gen, double power, Time ct) {
         Time next = ct, h = ct + Duration(100000.0);
         list<Time> result;
 
         // Add a random number of tasks, with random length
-        while(AggregationTest<DPAvailabilityInformation>::uniform(1, 3) != 1) {
+        while(uniform_int_distribution<>(1, 3)(gen) != 1) {
             // Tasks of 5-60 minutes on a 1000 MIPS computer
-            unsigned long int length = AggregationTest<DPAvailabilityInformation>::uniform(300000, 3600000);
+            unsigned long int length = uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(length / power);
             result.push_back(next);
             // Similar time for holes
-            unsigned long int nextHole = AggregationTest<DPAvailabilityInformation>::uniform(300000, 3600000);
+            unsigned long int nextHole = uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(nextHole / power);
             result.push_back(next);
         }
@@ -98,21 +93,6 @@ namespace {
 }
 
 
-template<> shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
-    list<Time> q = createRandomLAF(n.power, privateData.ref);
-    result->addNode(n.mem, n.disk, n.power, q);
-    totalInfo->addNode(n.mem, n.disk, n.power, q);
-    const DPAvailabilityInformation::ATFunction & minA = result->getSummary()[0].minA;
-    if (privateData.minAvail.getSlope() == 0.0)
-        privateData.minAvail = minA;
-    else
-        privateData.minAvail.min(privateData.minAvail, minA);
-    privateData.totalAvail.lc(privateData.totalAvail, minA, 1.0, 1.0);
-    return result;
-}
-
-
 /// Test Cases
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
 
@@ -120,6 +100,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(ATFunction) {
     TestHost::getInstance().reset();
+    mt19937 gen;
 
     Time ct = Time::getCurrentTime();
     Time h = ct + Duration(100000.0);
@@ -142,17 +123,17 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
     for (int i = 0; i < 500; i++) {
         LogMsg("Test.RI", INFO) << "Functions " << i;
 
-        double f11power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
-               f12power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
-               f13power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
-               f21power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200),
-               f22power = AggregationTest<DPAvailabilityInformation>::uniform(1000, 3000, 200);
+        double f11power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f12power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f13power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f21power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f22power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
                DPAvailabilityInformation::ATFunction
-               f11(f11power, createRandomLAF(f11power, ct)),
-               f12(f12power, createRandomLAF(f12power, ct)),
-               f13(f13power, createRandomLAF(f13power, ct)),
-               f21(f21power, createRandomLAF(f21power, ct)),
-               f22(f22power, createRandomLAF(f22power, ct));
+               f11(f11power, createRandomLAF(gen, f11power, ct)),
+               f12(f12power, createRandomLAF(gen, f12power, ct)),
+               f13(f13power, createRandomLAF(gen, f13power, ct)),
+               f21(f21power, createRandomLAF(gen, f21power, ct)),
+               f22(f22power, createRandomLAF(gen, f22power, ct));
                DPAvailabilityInformation::ATFunction min, max;
                min.min(f11, f12);
                min.min(min, f13);
@@ -226,113 +207,3 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
 BOOST_AUTO_TEST_SUITE_END()   // aiTS
 
 BOOST_AUTO_TEST_SUITE_END()   // Cor
-
-
-BOOST_AUTO_TEST_SUITE(Per)   // Performance test suite
-
-BOOST_AUTO_TEST_SUITE(aiTS)
-
-BOOST_AUTO_TEST_CASE(tciAggr) {
-    TestHost::getInstance().reset();
-    int numClusters[] = { 8, 64, 225 };
-
-    Time ct = Time::getCurrentTime();
-    ClusteringVector<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
-    unsigned int numpoints = 10;
-    DPAvailabilityInformation::setNumRefPoints(numpoints);
-    ofstream off("atci_test_function.stat"), ofmd("atci_test_mem_disk.stat");
-    DPAvailabilityInformation::ATFunction dummy;
-
-    for (int j = 0; j < 3; j++) {
-        DPAvailabilityInformation::setNumClusters(numClusters[j]);
-        off << "# " << numClusters[j] << " clusters" << endl;
-        ofmd << "# " << numClusters[j] << " clusters" << endl;
-        AggregationTest<DPAvailabilityInformation> t;
-        t.getPrivateData().ref = ct;
-        for (int i = 0; i < 17; i++) {
-            shared_ptr<DPAvailabilityInformation> result = t.test(i);
-
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            DPAvailabilityInformation::ATFunction minAvail, aggrAvail, treeAvail;
-            DPAvailabilityInformation::ATFunction & totalAvail = const_cast<DPAvailabilityInformation::ATFunction &>(t.getPrivateData().totalAvail);
-            minAvail.lc(t.getPrivateData().minAvail, dummy, t.getNumNodes(), 1.0);
-
-            unsigned long int aggrMem = 0, aggrDisk = 0;
-            {
-                shared_ptr<DPAvailabilityInformation> totalInformation = t.getTotalInformation();
-                const ClusteringVector<DPAvailabilityInformation::MDFCluster> & clusters = totalInformation->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const DPAvailabilityInformation::MDFCluster & u = clusters[j];
-                    aggrMem += (unsigned long int)u.minM * u.value;
-                    aggrDisk += (unsigned long int)u.minD * u.value;
-                    aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
-                }
-            }
-
-            unsigned long int treeMem = 0, treeDisk = 0;
-            {
-                const ClusteringVector<DPAvailabilityInformation::MDFCluster> & clusters = result->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const DPAvailabilityInformation::MDFCluster & u = clusters[j];
-                    BOOST_CHECK(u.minA.getPoints().size() <= numpoints);
-                    BOOST_CHECK(u.accumMaxA.getPoints().size() <= numpoints);
-                    treeMem += (unsigned long int)u.minM * u.value;
-                    treeDisk += (unsigned long int)u.minD * u.value;
-                    treeAvail.lc(treeAvail, u.minA, 1.0, u.value);
-                }
-            }
-
-            LogMsg("Test.RI", INFO) << t.getNumNodes() << " nodes, " << numClusters[j] << " s.f., "
-                    << t.getMeanTime().total_microseconds() << " us/msg, "
-                    << "min/mean/max size " << t.getMinSize() << '/' << t.getMeanSize() << '/' << t.getMaxSize()
-                    << " mem " << (treeMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((treeMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-                    << " disk " << (treeDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((treeDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-                    //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
-            LogMsg("Test.RI", INFO) << "Full aggregation: "
-                    << " mem " << (aggrMem - minMem) << '/' << (t.getTotalMem() - minMem) << '(' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << "%)"
-                    << " disk " << (aggrDisk - minDisk) << '/' << (t.getTotalDisk() - minDisk) << '(' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << "%)";
-                    //<< " avail " << deltaAggrAvail << '/' << deltaTotalAvail;
-            list<Time> p;
-            for (vector<pair<Time, uint64_t> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            for (vector<pair<Time, uint64_t> >::const_iterator it = treeAvail.getPoints().begin(); it != treeAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            for (vector<pair<Time, uint64_t> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            for (vector<pair<Time, uint64_t> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            p.sort();
-            off << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << (minMem * 100.0 / t.getTotalMem()) << ',' << aggrMem << ',' << (aggrMem * 100.0 / t.getTotalMem()) << ',' << treeMem << ',' << (treeMem * 100.0 / t.getTotalMem()) << endl;
-            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << (minDisk * 100.0 / t.getTotalDisk()) << ',' << aggrDisk << ',' << (aggrDisk * 100.0 / t.getTotalDisk()) << ',' << treeDisk << ',' << (treeDisk * 100.0 / t.getTotalDisk()) << endl;
-            ofmd << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
-            double lastTime = -1.0;
-            for (list<Time>::iterator it = p.begin(); it != p.end(); it++) {
-                unsigned long t = totalAvail.getAvailabilityBefore(*it),
-                             a = aggrAvail.getAvailabilityBefore(*it),
-                             at = treeAvail.getAvailabilityBefore(*it),
-                             min = minAvail.getAvailabilityBefore(*it);
-                             double time = floor((*it - ct).seconds() * 1000.0) / 1000.0;
-                             if (lastTime != time) {
-                                 off << time << ',' << t
-                                 << ',' << min << ',' << (t == 0 ? 100 : min * 100.0 / t)
-                                 << ',' << a << ',' << (t == 0 ? 100 : a * 100.0 / t)
-                                 << ',' << at << ',' << (t == 0 ? 100 : at * 100.0 / t) << endl;
-                                 lastTime = time;
-                             }
-            }
-            off << endl;
-            ofmd << endl;
-        }
-        off << endl;
-        ofmd << endl;
-    }
-    off.close();
-    ofmd.close();
-}
-
-BOOST_AUTO_TEST_SUITE_END()   // aiTS
-
-BOOST_AUTO_TEST_SUITE_END()   // Per

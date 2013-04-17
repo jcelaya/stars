@@ -26,11 +26,14 @@
 #include <sstream>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 using namespace std;
 using namespace boost;
 using namespace boost::posix_time;
+using namespace boost::random;
 
 template<class T> struct Priv;
 
@@ -46,6 +49,8 @@ template<class T> class AggregationTest {
     };
     list<Node> nodes;
     unsigned long int totalPower, totalMem, totalDisk;
+    mt19937 gen;
+    uniform_int_distribution<> unifPower, unifMemory, unifDisk;
     Priv<T> privateData;
     shared_ptr<T> totalInfo;
 
@@ -68,9 +73,9 @@ template<class T> class AggregationTest {
         } else {
             nodes.push_back(Node());
             Node & n = nodes.back();
-            n.power = uniform(min_power, max_power, step_power);
-            n.mem = uniform(min_mem, max_mem, step_mem);
-            n.disk = uniform(min_disk, max_disk, step_disk);
+            n.power = unifPower(gen); //floor(unifPower(gen) / step_power) * step_power;
+            n.mem = unifMemory(gen); //floor(unifMemory(gen) / step_mem) * step_mem;
+            n.disk = unifDisk(gen); //floor(unifDisk(gen) / step_disk) * step_disk;
             totalPower += n.power;
             totalMem += n.mem;
             totalDisk += n.disk;
@@ -131,25 +136,18 @@ template<class T> class AggregationTest {
     }
 
 public:
-    static const int min_power = 1;
-    //static const int min_power = 1000;
+    static const int min_power = 1000;
     static const int max_power = 3000;
-    static const int step_power = 1;
-    static const int min_mem = 1;
-    //static const int min_mem = 256;
+//    static const int step_power = 1;
+    static const int min_mem = 256;
     static const int max_mem = 4096;
-    static const int step_mem = 1;
-    static const int min_disk = 1;
-    //static const int min_disk = 500;
+//    static const int step_mem = 1;
+    static const int min_disk = 500;
     static const int max_disk = 5000;
-    static const int step_disk = 1;
+//    static const int step_disk = 1;
 
-    // Return a random int in interval [min, max]
-    static int uniform(int min, int max, int step = 1) {
-        return min + step * ((int)std::ceil(std::floor((double)(max - min) / (double)step + 1.0) * ((std::rand() + 1.0) / (RAND_MAX + 1.0))) - 1);
-    }
-
-    AggregationTest(unsigned int f = 2) : fanout(f), totalPower(0), totalMem(0), totalDisk(0) {
+    AggregationTest(unsigned int f = 2) : fanout(f), totalPower(0), totalMem(0), totalDisk(0),
+            unifPower(min_power, max_power), unifMemory(min_mem, max_mem), unifDisk(min_disk, max_disk) {
         totalInfo.reset(new T());
     }
 

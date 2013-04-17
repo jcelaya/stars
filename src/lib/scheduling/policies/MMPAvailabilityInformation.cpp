@@ -42,38 +42,20 @@ double MMPAvailabilityInformation::MDPTCluster::distance(const MDPTCluster & r, 
     if (reference) {
         if (unsigned int memRange = reference->maxM - reference->minM) {
             double loss = ((double)sum.accumM / memRange / sum.value);
-            if (((minM - reference->minM) * numIntervals / memRange) != ((r.minM - reference->minM) * numIntervals / memRange))
-                loss += 100.0;
             result += loss;
         }
         if (unsigned int diskRange = reference->maxD - reference->minD) {
             double loss = ((double)sum.accumD / diskRange / sum.value);
-            if (((minD - reference->minD) * numIntervals / diskRange) != ((r.minD - reference->minD) * numIntervals / diskRange))
-                loss += 100.0;
             result += loss;
         }
         if (unsigned int powerRange = reference->maxP - reference->minP) {
             double loss = ((double)sum.accumP / powerRange / sum.value);
-            if (((minP - reference->minP) * numIntervals / powerRange) != ((r.minP - reference->minP) * numIntervals / powerRange))
-                loss += 100.0;
             result += loss;
         }
         if (int64_t timeRange = (reference->maxT - reference->minT).microseconds()) {
-            //double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
-            Time minT = maxT < r.maxT ? maxT : r.maxT;
-            double timeScale = (minT - reference->minT).seconds() + 1.0;
-            double totalLoss = sum.accumT.seconds() / timeScale;
-            double loss = sum.accumT.seconds() / timeScale / sum.value;
-            if (((maxT - reference->minT).microseconds() * numIntervals / timeRange) != ((r.maxT - reference->minT).microseconds() * numIntervals / timeRange))
-                loss += 100.0;
+            double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
             result += loss;
         }
-//  if (uint64_t timeRange = reference->maxT > Time::getCurrentTime() ? (reference->maxT - Time::getCurrentTime()).microseconds() : 0) {
-//   double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
-//   if (((maxT - reference->minT).microseconds() * numIntervals / timeRange) != ((r.maxT - reference->minT).microseconds() * numIntervals / timeRange))
-//    loss += 100.0;
-//   result += loss;
-//  }
     }
     return result;
 }
@@ -96,10 +78,6 @@ bool MMPAvailabilityInformation::MDPTCluster::far(const MDPTCluster & r) const {
         if (((maxT - reference->minT).microseconds() * numIntervals / timeRange) != ((r.maxT - reference->minT).microseconds() * numIntervals / timeRange))
             return true;
     }
-// if (uint64_t timeRange = reference->maxT > Time::getCurrentTime() ? (reference->maxT - Time::getCurrentTime()).microseconds() : 0) {
-//  if (((maxT - reference->minT).microseconds() * numIntervals / timeRange) != ((r.maxT - reference->minT).microseconds() * numIntervals / timeRange))
-//   return true;
-// }
     return false;
 }
 

@@ -1,0 +1,17 @@
+# Create HTML documented code
+file(GLOB_RECURSE ALL_SOURCES FOLLOW_SYMLINKS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/include/*.hpp)
+file(REMOVE ${CMAKE_CURRENT_BINARY_DIR}/sources)
+foreach(SOURCE ${ALL_SOURCES})
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/sources ${SOURCE} "\n")
+endforeach(SOURCE)
+
+add_custom_command(OUTPUT GTAGS
+    COMMAND gtags ARGS -f ${CMAKE_CURRENT_BINARY_DIR}/sources ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS ${ALL_SOURCES}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_custom_command(OUTPUT HTML/index.html
+    COMMAND htags ARGS -n -s -d ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS GTAGS
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_custom_target(doc ALL DEPENDS HTML/index.html)
+

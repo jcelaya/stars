@@ -55,14 +55,10 @@ public:
             if (reference) {
                 if (double memRange = reference->maxM - reference->minM) {
                     double loss = sum.accumMsq / (sum.value * memRange * memRange);
-                    if (floor((minM - reference->minM) * numIntervals / memRange) != floor((r.minM - reference->minM) * numIntervals / memRange))
-                        loss += 100.0;
                     result += loss;
                 }
                 if (double diskRange = reference->maxD - reference->minD) {
                     double loss = sum.accumDsq / (sum.value * diskRange * diskRange);
-                    if (floor((minD - reference->minD) * numIntervals / diskRange) != floor((r.minD - reference->minD) * numIntervals / diskRange))
-                        loss += 100.0;
                     result += loss;
                 }
             }
