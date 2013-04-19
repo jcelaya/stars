@@ -51,19 +51,6 @@ namespace {
             if (next < h) result.back() = h;
         }
     }
-
-
-    string plot(DPAvailabilityInformation::ATFunction & f) {
-        ostringstream os;
-        if (f.getPoints().empty()) {
-            os << "0,0" << endl;
-            os << "100000000000," << (unsigned long)(f.getSlope() * 100000.0) << endl;
-        } else {
-            for (vector<pair<Time, uint64_t> >::const_iterator it = f.getPoints().begin(); it != f.getPoints().end(); it++)
-                os << it->first.getRawDate() << ',' << it->second << endl;
-        }
-        return os.str();
-    }
 }
 
 
@@ -72,7 +59,6 @@ template<> shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityI
     list<Time> q;
     createRandomLAF(n.power, gen, q);
     result->addNode(n.mem, n.disk, n.power, q);
-    totalInfo->addNode(n.mem, n.disk, n.power, q);
     const DPAvailabilityInformation::ATFunction & minA = result->getSummary()[0].minA;
     if (privateData.minAvail.getSlope() == 0.0)
         privateData.minAvail = minA;
@@ -94,8 +80,10 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
     for (int j = 0; j < numClusters.size(); j++) {
         DPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
+        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<DPAvailabilityInformation> t;
         for (int i = 0; i < levels; i++) {
+            LogMsg("Progress", WARN) << i << " levels";
             shared_ptr<DPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
@@ -116,11 +104,11 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             }
 
             list<Time> p;
-            for (vector<pair<Time, uint64_t> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
+            for (vector<pair<Time, double> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
                 p.push_back(it->first);
-            for (vector<pair<Time, uint64_t> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
+            for (vector<pair<Time, double> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
                 p.push_back(it->first);
-            for (vector<pair<Time, uint64_t> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
+            for (vector<pair<Time, double> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
                 p.push_back(it->first);
             p.sort();
             p.erase(std::unique(p.begin(), p.end()), p.end());
@@ -131,14 +119,15 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             {
                 double prevAccuracy = 0.0;
                 Time prevTime = ref;
-                // TODO: The accuracy is not linear...
+                // Approximate the accuracy to linear...
                 for (list<Time>::iterator it = p.begin(); it != p.end(); ++it) {
-                    double totalAvailBeforeIt = totalAvail.getAvailabilityBefore(*it);
                     double minAvailBeforeIt = minAvail.getAvailabilityBefore(*it);
-                    double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(*it);
-                    double accuracy = totalAvailBeforeIt > minAvailBeforeIt ? ((aggrAvailBeforeIt - minAvailBeforeIt) * 100.0) / (totalAvailBeforeIt - minAvailBeforeIt) : 0.0;
+                    double totalAvailBeforeIt = totalAvail.getAvailabilityBefore(*it)- minAvailBeforeIt;
+                    double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(*it)- minAvailBeforeIt;
+                    double accuracy = totalAvailBeforeIt > minAvailBeforeIt ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
                     if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
                         LogMsg("test", ERROR) << numClusters[j] << " clusters, total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
+                    //ofmd << "#," << *it << ',' << totalAvailBeforeIt << ',' << aggrAvailBeforeIt << ',' << accuracy << endl;
                     meanAccuracy += (prevAccuracy + accuracy) * (*it - prevTime).seconds();
                     prevAccuracy = accuracy;
                     prevTime = *it;

@@ -38,17 +38,19 @@ class MMPAvailabilityInformation : public AvailabilityInformation {
 public:
     class MDPTCluster {
     public:
-        MSGPACK_DEFINE(value, minM, minD, minP, accumM, accumD, accumP, maxT, accumT);
+        MSGPACK_DEFINE(value, minM, minD, minP, accumMsq, accumDsq, accumPsq, accumMln, accumDln, accumPln, maxT, accumTsq, accumTln);
 
         uint32_t value;
         uint32_t minM, minD, minP;
-        uint64_t accumM, accumD, accumP;
+        int64_t accumMsq, accumDsq, accumPsq;
+        int64_t accumMln, accumDln, accumPln;
         Time maxT;
-        Duration accumT;
+        int64_t accumTsq, accumTln;
 
         MDPTCluster() : reference(NULL), value(0) {}
         MDPTCluster(MMPAvailabilityInformation * r, uint32_t m, uint32_t d, uint32_t p, Time t)
-                : reference(r), value(1), minM(m), minD(d), minP(p), accumM(0), accumD(0), accumP(0), maxT(t), accumT(0.0) {}
+                : reference(r), value(1), minM(m), minD(d), minP(p), accumMsq(0), accumDsq(0),
+                  accumPsq(0), accumMln(0), accumDln(0), accumPln(0), maxT(t), accumTsq(0.0), accumTln(0.0) {}
 
         void setReference(MMPAvailabilityInformation * r) {
             reference = r;
@@ -60,8 +62,11 @@ public:
         }
 
         bool operator==(const MDPTCluster & r) const {
-            return minM == r.minM && accumM == r.accumM && minD == r.minD && accumD == r.accumD
-                   && minP == r.minP && accumP == r.accumP && maxT == r.maxT && accumT == r.accumT && value == r.value;
+            return minM == r.minM && accumMsq == r.accumMsq && accumMln == r.accumMln
+                   && minD == r.minD && accumDsq == r.accumDsq && accumDln == r.accumDln
+                   && minP == r.minP && accumPsq == r.accumPsq && accumPln == r.accumPln
+                   && maxT == r.maxT && accumTsq == r.accumTsq && accumTln == r.accumTln
+                   && value == r.value;
         }
 
         double distance(const MDPTCluster & r, MDPTCluster & sum) const;
@@ -92,10 +97,10 @@ public:
         }
 
         friend std::ostream & operator<<(std::ostream & os, const MDPTCluster & o) {
-            os << 'M' << o.minM << '-' << o.accumM << ',';
-            os << 'D' << o.minD << '-' << o.accumD << ',';
-            os << 'P' << o.minP << '-' << o.accumP << ',';
-            os << 'T' << o.maxT << '-' << o.accumT << ',';
+            os << 'M' << o.minM << '-' << o.accumMsq << '-' << o.accumMln << ',';
+            os << 'D' << o.minD << '-' << o.accumDsq << '-' << o.accumDln << ',';
+            os << 'P' << o.minP << '-' << o.accumPsq << '-' << o.accumPln << ',';
+            os << 'T' << o.maxT << '-' << o.accumTsq << '-' << o.accumTln << ',';
             return os << o.value;
         }
     private:

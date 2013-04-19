@@ -32,7 +32,6 @@ template<> struct Priv<TwoSPAvailInfo> {};
 template<> shared_ptr<TwoSPAvailInfo> AggregationTest<TwoSPAvailInfo>::createInfo(const AggregationTest::Node & n) {
     shared_ptr<TwoSPAvailInfo> result(new TwoSPAvailInfo);
     result->addNode(n.mem, n.disk);
-    totalInfo->addNode(n.mem, n.disk);
     return result;
 }
 

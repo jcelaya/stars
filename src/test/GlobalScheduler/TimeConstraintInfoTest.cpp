@@ -85,7 +85,7 @@ namespace {
             os << "0,0" << endl;
             os << "100000000000," << (unsigned long)(f.getSlope() * 100000.0) << endl;
         } else {
-            for (vector<pair<Time, uint64_t> >::const_iterator it = f.getPoints().begin(); it != f.getPoints().end(); it++)
+            for (vector<pair<Time, double> >::const_iterator it = f.getPoints().begin(); it != f.getPoints().end(); it++)
                 os << it->first.getRawDate() << ',' << it->second << endl;
         }
         return os.str();

@@ -52,7 +52,6 @@ template<class T> class AggregationTest {
     mt19937 gen;
     uniform_int_distribution<> unifPower, unifMemory, unifDisk;
     Priv<T> privateData;
-    shared_ptr<T> totalInfo;
 
     typename list<Node>::iterator nextNode;
     unsigned long int bytes;
@@ -130,7 +129,7 @@ template<class T> class AggregationTest {
         ptime now = microsec_clock::universal_time();
         if (lastProgress + seconds(1) < now) {
             lastProgress = now;
-            LogMsg("Test.RI", INFO) << p << '%';
+            LogMsg("Progress", WARN) << p << '%';
         }
         return result;
     }
@@ -147,9 +146,7 @@ public:
 //    static const int step_disk = 1;
 
     AggregationTest(unsigned int f = 2) : fanout(f), totalPower(0), totalMem(0), totalDisk(0),
-            unifPower(min_power, max_power), unifMemory(min_mem, max_mem), unifDisk(min_disk, max_disk) {
-        totalInfo.reset(new T());
-    }
+            unifPower(min_power, max_power), unifMemory(min_mem, max_mem), unifDisk(min_disk, max_disk) {}
 
     shared_ptr<T> test(unsigned int numLevels) {
         nextNode = nodes.begin();
@@ -198,12 +195,6 @@ public:
 
     Priv<T> & getPrivateData() {
         return privateData;
-    }
-
-    shared_ptr<T> getTotalInformation() const {
-        shared_ptr<T> result(totalInfo->clone());
-        result->reduce();
-        return result;
     }
 };
 

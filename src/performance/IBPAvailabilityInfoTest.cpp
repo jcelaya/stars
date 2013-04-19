@@ -20,6 +20,7 @@
 
 #include "AggregationTest.hpp"
 #include "IBPAvailabilityInformation.hpp"
+#include "Logger.hpp"
 
 
 template<> struct Priv<IBPAvailabilityInformation> {};
@@ -28,7 +29,6 @@ template<> struct Priv<IBPAvailabilityInformation> {};
 template<> shared_ptr<IBPAvailabilityInformation> AggregationTest<IBPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
     shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
     result->addNode(n.mem, n.disk);
-    totalInfo->addNode(n.mem, n.disk);
     return result;
 }
 
@@ -39,8 +39,10 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
     for (int j = 0; j < numClusters.size(); ++j) {
         IBPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
+        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<IBPAvailabilityInformation> t;
         for (int i = 0; i < levels; ++i) {
+            LogMsg("Progress", WARN) << i << " levels";
             list<IBPAvailabilityInformation::MDCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);

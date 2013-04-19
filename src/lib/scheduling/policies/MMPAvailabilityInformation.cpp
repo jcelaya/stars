@@ -40,20 +40,20 @@ double MMPAvailabilityInformation::MDPTCluster::distance(const MDPTCluster & r, 
     sum.aggregate(r);
     double result = 0.0;
     if (reference) {
-        if (unsigned int memRange = reference->maxM - reference->minM) {
-            double loss = ((double)sum.accumM / memRange / sum.value);
+        if (double memRange = reference->maxM - reference->minM) {
+            double loss = sum.accumMsq / (sum.value * memRange * memRange);
             result += loss;
         }
-        if (unsigned int diskRange = reference->maxD - reference->minD) {
-            double loss = ((double)sum.accumD / diskRange / sum.value);
+        if (double diskRange = reference->maxD - reference->minD) {
+            double loss = sum.accumDsq / (sum.value * diskRange * diskRange);
             result += loss;
         }
-        if (unsigned int powerRange = reference->maxP - reference->minP) {
-            double loss = ((double)sum.accumP / powerRange / sum.value);
+        if (double powerRange = reference->maxP - reference->minP) {
+            double loss = sum.accumPsq / (sum.value * powerRange * powerRange);
             result += loss;
         }
-        if (int64_t timeRange = (reference->maxT - reference->minT).microseconds()) {
-            double loss = ((double)sum.accumT.microseconds() / timeRange / sum.value);
+        if (double timeRange = (reference->maxT - reference->minT).microseconds()) {
+            double loss = sum.accumTsq / (sum.value * timeRange * timeRange);
             result += loss;
         }
     }
@@ -86,39 +86,26 @@ void MMPAvailabilityInformation::MDPTCluster::aggregate(const MDPTCluster & r) {
     // Update minimums/maximums and sum up values
     uint32_t newMinM = minM, newMinD = minD, newMinP = minP;
     Time newMaxT = maxT;
-    switch (aggrMethod) {
-    case MEAN_FULL:
-        newMinM = (minM * value + r.minM * r.value) / (value + r.value);
-        newMinD = (minD * value + r.minD * r.value) / (value + r.value);
-        newMinP = (minP * value + r.minP * r.value) / (value + r.value);
-        if (maxT > r.maxT) {
-            newMaxT = r.maxT + Duration(maxT - r.maxT) * (value / (value + r.value));
-        } else {
-            newMaxT = maxT + Duration(r.maxT - maxT) * (r.value / (value + r.value));
-        }
-        break;
-    case MEAN_QUEUE:
-        if (newMinM > r.minM) newMinM = r.minM;
-        if (newMinD > r.minD) newMinD = r.minD;
-        newMinP = (minP * value + r.minP * r.value) / (value + r.value);
-        if (maxT > r.maxT) {
-            newMaxT = r.maxT + Duration(maxT - r.maxT) * (value / (value + r.value));
-        } else {
-            newMaxT = maxT + Duration(r.maxT - maxT) * (r.value / (value + r.value));
-        }
-        break;
-    default:
-        if (newMinM > r.minM) newMinM = r.minM;
-        if (newMinD > r.minD) newMinD = r.minD;
-        if (newMinP > r.minP) newMinP = r.minP;
-        if (newMaxT < r.maxT) newMaxT = r.maxT;
-        break;
-    }
-    accumM += value * abs(minM - newMinM) + r.accumM + r.value * abs(r.minM - newMinM);
-    accumD += value * abs(minD - newMinD) + r.accumD + r.value * abs(r.minD - newMinD);
-    accumP += value * abs(minP - newMinP) + r.accumP + r.value * abs(r.minP - newMinP);
-    accumT += (newMaxT > maxT ? newMaxT - maxT : maxT - newMaxT) * value
-            + r.accumT + (newMaxT > r.maxT ? newMaxT - r.maxT : r.maxT - newMaxT) * r.value;
+    if (newMinM > r.minM) newMinM = r.minM;
+    if (newMinD > r.minD) newMinD = r.minD;
+    if (newMinP > r.minP) newMinP = r.minP;
+    if (newMaxT < r.maxT) newMaxT = r.maxT;
+    int64_t dm = minM - newMinM, rdm = r.minM - newMinM;
+    accumMsq += value * dm * dm + 2 * dm * accumMln
+                + r.accumMsq + r.value * rdm * rdm + 2 * rdm * r.accumMln;
+    accumMln += value * dm + r.accumMln + r.value * rdm;
+    int64_t dd = minD - newMinD, rdd = r.minD - newMinD;
+    accumDsq += value * dd * dd + 2 * dd * accumDln
+                + r.accumDsq + r.value * rdd * rdd + 2 * rdd * r.accumDln;
+    accumDln += value * dd + r.accumDln + r.value * rdd;
+    int64_t dp = minD - newMinD, rdp = r.minD - newMinD;
+    accumPsq += value * dp * dp + 2 * dp * accumPln
+                + r.accumPsq + r.value * rdp * rdp + 2 * rdp * r.accumPln;
+    accumPln += value * dp + r.accumPln + r.value * rdp;
+    int64_t dt = (maxT - newMaxT).microseconds(), rdt = (r.maxT - newMaxT).microseconds();
+    accumTsq += value * dt * dt + 2 * dt * accumTln
+                + r.accumTsq + r.value * rdt * rdt + 2 * rdt * r.accumTln;
+    accumTln += value * dt + r.accumTln + r.value * rdt;
     minM = newMinM;
     minD = newMinD;
     minP = newMinP;
@@ -171,14 +158,12 @@ void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
         for (unsigned int i = 0; i < size; i++) {
             if (summary[i].maxT < current) {
                 // Adjust max and accum time
-                summary[i].accumT = Duration(0.0);
+                summary[i].accumTsq = summary[i].accumTln = 0;
                 summary[i].maxT = current;
             }
             summary[i].setReference(this);
         }
 
-        // Reorganize so that clusters are ordered by minT value
-        //sort(&summary[0], &summary[summary.getSize()]);
         // Do not clusterize at this moment, wait until serialization
         // The same with the cover
         if (minT < current) {

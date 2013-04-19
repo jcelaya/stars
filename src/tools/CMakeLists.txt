@@ -12,13 +12,3 @@ target_link_libraries(sweeperdaemon ${Boost_LIBRARIES})
 
 add_executable(cdf cdf.cpp ../sim/Distributions.cpp)
 target_link_libraries(cdf ${Boost_LIBRARIES})
-
-add_executable(aggrtest aggrtest.cpp)
-target_link_libraries(aggrtest
-    ${STARS_LIBRARIES}
-    ${STARS_DB_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${SQLITE3_LIBRARIES}
-    ${LOG4CPP_LIBRARIES}
-    ${MSGPACK_LIBRARIES}
-    ${Wt_LIBRARIES})

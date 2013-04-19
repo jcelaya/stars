@@ -13,7 +13,7 @@ add_subdirectory(ui)
 
 # add the libraries
 add_library(${STARS_LIBRARIES} SHARED ${stars_sources})
-add_library(${STARS_LIBRARIES}_static STATIC ${stars_sources})
+#add_library(${STARS_LIBRARIES}_static STATIC ${stars_sources})
 add_library(${STARS_DB_LIBRARIES} SHARED ${stars_db_sources})
 
 # add the executable

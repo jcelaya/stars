@@ -156,19 +156,19 @@ public:
         /**
          * Returns the available computation before a certain deadline.
          */
-        uint64_t getAvailabilityBefore(Time d) const;
+        double getAvailabilityBefore(Time d) const;
 
         /**
          * Reduces the availability when assigning a task with certain length and deadline
          */
         void update(uint64_t length, Time deadline, Time horizon);
 
-        const std::vector<std::pair<Time, uint64_t> > & getPoints() const {
+        const std::vector<std::pair<Time, double> > & getPoints() const {
             return points;
         }
 
         friend std::ostream & operator<<(std::ostream & os, const ATFunction & o) {
-            for (std::vector<std::pair<Time, uint64_t> >::const_iterator i = o.points.begin(); i != o.points.end(); i++)
+            for (std::vector<std::pair<Time, double> >::const_iterator i = o.points.begin(); i != o.points.end(); i++)
                 os << '(' << i->first << ',' << i->second << "),";
             return os << o.slope;
         }
@@ -176,7 +176,7 @@ public:
         MSGPACK_DEFINE(points, slope);
     private:
         /// Function points defining segments
-        std::vector<std::pair<Time, uint64_t> > points;
+        std::vector<std::pair<Time, double> > points;
         double slope;   ///< Slope at the end of the function
 
         // Steps through a vector of functions, with all their slope-change points, and the points where the two first functions cross
@@ -198,7 +198,7 @@ public:
         uint32_t value;
         uint32_t minM, minD;
         ATFunction minA;
-        uint64_t accumMsq, accumDsq, accumMln, accumDln;
+        double accumMsq, accumDsq, accumMln, accumDln;
         double accumAsq;
         ATFunction accumMaxA;
 
@@ -206,8 +206,8 @@ public:
         MDFCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
         MDFCluster(DPAvailabilityInformation * r, uint32_t m, uint32_t d, double power, const std::list<Time> & p)
-                : reference(r), value(1), minM(m), minD(d), minA(power, p), accumMsq(0), accumDsq(0),
-                accumMln(0), accumDln(0), accumAsq(0.0), accumMaxA(power, p) {}
+                : reference(r), value(1), minM(m), minD(d), minA(power, p), accumMsq(0.0), accumDsq(0.0),
+                accumMln(0.0), accumDln(0.0), accumAsq(0.0), accumMaxA(power, p) {}
 
         /// Sets the information this cluster makes reference to.
         void setReference(DPAvailabilityInformation * r) {
@@ -240,15 +240,6 @@ public:
         bool fulfills(const TaskDescription & req) const {
             return minM >= req.getMaxMemory() && minD >= req.getMaxDisk();
         }
-
-//  uint32_t getLostMemory(const TaskDescription & req) const { return minM - req.getMaxMemory(); }
-//
-//  uint32_t getLostDisk(const TaskDescription & req) const { return minD - req.getMaxDisk(); }
-
-//  uint32_t getLostTime(const TaskDescription & req) const {
-//   unsigned int max = (unsigned long)((req.getDeadline() - maxT).seconds()) % (req.getLength() / minP);
-//   return (req.getDeadline() - maxT).seconds() - max * req.getLength() / minP;
-//  }
 
         /// Outputs a textual representation of the object.
         friend std::ostream & operator<<(std::ostream & os, const MDFCluster & o) {

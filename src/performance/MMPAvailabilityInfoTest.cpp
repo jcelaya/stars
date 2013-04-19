@@ -39,7 +39,6 @@ template<> shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvailabilit
     shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
     Duration q(floor(uniform_int_distribution<>(min_time, max_time)(gen) / step_time) * step_time);
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
-    totalInfo->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;
     privateData.totalQueue += q;
@@ -53,8 +52,10 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
     for (int j = 0; j < numClusters.size(); j++) {
         MMPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
+        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<MMPAvailabilityInformation> t;
         for (int i = 0; i < levels; i++) {
+            LogMsg("Progress", WARN) << i << " levels";
             list<MMPAvailabilityInformation::MDPTCluster *> clusters;
             TaskDescription dummy;
             dummy.setMaxMemory(0);

@@ -75,7 +75,6 @@ template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilit
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
-    totalInfo->join(*s);
     const MSPAvailabilityInformation::LAFunction & maxL = s->getSummary()[0].maxL;
     if (privateData.maxAvail == MSPAvailabilityInformation::LAFunction()) {
         privateData.maxAvail = maxL;
@@ -115,8 +114,10 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
     for (int j = 0; j < numClusters.size(); j++) {
         MSPAvailabilityInformation::setNumClusters(numClusters[j]);
         ofmd << "# " << numClusters[j] << " clusters" << endl;
+        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<MSPAvailabilityInformation> t;
         for (int i = 0; i < levels; i++) {
+            LogMsg("Progress", WARN) << i << " levels";
             shared_ptr<MSPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;

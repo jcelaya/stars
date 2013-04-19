@@ -42,7 +42,6 @@ template<> shared_ptr<FourSPAvailInfo> AggregationTest<FourSPAvailInfo>::createI
     shared_ptr<FourSPAvailInfo> result(new FourSPAvailInfo);
     Duration q((double)uniform_int_distribution<>(min_time, max_time)(gen));
     result->setQueueEnd(n.mem, n.disk, n.power, q);
-    totalInfo->setQueueEnd(n.mem, n.disk, n.power, q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;
     privateData.totalQueue += q;

@@ -41,7 +41,7 @@ DPAvailabilityInformation::ATFunction::ATFunction(double power, const list<Time>
     if (!p.empty()) {
         // For each point, calculate its availability
         // Must have odd number of points!!
-        uint64_t avail = 0;
+        double avail = 0;
         for (list<Time>::const_iterator B = p.begin(), A = B++; B != p.end(); B++, A = B++) {
             points.push_back(make_pair(*A, avail));
             LogMsg("Ex.RI.Aggr", DEBUG) << "At " << *A << ", availability " << avail;
@@ -59,9 +59,9 @@ template<int numF, class S> void DPAvailabilityInformation::ATFunction::stepper(
         const Time & ref, const Time & h, S & step) {
     // PRE: f size is numF, and numF >= 2
     Time a = ref, b;
-    vector<pair<Time, uint64_t> >::const_iterator it[numF];
+    vector<pair<Time, double> >::const_iterator it[numF];
     double m[numF], fa[numF];
-    pair<Time, uint64_t> lastPoint[numF];
+    pair<Time, double> lastPoint[numF];
 
     for (unsigned int i = 0; i < numF; i++) {
         it[i] = f[i]->points.begin();
@@ -129,7 +129,7 @@ template<int numF, class S> void DPAvailabilityInformation::ATFunction::stepper(
 
 namespace TCISteps {
 struct minStep {
-    vector<pair<Time, uint64_t> > points;
+    vector<pair<Time, double> > points;
     double mm;
     double lasty;
     void operator()(Time a, Time b, double fa[2], double m[2], int i) {
@@ -153,7 +153,7 @@ void DPAvailabilityInformation::ATFunction::min(const ATFunction & l, const ATFu
         // Enough space for all the points
         const ATFunction * f[] = {&l, &r};
         stepper(f, ct, horizon, ms);
-        ms.points.push_back(make_pair(horizon, (uint64_t)ms.lasty));
+        ms.points.push_back(make_pair(horizon, ms.lasty));
         points.swap(ms.points);
         points.reserve(points.size());
     }
@@ -164,7 +164,7 @@ void DPAvailabilityInformation::ATFunction::min(const ATFunction & l, const ATFu
 
 namespace TCISteps {
 struct maxStep {
-    vector<pair<Time, uint64_t> > points;
+    vector<pair<Time, double> > points;
     double mm;
     double lasty;
     void operator()(Time a, Time b, double fa[2], double m[2], int i) {
@@ -189,7 +189,7 @@ void DPAvailabilityInformation::ATFunction::max(const ATFunction & l, const ATFu
         TCISteps::maxStep ms(2 * (l.points.size() > r.points.size() ? l.points.size() : r.points.size()));
         const ATFunction * f[] = {&l, &r};
         stepper(f, ct, horizon, ms);
-        ms.points.push_back(make_pair(horizon, (uint64_t)ms.lasty));
+        ms.points.push_back(make_pair(horizon, ms.lasty));
         points.swap(ms.points);
         points.reserve(points.size());
     }
@@ -208,16 +208,21 @@ struct sqdiffStep {
         int I = i ^ 1;
         n1 = fa[I] - fa[i];
         n2 = m[I] - m[i];
-        if (n1 == 0.0 && n2 == 0.0) return;
         dt = (b - a).seconds();
-        // Avoid division by zero
-        cta = (a - ref).seconds() + 1.0;
-        K = n1 - n2 * cta;
-        double r = v[I] * (n2 * n2 * dt + 2.0 * n2 * K * log(dt / cta + 1) + K * K * dt / (cta * (dt + cta)));
+        // Calculate v*int((f(x) - f1(x))/(x - ct))^2
+//        if (n1 == 0.0 && n2 == 0.0) return;
+//        // Avoid division by zero
+//        cta = (a - ref).seconds() + 1.0;
+//        K = n1 - n2 * cta;
+//        double r = v[I] * (n2 * n2 * dt + 2.0 * n2 * K * log(dt / cta + 1) + K * K * dt / (cta * (dt + cta)));
+
+        // Calculate v*int((f(x) - f1(x))/(x - ct))^2
+        double r = v[I] * ((n2 * n2 * dt / 3.0 + n2 * n1) * dt + n1 * n1) * dt;
+
         // There are rounding problems that can make r < 0.0
         if (r < 0.0) {
-//   if (r < -0.001)
-//    LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
+            if (r < -0.001)
+                LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
             r = 0.0;
         }
         result += r;
@@ -253,16 +258,22 @@ namespace TCISteps {
 struct lossStep {
     sqdiffStep s;
     void operator()(Time a, Time b, double fa[4], double m[4], int i) {
-        s(a, b, fa, m, i);
-        if (s.n1 == 0.0 && s.n2 == 0.0) return;
         int I = i ^ 1;
-        double n3 = m[3 - i] - m[I];
-        double T = fa[3 - i] - fa[I] - n3 * s.cta;
-        double r = 2.0 * s.v[I] * (s.n2 * n3 * s.dt + (s.K * n3 + s.n2 * T) * log(s.dt / s.cta + 1) + s.K * T * s.dt / (s.cta * (s.dt + s.cta)));
+        s(a, b, fa, m, i);
+        // Calculate v*int((f(x) - f1(x))/(x - ct))^2
+//        if (s.n1 == 0.0 && s.n2 == 0.0) return;
+//        double n3 = m[3 - i] - m[I];
+//        double T = fa[3 - i] - fa[I] - n3 * s.cta;
+//        double r = 2.0 * s.v[I] * (s.n2 * n3 * s.dt + (s.K * n3 + s.n2 * T) * log(s.dt / s.cta + 1) + s.K * T * s.dt / (s.cta * (s.dt + s.cta)));
+
+        // Calculate v*int((f(x) - f1(x))/(x - ct))^2
+        double mc = m[3 - i], ca = fa[3 - i];
+        double r = ((s.n2 * mc * s.dt / 3 + (s.n1 * mc + s.n2 * ca) / 2.0) * s.dt + s.n1 * ca) * s.dt;
+
         // There are rounding problems that can make r < 0.0
         if (r < 0.0) {
-//   if (r < -0.001)
-//    LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
+            if (r < -0.001)
+                LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
             r = 0.0;
         }
         s.result += r;
@@ -290,7 +301,7 @@ double DPAvailabilityInformation::ATFunction::minAndLoss(const ATFunction & l, c
     const ATFunction * f[] = {&l, &r, &lc, &rc};
     stepper(f, ref, h, ls);
     if (size > 0) {
-        ls.min.points.push_back(make_pair(h, (uint64_t)ls.min.lasty));
+        ls.min.points.push_back(make_pair(h, ls.min.lasty));
         points.swap(ls.min.points);
         points.reserve(points.size());
     } else points.clear();
@@ -301,7 +312,7 @@ double DPAvailabilityInformation::ATFunction::minAndLoss(const ATFunction & l, c
 
 namespace TCISteps {
     struct lcStep {
-        vector<pair<Time, uint64_t> > points;
+        vector<pair<Time, double> > points;
         double c[2];
         double mm;
         double lasty;
@@ -339,7 +350,7 @@ void DPAvailabilityInformation::ATFunction::lc(const ATFunction & l, const ATFun
         TCISteps::lcStep ms(2 * size, lc, rc);
         const ATFunction * f[2] = { &l, &r };
         stepper(f, ct, horizon, ms);
-        ms.points.push_back(make_pair(horizon, (uint64_t)ms.lasty));
+        ms.points.push_back(make_pair(horizon, ms.lasty));
         points.swap(ms.points);
         points.reserve(points.size());
     }
@@ -473,14 +484,14 @@ double DPAvailabilityInformation::ATFunction::reduceMax(const Time & ref, const 
 }
 
 
-uint64_t DPAvailabilityInformation::ATFunction::getAvailabilityBefore(Time d) const {
+double DPAvailabilityInformation::ATFunction::getAvailabilityBefore(Time d) const {
     Time ct = Time::getCurrentTime();
     if (points.empty() && d > ct) {
         return slope * ((d - ct).seconds() - 1.0);
     } else if (d <= ct || d < points.front().first) {
         return 0;
     } else {
-        vector<pair<Time, uint64_t> >::const_iterator next = points.begin(), prev = next++;
+        vector<pair<Time, double> >::const_iterator next = points.begin(), prev = next++;
         while (next != points.end() && next->first < d) prev = next++;
         if (next == points.end()) {
             return prev->second + (d - prev->first).seconds() * slope;
@@ -496,15 +507,15 @@ void DPAvailabilityInformation::ATFunction::update(uint64_t length, Time deadlin
     // Assume the availability at deadline is greater than length
     if (points.empty()) {
         // Task is assigned at the beginning
-        points.push_back(make_pair(Time::getCurrentTime() + Duration(length / slope), 0));
+        points.push_back(make_pair(Time::getCurrentTime() + Duration(length / slope), 0.0));
         points.push_back(make_pair(horizon, slope * (horizon - points.back().first).seconds()));
     } else {
         // Find last point to erase
-        pair<Time, uint64_t> prev = points.front();
+        pair<Time, double> prev = points.front();
         int lastElim = 0, psize = points.size();
         while (lastElim < psize && points[lastElim].first <= deadline) prev = points[lastElim++];
         // Calculate availability at deadline
-        uint64_t finalAvail;
+        double finalAvail;
         if (lastElim == psize) {
             finalAvail = prev.second;
         } else {
@@ -544,11 +555,11 @@ void DPAvailabilityInformation::MDFCluster::aggregate(const MDFCluster & l, cons
     // Update minimums/maximums and sum up values
     uint32_t newMinM = l.minM < r.minM ? l.minM : r.minM;
     uint32_t newMinD = l.minD < r.minD ? l.minD : r.minD;
-    uint64_t ldm = l.minM - newMinM, rdm = r.minM - newMinM;
+    double ldm = l.minM - newMinM, rdm = r.minM - newMinM;
     accumMsq = l.accumMsq + l.value * ldm * ldm + 2 * ldm * l.accumMln
                + r.accumMsq + r.value * rdm * rdm + 2 * rdm * r.accumMln;
     accumMln = l.accumMln + l.value * ldm + r.accumMln + r.value * rdm;
-    uint64_t ldd = l.minD - newMinD, rdd = r.minD - newMinD;
+    double ldd = l.minD - newMinD, rdd = r.minD - newMinD;
     accumDsq = l.accumDsq + l.value * ldd * ldd + 2 * ldd * l.accumDln
                + r.accumDsq + r.value * rdd * rdd + 2 * rdd * r.accumDln;
     accumDln = l.accumDln + l.value * ldd + r.accumDln + r.value * rdd;
@@ -576,24 +587,14 @@ double DPAvailabilityInformation::MDFCluster::distance(const MDFCluster & r, MDF
     if (reference) {
         if (reference->memRange) {
             double loss = ((double)sum.accumMsq / (sum.value * reference->memRange * reference->memRange));
-//            if (((minM - reference->minM) * numIntervals / reference->memRange) != ((r.minM - reference->minM) * numIntervals / reference->memRange))
-//                loss += 100.0;
             result += loss;
         }
         if (reference->diskRange) {
             double loss = ((double)sum.accumDsq / (sum.value * reference->diskRange * reference->diskRange));
-//            if (((minD - reference->minD) * numIntervals / reference->diskRange) != ((r.minD - reference->minD) * numIntervals / reference->diskRange))
-//                loss += 100.0;
             result += loss;
         }
         if (reference->availRange) {
             double loss = (sum.accumAsq / reference->availRange / sum.value);
-// TODO
-//   if (floor(minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)
-//     != floor(r.minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)) {
-//    loss += 100.0;
-//   }
-            if (minA.isFree() != r.minA.isFree()) loss += 100.0;
             result += loss;
         }
     }
@@ -612,12 +613,12 @@ bool DPAvailabilityInformation::MDFCluster::far(const MDFCluster & r) const {
     }
     if (minA.isFree() != r.minA.isFree()) return true;
 // TODO
-// if (reference->availRange) {
-//  if (floor(minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)
-//    != floor(r.minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)) {
-//   return true;
-//  }
-// }
+    if (reference->availRange) {
+        if (floor(minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)
+                != floor(r.minA.sqdiff(reference->minA, reference->aggregationTime, reference->horizon) * numIntervals / reference->availRange)) {
+            return true;
+        }
+    }
     return false;
 }
 
@@ -719,7 +720,7 @@ void DPAvailabilityInformation::update(const list<DPAvailabilityInformation::Ass
         MDFCluster & cluster = summary[it->cluster];
         // Create new one
         MDFCluster tmp(cluster);
-        uint64_t avail = cluster.minA.getAvailabilityBefore(desc.getDeadline());
+        double avail = cluster.minA.getAvailabilityBefore(desc.getDeadline());
         uint64_t tasksPerNode = avail / desc.getLength();
         unsigned int numNodes = it->numTasks / tasksPerNode;
         if (it->numTasks % tasksPerNode) numNodes++;
