@@ -263,7 +263,7 @@ void Simulator::setProperties(Properties & property) {
     // Network delay in (50ms, 300ms) by default
     // Delay follows pareto distribution of k=2
     static const double kDelay = 2.0;
-    netDelay = ParetoVariable(property("min_delay", 0.05), property("max_delay", 0.3), kDelay);
+    netDelay = ParetoVariable(property("min_delay", 0.05), kDelay, property("max_delay", 0.3));
     unsigned int numNodes = property("num_nodes", (unsigned int)0);
     iface.resize(numNodes);
     DiscreteUniformVariable inBWVar(property("min_down_bw", 125000.0), property("max_down_bw", 125000.0), property("step_down_bw", 1)),

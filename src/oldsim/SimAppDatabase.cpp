@@ -213,6 +213,7 @@ unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t 
         if (accepted) {
             // Update last search time
             request->stime = Time::getCurrentTime();
+            LogMsg("Database.Sim", DEBUG) << "Update search time to " << (request->stime - request->rtime).seconds() << " seconds";
             request->numNodes++;
         }
     }

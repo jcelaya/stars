@@ -218,6 +218,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                     }
                     it = remainingTasks.find(appId);
                     if (it != remainingTasks.end() && --(it->second) == 0) {
+                        // FIXME: There seems to be a problem counting finished tasks with very short length (~1sec)
                         finishedApp(it->first);
                         remainingTasks.erase(it);
                     }
