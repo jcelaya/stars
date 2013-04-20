@@ -697,8 +697,7 @@ double MSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MD
             result += loss;
         }
         if (reference->slownessRange) {
-            double sqrange = reference->slownessRange * reference->slownessRange;
-            double loss = (sum.accumLsq / (sum.value * sqrange));
+            double loss = (sum.accumLsq / (sum.value * reference->slownessRange));
             result += loss;
         }
     }
@@ -716,9 +715,8 @@ bool MSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
             return true;
     }
     if (reference->slownessRange) {
-        double sqrange = reference->slownessRange * reference->slownessRange;
-        if ((maxL.sqdiff(reference->minL, reference->lengthHorizon) * numIntervals / sqrange) !=
-                (r.maxL.sqdiff(r.reference->minL, reference->lengthHorizon) * numIntervals / sqrange))
+        if (floor(maxL.sqdiff(reference->minL, reference->lengthHorizon) * numIntervals / reference->slownessRange) !=
+                floor(r.maxL.sqdiff(r.reference->minL, reference->lengthHorizon) * numIntervals / reference->slownessRange))
             return true;
     }
     return false;
@@ -754,14 +752,12 @@ void MSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & l, con
     minD = newMinD;
     maxL.swap(newMaxL);
     value = l.value + r.value;
-    // TODO: Reduce the max function to avoid piece explosion
-    //accumLsq += value * maxL.reduceMax(reference->lengthHorizon);
 }
 
 
 void MSPAvailabilityInformation::MDLCluster::reduce() {
-    accumLsq += maxL.reduceMax(value, reference->lengthHorizon);
-    accumMaxL.reduceMax(1, reference->lengthHorizon);
+//    accumLsq += maxL.reduceMax(value, reference->lengthHorizon);
+//    accumMaxL.reduceMax(1, reference->lengthHorizon);
 }
 
 
