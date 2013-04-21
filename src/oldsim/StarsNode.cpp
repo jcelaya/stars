@@ -170,12 +170,20 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
     ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
-    unsigned int clustersBase = property("avail_clusters_base", 3U);
+    unsigned int clustersBase = property("avail_clusters_base", 0U);
     if (clustersBase) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
         MMPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
         DPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
         MSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+    } else {
+        unsigned int clusters = property("avail_clusters", 20U);
+        if (clusters) {
+            IBPAvailabilityInformation::setNumClusters(clusters);
+            MMPAvailabilityInformation::setNumClusters(clusters);
+            DPAvailabilityInformation::setNumClusters(clusters);
+            MSPAvailabilityInformation::setNumClusters(clusters);
+        }
     }
     IBPAvailabilityInformation::setMethod(property("aggregation_method", (int)IBPAvailabilityInformation::MINIMUM));
     MMPAvailabilityInformation::setMethod(property("aggregation_method", (int)MMPAvailabilityInformation::MINIMUM));

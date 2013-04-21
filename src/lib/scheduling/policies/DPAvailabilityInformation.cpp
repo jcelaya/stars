@@ -718,25 +718,26 @@ void DPAvailabilityInformation::update(const list<DPAvailabilityInformation::Ass
     // For each cluster
     for (list<AssignmentInfo>::const_iterator it = ai.begin(); it != ai.end(); it++) {
         MDFCluster & cluster = summary[it->cluster];
-        // Create new one
-        MDFCluster tmp(cluster);
         double avail = cluster.minA.getAvailabilityBefore(desc.getDeadline());
         uint64_t tasksPerNode = avail / desc.getLength();
-        unsigned int numNodes = it->numTasks / tasksPerNode;
-        if (it->numTasks % tasksPerNode) numNodes++;
+        if (tasksPerNode > 0) {
+            unsigned int numNodes = it->numTasks / tasksPerNode;
+            if (it->numTasks % tasksPerNode) numNodes++;
 
-        // Update the old one, just take out the affected nodes
-        // NOTE: do not touch accum values, do not know how...
-        cluster.value -= numNodes;
-        // Update the new one
-        tmp.value = numNodes;
-        if (tasksPerNode > it->numTasks)
-            tmp.minA.update(desc.getLength() * it->numTasks, desc.getDeadline(), horizon);
-        else
-            tmp.minA.update(desc.getLength() * tasksPerNode, desc.getDeadline(), horizon);
+            // Update the old one, just take out the affected nodes
+            // NOTE: do not touch accum values, do not know how...
+            cluster.value -= numNodes;
+            // Create new one
+            MDFCluster tmp(cluster);
+            tmp.value = numNodes;
+            if (tasksPerNode > it->numTasks)
+                tmp.minA.update(desc.getLength() * it->numTasks, desc.getDeadline(), horizon);
+            else
+                tmp.minA.update(desc.getLength() * tasksPerNode, desc.getDeadline(), horizon);
 
-        summary.pushBack(tmp);
-        minA.min(minA, tmp.minA);
+            summary.pushBack(tmp);
+            minA.min(minA, tmp.minA);
+        }
     }
 }
 
