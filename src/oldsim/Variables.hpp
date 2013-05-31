@@ -47,7 +47,7 @@ private:
 
 class ParetoVariable {
 public:
-    ParetoVariable(double min = 0.0, double _k = 2.0, double max = INFINITY) : xm(min), k(_k), range(std::pow(min / max, _k), 1.0) {}
+    ParetoVariable(double min = 1.0, double _k = 2.0, double max = INFINITY) : xm(min), k(_k), range(std::pow(min / max, _k), 1.0) {}
     double operator()() {
         return xm / std::pow(range(), 1.0 / k);
     }
@@ -74,9 +74,9 @@ private:
 
 class DiscreteParetoVariable {
 public:
-    DiscreteParetoVariable(int min, int max, int s = 1, double k = 2.0) : minimum(min), step(s), p(0.0, k, (max - min) / (double)step) {}
+    DiscreteParetoVariable(int min, int max, int s = 1, double k = 2.0) : minimum(min), step(s), p(1.0, k, (max - min) / (double)step + 1.0) {}
     int operator()() {
-        return minimum + step * (int)std::floor(p());
+        return minimum + step * (std::floor(p()) - 1);
     }
 
 private:

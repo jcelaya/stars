@@ -8,7 +8,7 @@ project(stars)
 enable_testing()
 
 # Check dependencies
-find_package(Boost 1.46 REQUIRED date_time filesystem program_options system thread unit_test_framework iostreams signals)
+find_package(Boost 1.46 REQUIRED date_time filesystem program_options system thread unit_test_framework iostreams signals random)
 find_package(Sqlite3 REQUIRED)
 find_package(Log4CPP REQUIRED)
 find_package(MsgPack REQUIRED)

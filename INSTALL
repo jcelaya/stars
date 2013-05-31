@@ -12,6 +12,7 @@ libboost-thread-dev
 libboost-test-dev
 libboost-iostreams-dev
 libboost-signals-dev
+libboost-random-dev
 libmsgpack-dev
 libgoogle-perftools-dev
 zlib1g-dev
