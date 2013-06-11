@@ -8,8 +8,7 @@ include_directories(.)
 # library sources
 add_subdirectory(Core)
 add_subdirectory(Database)
-add_subdirectory(ExecutionManager)
-add_subdirectory(GlobalScheduler)
+add_subdirectory(scheduling)
 add_subdirectory(StructureManager)
 #add_subdirectory(SubmissionManager)
 

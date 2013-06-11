@@ -23,6 +23,7 @@
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
 
+using stars::TaskProxy;
 
 template<> struct Priv<MSPAvailabilityInformation> {
     MSPAvailabilityInformation::LAFunction totalAvail;
@@ -34,16 +35,16 @@ namespace {
 MSPAvailabilityInformation::LAFunction dummy;
 
 
-void getProxys(const list<shared_ptr<Task> > & tasks, list<TaskProxy> & result, vector<double> & lBounds) {
+void getProxys(const list<shared_ptr<Task> > & tasks, TaskProxy::List & result, vector<double> & lBounds) {
     if (!tasks.empty()) {
         for (list<shared_ptr<Task> >::const_iterator i = tasks.begin(); i != tasks.end(); ++i)
             result.push_back(TaskProxy(*i));
-        TaskProxy::getSwitchValues(result, lBounds);
+        result.getSwitchValues(lBounds);
     }
 }
 
 
-double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, mt19937 & gen, list<TaskProxy> & proxys, vector<double> & lBounds) {
+double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
     static unsigned int id = 0;
     Time now = Time::getCurrentTime();
     proxys.clear();
@@ -61,9 +62,9 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
     }
 
     if (!proxys.empty()) {
-        TaskProxy::getSwitchValues(proxys, lBounds);
-        TaskProxy::sortMinSlowness(proxys, lBounds);
-        return TaskProxy::getSlowness(proxys);
+        proxys.getSwitchValues(lBounds);
+        proxys.sortMinSlowness(lBounds);
+        return proxys.getSlowness();
     } else return 0.0;
 }
 }
@@ -71,7 +72,7 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
 
 template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
     shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
-    list<TaskProxy> proxys;
+    TaskProxy::List proxys;
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);

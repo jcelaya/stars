@@ -49,7 +49,7 @@ public:
      * @param result The resulting list of applications.
      * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
      */
-    static double sortMinSlowness(std::list<TaskProxy> & proxys, const std::vector<double> & switchValues, std::list<boost::shared_ptr<Task> > & tasks);
+    static double sortMinSlowness(TaskProxy::List & proxys, const std::vector<double> & switchValues, std::list<boost::shared_ptr<Task> > & tasks);
 
     // This is documented in Scheduler
     virtual unsigned int acceptable(const TaskBagMsg & msg);
@@ -61,7 +61,7 @@ public:
 
 private:
     MSPAvailabilityInformation info;
-    std::list<TaskProxy> proxys;
+    TaskProxy::List proxys;
     std::vector<double> switchValues;
     bool dirty;
 

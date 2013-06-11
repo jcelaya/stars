@@ -41,94 +41,7 @@ unsigned int MSPAvailabilityInformation::numIntervals = 5;
 unsigned int MSPAvailabilityInformation::numPieces = 64;
 
 
-void TaskProxy::sort(list<TaskProxy> & curTasks, double slowness) {
-    if (curTasks.size() > 1) {
-        // Sort the vector, leaving the first task as is
-        list<TaskProxy> tmp;
-        tmp.splice(tmp.begin(), curTasks, curTasks.begin());
-        for (list<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
-            i->setSlowness(slowness);
-        curTasks.sort();
-        curTasks.splice(curTasks.begin(), tmp, tmp.begin());
-    }
-}
-
-
-bool TaskProxy::meetDeadlines(const list<TaskProxy> & curTasks, double slowness, Time e) {
-    for (list<TaskProxy>::const_iterator i = curTasks.begin(); i != curTasks.end(); ++i)
-        if ((e += Duration(i->t)) > i->getDeadline(slowness))
-            return false;
-    return true;
-}
-
-
-void TaskProxy::sortMinSlowness(list<TaskProxy> & curTasks, const std::vector<double> & switchValues) {
-    Time now = Time::getCurrentTime();
-    // Trivial case, first switch value is minimum slowness so that first task meets deadline
-    if (switchValues.size() == 1) {
-        TaskProxy::sort(curTasks, switchValues.front() + 1.0);
-        return;
-    }
-    // Calculate interval by binary search
-    unsigned int minLi = 0, maxLi = switchValues.size() - 1;
-    while (maxLi > minLi + 1) {
-        unsigned int medLi = (minLi + maxLi) >> 1;
-        TaskProxy::sort(curTasks, (switchValues[medLi] + switchValues[medLi + 1]) / 2.0);
-        // For each app, check whether it is going to finish in time or not.
-        if (TaskProxy::meetDeadlines(curTasks, switchValues[medLi], now))
-            maxLi = medLi;
-        else
-            minLi = medLi;
-    }
-    // Sort them one last time
-    // If maxLi is still size-1, check interval lBounds[maxLi]-infinite
-    if (maxLi == switchValues.size() - 1 && !TaskProxy::meetDeadlines(curTasks, switchValues.back(), now))
-        TaskProxy::sort(curTasks, switchValues.back() + 1.0);
-    else
-        TaskProxy::sort(curTasks, (switchValues[minLi] + switchValues[minLi + 1]) / 2.0);
-}
-
-
-void TaskProxy::getSwitchValues(const std::list<TaskProxy> & proxys, std::vector<double> & switchValues) {
-    switchValues.clear();
-    if (!proxys.empty()) {
-        // Minimum switch value is first task slowness
-        Time firstTaskEndTime = Time::getCurrentTime() + Duration(proxys.front().t);
-        switchValues.push_back((firstTaskEndTime - proxys.front().rabs).seconds() / proxys.front().a);
-        // Calculate bounds with the rest of the tasks, except the first
-        for (list<TaskProxy>::const_iterator it = ++proxys.begin(); it != proxys.end(); ++it) {
-            for (list<TaskProxy>::const_iterator jt = it; jt != proxys.end(); ++jt) {
-                if (it->a != jt->a) {
-                    double l = (jt->rabs - it->rabs).seconds() / (it->a - jt->a);
-                    if (l > switchValues.front()) {
-                        switchValues.push_back(l);
-                    }
-                }
-            }
-        }
-        std::sort(switchValues.begin(), switchValues.end());
-        // Remove duplicate values
-        switchValues.erase(std::unique(switchValues.begin(), switchValues.end()), switchValues.end());
-    }
-}
-
-
-double TaskProxy::getSlowness(const std::list<TaskProxy> & proxys) {
-    double minSlowness = 0.0;
-    Time e = Time::getCurrentTime();
-    // For each task, calculate finishing time
-    for (list<TaskProxy>::const_iterator i = proxys.begin(); i != proxys.end(); ++i) {
-        e += Duration(i->t);
-        double slowness = (e - i->rabs).seconds() / i->a;
-        if (slowness > minSlowness)
-            minSlowness = slowness;
-    }
-
-    return minSlowness;
-}
-
-
-MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
+MSPAvailabilityInformation::LAFunction::LAFunction(TaskProxy::List curTasks,
         const std::vector<double> & switchValues, double power) {
     // Trivial case
     if (curTasks.empty()) {
@@ -143,7 +56,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
     // The new task
     curTasks.push_back(TaskProxy(minTaskLength, power, now));
-    for (list<TaskProxy>::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
+    for (TaskProxy::List::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
         i->r = (i->rabs - now).seconds();
 
     while(true) {
@@ -152,7 +65,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
         vector<double> svCur(switchValues);
         if (!svCur.empty()) {
             // Add order change values for the new task
-            for (list<TaskProxy>::iterator i = ++curTasks.begin(); i != curTasks.end(); ++i) {
+            for (TaskProxy::List::iterator i = ++curTasks.begin(); i != curTasks.end(); ++i) {
                 // The new task is the last in the vector
                 if (i->a != curTasks.back().a) {
                     double l = i->r / (curTasks.back().a - i->a);
@@ -165,16 +78,16 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
             svCur.erase(std::unique(svCur.begin(), svCur.end()), svCur.end());
 
             // Sort tasks to minimize the maximum slowness
-            TaskProxy::sortMinSlowness(curTasks, svCur);
+            curTasks.sortMinSlowness(svCur);
         }
 
         // Update the index of the task that sets maximum slowness
-        list<TaskProxy>::iterator tn, tm = curTasks.begin();
+        TaskProxy::List::iterator tn, tm = curTasks.begin();
         // For each task, calculate its slowness and its tendency
         double e = curTasks.front().t, maxSlowness = (e - curTasks.front().r) / curTasks.front().a, maxTendency = 0.0;
         curTasks.front().tsum = curTasks.front().t;
         bool beforeNewTask = true, minBeforeNew = true;
-        for (list<TaskProxy>::iterator i = curTasks.begin(), prev = i++; i != curTasks.end(); prev = i++) {
+        for (TaskProxy::List::iterator i = curTasks.begin(), prev = i++; i != curTasks.end(); prev = i++) {
             double tendency = beforeNewTask ? 0.0 : 1.0 / i->a;
             if (i->id == (unsigned int)-1) {
                 tn = i;
@@ -195,7 +108,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
         // Calculate possible order and maximum changes, and take the nearest one
         double a, b, c, minA = INFINITY, curA = tn->a;
-        list<TaskProxy>::iterator tn1 = tn;
+        TaskProxy::List::iterator tn1 = tn;
         ++tn1;
 
 //		std::ostringstream osstmp;
@@ -212,13 +125,13 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
             // See at which values of a other tasks mark the minimum slowness
             // Tasks before the new one
-            for (list<TaskProxy>::iterator i = curTasks.begin(); i != tn; ++i) {
+            for (TaskProxy::List::iterator i = curTasks.begin(); i != tn; ++i) {
                 a = i->a * tm->tsum / (i->tsum - i->a / power - i->r);
                 if (a > curA && a < minA) minA = a;
             }
 
             // Tasks after the new one
-            for (list<TaskProxy>::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
                 c = tm->tsum * i->a * power;
                 b = (i->tsum - i->r) * power - i->a;
                 if (b*b + 4*c >= 0) {
@@ -259,7 +172,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
             if (a > curA && a < minA) minA = a;
 
             // Tasks after the new one
-            for (list<TaskProxy>::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
                 a = (i->a * (tm->tsum - tm->r) / tm->a - i->tsum + i->r) * power;
                 if (a > curA && a < minA) minA = a;
             }
@@ -280,7 +193,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
 
             // See at which values of a other tasks mark the minimum slowness
             // Tasks before the new one
-            for (list<TaskProxy>::iterator i = curTasks.begin(); i != tn; ++i) {
+            for (TaskProxy::List::iterator i = curTasks.begin(); i != tn; ++i) {
                 a = (tm->a * (i->tsum - i->r) / i->a - tm->tsum + tm->r) * power;
                 if (a > curA && a < minA) minA = a;
             }
@@ -294,7 +207,7 @@ MSPAvailabilityInformation::LAFunction::LAFunction(list<TaskProxy> curTasks,
             }
 
             // Tasks after the new one
-            for (list<TaskProxy>::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
                 a = ((tm->tsum - tm->r) * i->a - (i->tsum - i->r) * tm->a) * power / (tm->a - i->a);
                 if (a > curA && a < minA) minA = a;
             }
@@ -761,7 +674,7 @@ void MSPAvailabilityInformation::MDLCluster::reduce() {
 }
 
 
-void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const list<TaskProxy> & curTasks,
+void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
         const std::vector<double> & switchValues, double power, double minSlowness) {
     minM = maxM = m;
     minD = maxD = d;

@@ -21,6 +21,7 @@
 #include <execinfo.h>
 #include <cxxabi.h>
 #include <signal.h>
+#include <unistd.h>
 #include <malloc.h>
 #include <iostream>
 #include <sstream>

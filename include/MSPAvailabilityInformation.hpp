@@ -31,38 +31,9 @@
 #include "ClusteringVector.hpp"
 #include "Time.hpp"
 #include "TaskDescription.hpp"
-#include "Task.hpp"
+#include "TaskProxy.hpp"
 
-
-struct TaskProxy {
-    boost::shared_ptr<Task> origin;
-    unsigned int id;
-    Time rabs, d;
-    double a;
-    double r, t, tsum;
-    TaskProxy() {}
-    TaskProxy(double _a, double power, Time r) : id(-1), rabs(r), a(_a), t(a / power){}
-    TaskProxy(const boost::shared_ptr<Task> & task) : origin(task), id(task->getTaskId()), rabs(task->getCreationTime()),
-            a(task->getDescription().getLength()), t(task->getEstimatedDuration().seconds()) {}
-    Time getDeadline(double L) const { return rabs + Duration(L * a); }
-    void setSlowness(double L) { d = getDeadline(L); }
-    bool operator<(const TaskProxy & rapp) const { return d < rapp.d || (d == rapp.d && a < rapp.a); }
-
-    friend std::ostream & operator<<(std::ostream & os, const TaskProxy & o) {
-        return os << '(' << o.rabs.getRawDate() << '-' << o.t << '-' << o.d.getRawDate() << ')';
-    }
-
-    static void sort(std::list<TaskProxy> & curTasks, double slowness);
-
-    static bool meetDeadlines(const std::list<TaskProxy> & curTasks, double slowness, Time e);
-
-    static void sortMinSlowness(std::list<TaskProxy> & curTasks, const std::vector<double> & switchValues);
-
-    static void getSwitchValues(const std::list<TaskProxy> & proxys, std::vector<double> & switchValues);
-
-    static double getSlowness(const std::list<TaskProxy> & proxys);
-};
-
+using stars::TaskProxy;
 
 /**
  * \brief Information about how slowness changes when a new application arrives.
@@ -122,7 +93,7 @@ public:
         /**
          * Creates an LAFunction from a task queue.
          */
-        LAFunction(std::list<TaskProxy> curTasks,
+        LAFunction(TaskProxy::List curTasks,
                 const std::vector<double> & switchValues, double power);
 
         /**
@@ -244,7 +215,7 @@ public:
         /// Default constructor, for serialization purposes mainly
         MDLCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDLCluster(MSPAvailabilityInformation * r, uint32_t m, uint32_t d, const std::list<TaskProxy> & curTasks,
+        MDLCluster(MSPAvailabilityInformation * r, uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
                 const std::vector<double> & switchValues, double power)
                 : reference(r), value(1), minM(m), minD(d), maxL(curTasks, switchValues, power), accumMsq(0), accumDsq(0),
                 accumMln(0), accumDln(0), accumLsq(0.0), accumMaxL(maxL) {}
@@ -346,7 +317,7 @@ public:
      * @param tasks Task queue.
      * @param power Computing power of the execution node.
      */
-    void setAvailability(uint32_t m, uint32_t d, const std::list<TaskProxy> & curTasks,
+    void setAvailability(uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
             const std::vector<double> & switchValues, double power, double minSlowness);
 
     /**

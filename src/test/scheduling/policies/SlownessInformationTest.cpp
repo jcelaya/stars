@@ -24,7 +24,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include "CheckMsg.hpp"
 #include "TestHost.hpp"
-#include "../ExecutionManager/TestTask.hpp"
+#include "../TestTask.hpp"
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
 using namespace std;
@@ -38,16 +38,16 @@ bool orderById(const TaskProxy & l, const TaskProxy & r) {
 }
 
 
-void getProxys(const list<shared_ptr<Task> > & tasks, list<TaskProxy> & result, vector<double> & lBounds) {
+void getProxys(const list<shared_ptr<Task> > & tasks, TaskProxy::List & result, vector<double> & lBounds) {
     if (!tasks.empty()) {
         for (list<shared_ptr<Task> >::const_iterator i = tasks.begin(); i != tasks.end(); ++i)
             result.push_back(TaskProxy(*i));
-        TaskProxy::getSwitchValues(result, lBounds);
+        result.getSwitchValues(lBounds);
     }
 }
 
 
-double createRandomQueue(mt19937 & gen, double power, list<TaskProxy> & proxys, vector<double> & lBounds) {
+double createRandomQueue(mt19937 & gen, double power, TaskProxy::List & proxys, vector<double> & lBounds) {
     static unsigned int id = 0;
 
     Time now = TestHost::getInstance().getCurrentTime();
@@ -66,14 +66,14 @@ double createRandomQueue(mt19937 & gen, double power, list<TaskProxy> & proxys, 
     }
 
     if (!proxys.empty()) {
-        TaskProxy::getSwitchValues(proxys, lBounds);
-        TaskProxy::sortMinSlowness(proxys, lBounds);
-        return TaskProxy::getSlowness(proxys);
+        proxys.getSwitchValues(lBounds);
+        proxys.sortMinSlowness(lBounds);
+        return proxys.getSlowness();
     } else return 0.0;
 }
 
 
-double createNLengthQueue(mt19937 & gen, double power, list<TaskProxy> & proxys, vector<double> & lBounds, int n) {
+double createNLengthQueue(mt19937 & gen, double power, TaskProxy::List & proxys, vector<double> & lBounds, int n) {
     static unsigned int id = 0;
     Time now = TestHost::getInstance().getCurrentTime();
     proxys.clear();
@@ -88,9 +88,9 @@ double createNLengthQueue(mt19937 & gen, double power, list<TaskProxy> & proxys,
     }
 
     if (!proxys.empty()) {
-        TaskProxy::getSwitchValues(proxys, lBounds);
-        TaskProxy::sortMinSlowness(proxys, lBounds);
-        return TaskProxy::getSlowness(proxys);
+        proxys.getSwitchValues(lBounds);
+        proxys.sortMinSlowness(lBounds);
+        return proxys.getSlowness();
     } else return 0.0;
 }
 
@@ -112,14 +112,14 @@ string plot(const MSPAvailabilityInformation::LAFunction & f, double ah) {
     return oss.str();
 }
 
-void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double power, double ah, int n, const MSPAvailabilityInformation::LAFunction & f, std::ostream & os) {
+void plotSampled(TaskProxy::List proxys, const vector<double> & lBounds, double power, double ah, int n, const MSPAvailabilityInformation::LAFunction & f, std::ostream & os) {
     uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
     Time now = Time::getCurrentTime();
     for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
         // Add a new task of length a
         if (!proxys.empty()) {
             vector<double> lBoundsTmp(lBounds);
-            for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
                 if (it->a != a) {
                     double l = (now - it->rabs).seconds() / (it->a - a);
                     if (l > 0.0) {
@@ -129,14 +129,14 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
             std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
             for (int i = 0; i < n; ++i)
                 proxys.push_back(TaskProxy(a, power, now));
-            TaskProxy::sortMinSlowness(proxys, lBoundsTmp);
+            proxys.sortMinSlowness(lBoundsTmp);
         } else
             for (int i = 0; i < n; ++i)
                 proxys.push_back(TaskProxy(a, power, now));
         double estimate = f.estimateSlowness(a, n), real = 0.0;
         Time e = Time::getCurrentTime();
         // For each task, calculate finishing time
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
             e += Duration(i->t);
             double slowness = (e - i->rabs).seconds() / i->a;
             if (slowness > real)
@@ -150,7 +150,7 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
             difference = d1 < d2 ? d2 : d1;
         }
         os << a << ',' << estimate << ',' << real << ',' << difference << "  # ";
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end();) {
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
             os << i->id << ',';
             if (i->id == (unsigned int)-1)
                 proxys.erase(i++);
@@ -160,7 +160,7 @@ void plotSampled(list<TaskProxy> proxys, const vector<double> & lBounds, double 
     }
 }
 
-double maxDifference(list<TaskProxy> proxys, const vector<double> & lBounds, double power, double ah, const MSPAvailabilityInformation::LAFunction & f) {
+double maxDifference(TaskProxy::List proxys, const vector<double> & lBounds, double power, double ah, const MSPAvailabilityInformation::LAFunction & f) {
     uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
     Time now = Time::getCurrentTime();
     double maxDiff = 1.0;
@@ -168,7 +168,7 @@ double maxDifference(list<TaskProxy> proxys, const vector<double> & lBounds, dou
         // Add a new task of length a
         if (!proxys.empty()) {
             vector<double> lBoundsTmp(lBounds);
-            for (list<TaskProxy>::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
                 if (it->a != a) {
                     double l = (now - it->rabs).seconds() / (it->a - a);
                     if (l > 0.0) {
@@ -177,13 +177,13 @@ double maxDifference(list<TaskProxy> proxys, const vector<double> & lBounds, dou
                 }
             std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
             proxys.push_back(TaskProxy(a, power, now));
-            TaskProxy::sortMinSlowness(proxys, lBoundsTmp);
+            proxys.sortMinSlowness(lBoundsTmp);
         } else
             proxys.push_back(TaskProxy(a, power, now));
         double estimate = f.estimateSlowness(a, 1), real = 0.0;
         Time e = Time::getCurrentTime();
         // For each task, calculate finishing time
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
             e += Duration(i->t);
             double slowness = (e - i->rabs).seconds() / i->a;
             if (slowness > real)
@@ -191,7 +191,7 @@ double maxDifference(list<TaskProxy> proxys, const vector<double> & lBounds, dou
         }
         double difference = real / estimate;
         if (difference > maxDiff) maxDiff = difference;
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end();) {
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
             if (i->id == (unsigned int)-1)
                 proxys.erase(i++);
             else ++i;
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
                 f13power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
                 f21power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
                 f22power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
-        list<TaskProxy> proxys11, proxys12, proxys13, proxys21, proxys22;
+        TaskProxy::List proxys11, proxys12, proxys13, proxys21, proxys22;
         vector<double> lBounds11, lBounds12, lBounds13, lBounds21, lBounds22;
         createRandomQueue(gen, f11power, proxys11, lBounds11);
         createRandomQueue(gen, f12power, proxys12, lBounds12);
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(siMsg) {
     // TODO: update
 
     // TODO: Check other things
-    list<TaskProxy> proxys;
+    TaskProxy::List proxys;
     vector<double> lBounds;
     createRandomQueue(gen, 1000.0, proxys, lBounds);
     s1.setAvailability(1024, 512, proxys, lBounds, 1000.0, 0.5);
@@ -414,39 +414,6 @@ BOOST_AUTO_TEST_CASE(siMsg) {
 
     shared_ptr<MSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);
-}
-
-
-/// SlownessAlgorithm
-BOOST_AUTO_TEST_CASE(mspAlg) {
-    TestHost::getInstance().reset();
-    mt19937 gen;
-
-    for (int i = 0; i < 10; ++i) {
-        for (int j = 0; j < 10; ++j) {
-            list<TaskProxy> proxys;
-            vector<double> lBounds;
-            double slowness = createNLengthQueue(gen, floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200, proxys, lBounds, i);
-            ostringstream oss;
-            for (list<TaskProxy>::iterator it = proxys.begin(); it != proxys.end(); ++it) {
-                oss << *it;
-            }
-            // Check that no other sorting produces a lower slowness.
-            proxys.sort(orderById);
-            do {
-                double s = TaskProxy::getSlowness(proxys);
-                BOOST_CHECK_LE(slowness, s);
-                if (slowness > s) {
-                    cout << "Sorted queue: " << oss.str() << endl;
-                    cout << "Current queue: ";
-                    for (list<TaskProxy>::iterator it = proxys.begin(); it != proxys.end(); ++it) {
-                        cout << *it;
-                    }
-                    cout << endl;
-                }
-            } while (std::next_permutation(++proxys.begin(), proxys.end(), orderById));
-        }
-    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()   // aiTS

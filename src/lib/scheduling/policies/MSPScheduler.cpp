@@ -26,17 +26,17 @@ using std::vector;
 using std::list;
 
 
-double MSPScheduler::sortMinSlowness(list<TaskProxy> & proxys, const vector<double> & switchValues, list<boost::shared_ptr<Task> > & tasks) {
+double MSPScheduler::sortMinSlowness(TaskProxy::List & proxys, const vector<double> & switchValues, list<boost::shared_ptr<Task> > & tasks) {
     if (!proxys.empty()) {
-        TaskProxy::sortMinSlowness(proxys, switchValues);
+        proxys.sortMinSlowness(switchValues);
 
         // Reconstruct task list
         tasks.clear();
-        for (list<TaskProxy>::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
             tasks.push_back(i->origin);
         }
 
-        return TaskProxy::getSlowness(proxys);
+        return proxys.getSlowness();
     } else return 0.0;
 }
 
@@ -49,7 +49,7 @@ void MSPScheduler::reschedule() {
 
     double minSlowness = 0.0;
     if (dirty) {
-        TaskProxy::getSwitchValues(proxys, switchValues);
+        proxys.getSwitchValues(switchValues);
         dirty = false;
     }
 
@@ -94,7 +94,7 @@ unsigned int MSPScheduler::acceptable(const TaskBagMsg & msg) {
 
 void MSPScheduler::removeTask(const boost::shared_ptr<Task> & task) {
     // Look for the proxy
-    for (list<TaskProxy>::iterator p = proxys.begin(); p != proxys.end(); ++p) {
+    for (TaskProxy::List::iterator p = proxys.begin(); p != proxys.end(); ++p) {
         if (p->id == task->getTaskId()) {
             // Remove the proxy
             proxys.erase(p);
