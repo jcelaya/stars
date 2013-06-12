@@ -27,73 +27,95 @@
 #include "../TestTask.hpp"
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
+#include "RandomQueueGenerator.hpp"
 using namespace std;
 using namespace boost::random;
 
 
-namespace {
+namespace stars {
 
-bool orderById(const TaskProxy & l, const TaskProxy & r) {
-    return l.id < r.id;
-}
-
-
-void getProxys(const list<shared_ptr<Task> > & tasks, TaskProxy::List & result, vector<double> & lBounds) {
-    if (!tasks.empty()) {
-        for (list<shared_ptr<Task> >::const_iterator i = tasks.begin(); i != tasks.end(); ++i)
-            result.push_back(TaskProxy(*i));
-        result.getSwitchValues(lBounds);
+class QueueFunctionPair {
+public:
+    QueueFunctionPair(RandomQueueGenerator & rqg) : power(rqg.getRandomPower()) {
+        proxys = rqg.createRandomQueue();
+        proxys.getSwitchValues(lBounds);
+        function = MSPAvailabilityInformation::LAFunction(proxys, lBounds, power);
+        horizon = function.getHorizon();
     }
-}
+
+    double plotSampledGetMaxDifference(int n, std::ostream & os);
+
+    double power;
+    TaskProxy::List proxys;
+    vector<double> lBounds;
+    MSPAvailabilityInformation::LAFunction function;
+    double horizon;
+};
 
 
-double createRandomQueue(mt19937 & gen, double power, TaskProxy::List & proxys, vector<double> & lBounds) {
-    static unsigned int id = 0;
-
-    Time now = TestHost::getInstance().getCurrentTime();
-    proxys.clear();
-
-    // Add a random number of applications, with random length and number of tasks
-    for(int appid = 0; uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
-        double r = uniform_int_distribution<>(-1000, 0)(gen);
-        unsigned int numTasks = uniform_int_distribution<>(1, 10)(gen);
-        // Applications between 1-4h on a 1000 MIPS computer
-        int a = uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
-        for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-            proxys.push_back(TaskProxy(a, power, now + Duration(r)));
-            proxys.back().id = id++;
+double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) {
+    uint64_t astep = (horizon*1.2 - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
+    Time now = Time::getCurrentTime();
+    double maxDiff = 0.0;
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < horizon*1.2; a += astep) {
+        // Add a new task of length a
+        if (!proxys.empty()) {
+            vector<double> lBoundsTmp(lBounds);
+            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+                if (it->a != a) {
+                    double l = (now - it->rabs).seconds() / (it->a - a);
+                    if (l > 0.0) {
+                        lBoundsTmp.push_back(l);
+                    }
+                }
+            std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
+            for (int i = 0; i < n; ++i)
+                proxys.push_back(TaskProxy(a, power, now));
+            proxys.sortMinSlowness(lBoundsTmp);
+        } else
+            for (int i = 0; i < n; ++i)
+                proxys.push_back(TaskProxy(a, power, now));
+        double estimate = function.estimateSlowness(a, n), real = 0.0;
+        Time e = Time::getCurrentTime();
+        // For each task, calculate finishing time
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+            e += Duration(i->t);
+            double slowness = (e - i->rabs).seconds() / i->a;
+            if (slowness > real)
+                real = slowness;
         }
+        double difference;
+        {
+            double diff = std::fabs(estimate - real);
+            double d1 = diff / std::fabs(real);
+            double d2 = diff / std::fabs(estimate);
+            difference = d1 < d2 ? d2 : d1;
+        }
+        if (difference > maxDiff) maxDiff = difference;
+        os << a << ',' << estimate << ',' << real << ',' << difference << "  # ";
+        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
+            os << i->id << ',';
+            if (i->id == (unsigned int)-1)
+                proxys.erase(i++);
+            else ++i;
+        }
+        os << endl;
     }
-
-    if (!proxys.empty()) {
-        proxys.getSwitchValues(lBounds);
-        proxys.sortMinSlowness(lBounds);
-        return proxys.getSlowness();
-    } else return 0.0;
+    return maxDiff;
 }
 
 
-double createNLengthQueue(mt19937 & gen, double power, TaskProxy::List & proxys, vector<double> & lBounds, int n) {
-    static unsigned int id = 0;
-    Time now = TestHost::getInstance().getCurrentTime();
-    proxys.clear();
-
-    // Add n tasks with random length
-    for(int appid = 0; appid < n; ++appid) {
-        double r = uniform_int_distribution<>(-1000, 0)(gen);
-        // Applications between 1-4h on a 1000 MIPS computer
-        int a = uniform_int_distribution<>(600000, 14400000)(gen);
-        proxys.push_back(TaskProxy(a, power, now + Duration(r)));
-        proxys.back().id = id++;
+/// Test Cases
+struct LAFunctionFixture {
+    LAFunctionFixture() : f(rqg) {
+        TestHost::getInstance().reset();
     }
 
-    if (!proxys.empty()) {
-        proxys.getSwitchValues(lBounds);
-        proxys.sortMinSlowness(lBounds);
-        return proxys.getSlowness();
-    } else return 0.0;
-}
+    RandomQueueGenerator rqg;
+    QueueFunctionPair f;
+};
 
+BOOST_FIXTURE_TEST_SUITE(LAFunctionTest, LAFunctionFixture)
 
 string plot(const MSPAvailabilityInformation::LAFunction & f, double ah) {
     std::ostringstream oss;
@@ -112,93 +134,42 @@ string plot(const MSPAvailabilityInformation::LAFunction & f, double ah) {
     return oss.str();
 }
 
-void plotSampled(TaskProxy::List proxys, const vector<double> & lBounds, double power, double ah, int n, const MSPAvailabilityInformation::LAFunction & f, std::ostream & os) {
-    uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
-    Time now = Time::getCurrentTime();
-    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
-        // Add a new task of length a
-        if (!proxys.empty()) {
-            vector<double> lBoundsTmp(lBounds);
-            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-                if (it->a != a) {
-                    double l = (now - it->rabs).seconds() / (it->a - a);
-                    if (l > 0.0) {
-                        lBoundsTmp.push_back(l);
-                    }
-                }
-            std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
-            for (int i = 0; i < n; ++i)
-                proxys.push_back(TaskProxy(a, power, now));
-            proxys.sortMinSlowness(lBoundsTmp);
-        } else
-            for (int i = 0; i < n; ++i)
-                proxys.push_back(TaskProxy(a, power, now));
-        double estimate = f.estimateSlowness(a, n), real = 0.0;
-        Time e = Time::getCurrentTime();
-        // For each task, calculate finishing time
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-            e += Duration(i->t);
-            double slowness = (e - i->rabs).seconds() / i->a;
-            if (slowness > real)
-                real = slowness;
-        }
-        double difference;
-        {
-            double diff = std::fabs(estimate - real);
-            double d1 = diff / std::fabs(real);
-            double d2 = diff / std::fabs(estimate);
-            difference = d1 < d2 ? d2 : d1;
-        }
-        os << a << ',' << estimate << ',' << real << ',' << difference << "  # ";
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
-            os << i->id << ',';
-            if (i->id == (unsigned int)-1)
-                proxys.erase(i++);
-            else ++i;
-        }
-        os << endl;
+
+BOOST_AUTO_TEST_CASE(LAFunction_estimateSlowness) {
+    uint64_t astep = (f.horizon - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < f.horizon; a += astep) {
+        // Check the estimation of one task
+        BOOST_CHECK_CLOSE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1), 0.01);
     }
 }
 
-double maxDifference(TaskProxy::List proxys, const vector<double> & lBounds, double power, double ah, const MSPAvailabilityInformation::LAFunction & f) {
-    uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
-    Time now = Time::getCurrentTime();
-    double maxDiff = 1.0;
-    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
-        // Add a new task of length a
-        if (!proxys.empty()) {
-            vector<double> lBoundsTmp(lBounds);
-            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-                if (it->a != a) {
-                    double l = (now - it->rabs).seconds() / (it->a - a);
-                    if (l > 0.0) {
-                        lBoundsTmp.push_back(l);
-                    }
-                }
-            std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
-            proxys.push_back(TaskProxy(a, power, now));
-            proxys.sortMinSlowness(lBoundsTmp);
-        } else
-            proxys.push_back(TaskProxy(a, power, now));
-        double estimate = f.estimateSlowness(a, 1), real = 0.0;
-        Time e = Time::getCurrentTime();
-        // For each task, calculate finishing time
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-            e += Duration(i->t);
-            double slowness = (e - i->rabs).seconds() / i->a;
-            if (slowness > real)
-                real = slowness;
-        }
-        double difference = real / estimate;
-        if (difference > maxDiff) maxDiff = difference;
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
-            if (i->id == (unsigned int)-1)
-                proxys.erase(i++);
-            else ++i;
-        }
+
+BOOST_AUTO_TEST_CASE(LAFunction_plotSampled) {
+    Time now = TestHost::getInstance().getCurrentTime();
+    ofstream ofs("laf_test.stat");
+    ofs << "# F" << f.function << endl;
+    ofs << "# Estimation with 1 task" << endl;
+    double maxDiff = f.plotSampledGetMaxDifference(1, ofs);
+    BOOST_CHECK_LE(maxDiff, 0.01);
+    ofs << endl;
+    if (!f.proxys.empty()) {
+        double d = f.proxys.front().t;
+        f.proxys.front().t = 0;
+        TestHost::getInstance().setCurrentTime(now + Duration(d));
+        ofs << "# Estimation with 1 task at the end of first task" << endl;
+        f.plotSampledGetMaxDifference(1, ofs);
+        ofs << endl;
+        f.proxys.front().t = d;
     }
-    return maxDiff;
+    TestHost::getInstance().setCurrentTime(now);
+    for (int n = 2; n < 6; ++n) {
+        ofs << "# Estimation with " << n << " tasks" << endl;
+        f.plotSampledGetMaxDifference(n, ofs);
+        ofs << endl;
+    }
+    ofs.close();
 }
+
 
 bool isMax(const MSPAvailabilityInformation::LAFunction & f1,
         const MSPAvailabilityInformation::LAFunction & f2,
@@ -211,119 +182,71 @@ bool isMax(const MSPAvailabilityInformation::LAFunction & f1,
     }
     return true;
 }
-}
 
 
-/// Test Cases
-BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
-
-BOOST_AUTO_TEST_SUITE(aiTS)
-
-
-BOOST_AUTO_TEST_CASE(LAFunction) {
-    TestHost::getInstance().reset();
-    mt19937 gen;
+BOOST_AUTO_TEST_CASE(LAFunction_operations) {
+    Time now = Time::getCurrentTime();
+    //rqg.seed(1371033543);
 
     // Min/max and sum of several functions
     ofstream of("laf_test.ppl");
-    ofstream ofs("laf_test.stat");
     MSPAvailabilityInformation::setNumPieces(3);
     for (int i = 0; i < 100; i++) {
         LogMsg("Test.RI", INFO) << "Function " << i << ": ";
-        double f11power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-                f12power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-                f13power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-                f21power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-                f22power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
-        TaskProxy::List proxys11, proxys12, proxys13, proxys21, proxys22;
-        vector<double> lBounds11, lBounds12, lBounds13, lBounds21, lBounds22;
-        createRandomQueue(gen, f11power, proxys11, lBounds11);
-        createRandomQueue(gen, f12power, proxys12, lBounds12);
-        createRandomQueue(gen, f13power, proxys13, lBounds13);
-        createRandomQueue(gen, f21power, proxys21, lBounds21);
-        createRandomQueue(gen, f22power, proxys22, lBounds22);
-        MSPAvailabilityInformation::LAFunction
-                f11(proxys11, lBounds11, f11power),
-                f12(proxys12, lBounds12, f12power),
-                f13(proxys13, lBounds13, f13power),
-                f21(proxys21, lBounds21, f21power),
-                f22(proxys22, lBounds22, f22power);
+        QueueFunctionPair f11(rqg), f12(rqg), f13(rqg), f21(rqg), f22(rqg);
         double ah = 0.0;
         {
-            double tmpah;
-            tmpah = f11.getHorizon();
-            if (tmpah > ah) ah = tmpah;
-            tmpah = f12.getHorizon();
-            if (tmpah > ah) ah = tmpah;
-            tmpah = f13.getHorizon();
-            if (tmpah > ah) ah = tmpah;
-            tmpah = f21.getHorizon();
-            if (tmpah > ah) ah = tmpah;
-            tmpah = f22.getHorizon();
-            if (tmpah > ah) ah = tmpah;
+            if (f11.horizon > ah) ah = f11.horizon;
+            if (f12.horizon > ah) ah = f12.horizon;
+            if (f13.horizon > ah) ah = f13.horizon;
+            if (f21.horizon > ah) ah = f21.horizon;
+            if (f22.horizon > ah) ah = f22.horizon;
         }
         ah *= 1.2;
         uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
 
-        Time now = Time::getCurrentTime();
-        if (!proxys11.empty()) {
-            double d = proxys11.front().t;
-            proxys11.front().t = 0;
-            TestHost::getInstance().setCurrentTime(now + Duration(d));
-            BOOST_CHECK_LE(maxDifference(proxys11, lBounds11, f11power, ah, f11), 1.01);
-            proxys11.front().t = d;
-        }
-        TestHost::getInstance().setCurrentTime(now);
-
         MSPAvailabilityInformation::LAFunction min, max;
-        min.min(f11, f12);
-        min.min(min, f13);
-        min.min(min, f21);
-        min.min(min, f22);
-        max.max(f11, f12);
-        BOOST_CHECK_PREDICATE(isMax, (f11)(f12)(max)(ah)(astep));
-        max.max(max, f13);
-        BOOST_CHECK_PREDICATE(isMax, (f13)(max)(max)(ah)(astep));
-        max.max(max, f21);
-        BOOST_CHECK_PREDICATE(isMax, (f21)(max)(max)(ah)(astep));
-        max.max(max, f22);
-        BOOST_CHECK_PREDICATE(isMax, (f22)(max)(max)(ah)(astep));
-
-        // Check one of the functions
-        for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah;
-                a += (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 1000) {
-            // Check the estimation of one task
-            BOOST_CHECK_CLOSE(f11.getSlowness(a), f11.estimateSlowness(a, 1), 0.01);
-        }
+        min.min(f11.function, f12.function);
+        min.min(min, f13.function);
+        min.min(min, f21.function);
+        min.min(min, f22.function);
+        max.max(f11.function, f12.function);
+        BOOST_CHECK_PREDICATE(isMax, (f11.function)(f12.function)(max)(ah)(astep));
+        max.max(max, f13.function);
+        BOOST_CHECK_PREDICATE(isMax, (f13.function)(max)(max)(ah)(astep));
+        max.max(max, f21.function);
+        BOOST_CHECK_PREDICATE(isMax, (f21.function)(max)(max)(ah)(astep));
+        max.max(max, f22.function);
+        BOOST_CHECK_PREDICATE(isMax, (f22.function)(max)(max)(ah)(astep));
 
         // Join f11 with f12
         MSPAvailabilityInformation::LAFunction f112;
-        double accumAsq112 = f112.maxAndLoss(f11, f12, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
+        double accumAsq112 = f112.maxAndLoss(f11.function, f12.function, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
         MSPAvailabilityInformation::LAFunction accumAln112;
         //accumAln112.max(f11, f12);
-        accumAln112.maxDiff(f11, f12, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
-        BOOST_CHECK_PREDICATE(isMax, (f11)(f12)(f112)(ah)(astep));
+        accumAln112.maxDiff(f11.function, f12.function, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f11.function)(f12.function)(f112)(ah)(astep));
         BOOST_CHECK_GE(accumAsq112, 0);
-        BOOST_CHECK_CLOSE(accumAsq112, f112.sqdiff(f11, ah) + f112.sqdiff(f12, ah), 0.0001);
-        BOOST_CHECK_CLOSE(accumAsq112, f11.sqdiff(f12, ah), 0.0001);
+        BOOST_CHECK_CLOSE(accumAsq112, f112.sqdiff(f11.function, ah) + f112.sqdiff(f12.function, ah), 0.0001);
+        BOOST_CHECK_CLOSE(accumAsq112, f11.function.sqdiff(f12.function, ah), 0.0001);
 
         // join f112 with f13, and that is f1
         MSPAvailabilityInformation::LAFunction f1;
-        double accumAsq1 = f1.maxAndLoss(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction(), ah) + accumAsq112;
+        double accumAsq1 = f1.maxAndLoss(f112, f13.function, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction(), ah) + accumAsq112;
         MSPAvailabilityInformation::LAFunction accumAln1;
-        accumAln1.maxDiff(f112, f13, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction());
-        BOOST_CHECK_PREDICATE(isMax, (f112)(f13)(f1)(ah)(astep));
+        accumAln1.maxDiff(f112, f13.function, 2, 1, accumAln112, MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f112)(f13.function)(f1)(ah)(astep));
         BOOST_CHECK_GE(accumAsq1, 0);
-        BOOST_CHECK_CLOSE(accumAsq1, f1.sqdiff(f11, ah) + f1.sqdiff(f12, ah) + f1.sqdiff(f13, ah), 0.0001);
+        BOOST_CHECK_CLOSE(accumAsq1, f1.sqdiff(f11.function, ah) + f1.sqdiff(f12.function, ah) + f1.sqdiff(f13.function, ah), 0.0001);
 
         // join f21 with f22, and that is f2
         MSPAvailabilityInformation::LAFunction f2;
-        double accumAsq2 = f2.maxAndLoss(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
+        double accumAsq2 = f2.maxAndLoss(f21.function, f22.function, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction(), ah);
         MSPAvailabilityInformation::LAFunction accumAln2;
-        accumAln2.maxDiff(f21, f22, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
-        BOOST_CHECK_PREDICATE(isMax, (f21)(f22)(f2)(ah)(astep));
+        accumAln2.maxDiff(f21.function, f22.function, 1, 1, MSPAvailabilityInformation::LAFunction(), MSPAvailabilityInformation::LAFunction());
+        BOOST_CHECK_PREDICATE(isMax, (f21.function)(f22.function)(f2)(ah)(astep));
         BOOST_CHECK_GE(accumAsq2, 0);
-        BOOST_CHECK_CLOSE(accumAsq2, f2.sqdiff(f21, ah) + f2.sqdiff(f22, ah), 0.0001);
+        BOOST_CHECK_CLOSE(accumAsq2, f2.sqdiff(f21.function, ah) + f2.sqdiff(f22.function, ah), 0.0001);
 
         // join f1 with f2, and that is f
         MSPAvailabilityInformation::LAFunction f;
@@ -332,7 +255,11 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
         accumAln.maxDiff(f1, f2, 3, 2, accumAln1, accumAln2);
         BOOST_CHECK_PREDICATE(isMax, (f1)(f2)(f)(ah)(astep));
         BOOST_CHECK_GE(accumAsq, 0);
-        BOOST_CHECK_CLOSE(accumAsq, f.sqdiff(f11, ah) + f.sqdiff(f12, ah) + f.sqdiff(f13, ah) + f.sqdiff(f21, ah) + f.sqdiff(f22, ah), 0.0001);
+        BOOST_CHECK_CLOSE(accumAsq, f.sqdiff(f11.function, ah)
+                + f.sqdiff(f12.function, ah)
+                + f.sqdiff(f13.function, ah)
+                + f.sqdiff(f21.function, ah)
+                + f.sqdiff(f22.function, ah), 0.0001);
 
         MSPAvailabilityInformation::LAFunction fred(f);
         double accumAsqRed = accumAsq + 5 * fred.reduceMax(4, ah);
@@ -345,70 +272,46 @@ BOOST_AUTO_TEST_CASE(LAFunction) {
 
         // Print functions
         of << "# Functions " << i << endl;
-        ofs << "# Functions " << i << endl;
-        of << "# F" << i << " f11: " << f11 << endl << plot(f11, ah) << ", \"laf_test.stat\" i " << i << " e :::0::0 w lines" << endl;
-        ofs << "# F" << i << " f11: " << f11 << endl;
-        ofs << "# Estimation with 1 task" << endl;
-        plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, 1, f11, ofs);
-        ofs << endl;
-        if (!proxys11.empty()) {
-            double d = proxys11.front().t;
-            proxys11.front().t = 0;
-            TestHost::getInstance().setCurrentTime(now + Duration(d));
-            ofs << "# Estimation with 1 task at the end of first task" << endl;
-            plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, 1, f11, ofs);
-            ofs << endl;
-            proxys11.front().t = d;
-        }
-        TestHost::getInstance().setCurrentTime(now);
-        for (int n = 2; n < 6; ++n) {
-            ofs << "# Estimation with " << n << " tasks" << endl;
-            plotSampled(proxys11, lBounds11, f11power, f11.getHorizon()*1.2, n, f11, ofs);
-            ofs << endl;
-        }
-        of << "# F" << i << " f12: " << f12 << endl << plot(f12, ah) << endl;
+        of << "# F" << i << " f11: " << f11.function << endl << plot(f11.function, ah) << ", \"laf_test.stat\" i " << i << " e :::0::0 w lines" << endl;
+        of << "# F" << i << " f12: " << f12.function << endl << plot(f12.function, ah) << endl;
         of << "# F" << i << " f112: " << f112 << endl << plot(f112, ah) << endl
-                << "# accumAsq112 " << accumAsq112 << " =? " << (f112.sqdiff(f11, ah) + f112.sqdiff(f12, ah)) << endl;
-        of << "# F" << i << " f13: " << f13 << endl << plot(f13, ah) << endl;
+                << "# accumAsq112 " << accumAsq112 << " =? " << (f112.sqdiff(f11.function, ah) + f112.sqdiff(f12.function, ah)) << endl;
+        of << "# F" << i << " f13: " << f13.function << endl << plot(f13.function, ah) << endl;
         of << "# F" << i << " f1: " << f1 << endl << plot(f1, ah) << endl
-                << "# accumAsq1 " << accumAsq1 << " =? " << (f1.sqdiff(f11, ah) + f1.sqdiff(f12, ah) + f1.sqdiff(f13, ah)) << endl;
-        of << "# F" << i << " f21: " << f21 << endl << plot(f21, ah) << endl;
-        of << "# F" << i << " f22: " << f22 << endl << plot(f22, ah) << endl;
+                << "# accumAsq1 " << accumAsq1 << " =? " << (f1.sqdiff(f11.function, ah) + f1.sqdiff(f12.function, ah) + f1.sqdiff(f13.function, ah)) << endl;
+        of << "# F" << i << " f21: " << f21.function << endl << plot(f21.function, ah) << endl;
+        of << "# F" << i << " f22: " << f22.function << endl << plot(f22.function, ah) << endl;
         of << "# F" << i << " f2: " << f2 << endl << plot(f2, ah) << endl
-                << "# accumAsq2 " << accumAsq2 << " =? " << (f2.sqdiff(f21, ah) + f2.sqdiff(f22, ah)) << endl;
+                << "# accumAsq2 " << accumAsq2 << " =? " << (f2.sqdiff(f21.function, ah) + f2.sqdiff(f22.function, ah)) << endl;
         of << "# F" << i << " f: " << f << endl << plot(f, ah) << endl
-                << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11, ah) + f.sqdiff(f12, ah) + f.sqdiff(f13, ah) + f.sqdiff(f21, ah) + f.sqdiff(f22, ah)) << endl;
+                << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11.function, ah) + f.sqdiff(f12.function, ah) + f.sqdiff(f13.function, ah) + f.sqdiff(f21.function, ah) + f.sqdiff(f22.function, ah)) << endl;
         of << "# F" << i << " fred: " << fred << endl << plot(fred, ah) << endl << "# accumAsqRed " << accumAsqRed << endl;
         of << "# F" << i << " min: " << min << endl << plot(min, ah) << endl;
         of << "# F" << i << " max: " << max << endl << plot(max, ah) << endl;
         of << endl;
-        ofs << endl << endl;
     }
     of.close();
-    ofs.close();
 }
+
+BOOST_AUTO_TEST_SUITE_END()   // LAFunctionTest
+
+
+struct FSPAvailabilityInfoFixture {
+    FSPAvailabilityInfoFixture() {
+        TestHost::getInstance().reset();
+    }
+
+    MSPAvailabilityInformation s1;
+};
+
+BOOST_FIXTURE_TEST_SUITE(FSPAvailabilityInfoTest, FSPAvailabilityInfoFixture)
 
 
 /// SlownessInformation
-BOOST_AUTO_TEST_CASE(siMsg) {
-    TestHost::getInstance().reset();
-    mt19937 gen;
-
-    // Ctor
-    MSPAvailabilityInformation s1;
-
-    // setMinimumStretch
-    s1.setMinimumSlowness(0.5);
-
-    // getMinimumStretch
-    BOOST_CHECK_EQUAL(s1.getMinimumSlowness(), 0.5);
-
-    // TODO: update
-
-    // TODO: Check other things
-    TaskProxy::List proxys;
+BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
+    TaskProxy::List proxys = RandomQueueGenerator().createRandomQueue(1000.0);
     vector<double> lBounds;
-    createRandomQueue(gen, 1000.0, proxys, lBounds);
+    proxys.getSwitchValues(lBounds);
     s1.setAvailability(1024, 512, proxys, lBounds, 1000.0, 0.5);
     LogMsg("Test.RI", INFO) << s1;
 
@@ -416,6 +319,6 @@ BOOST_AUTO_TEST_CASE(siMsg) {
     CheckMsgMethod::check(s1, p);
 }
 
-BOOST_AUTO_TEST_SUITE_END()   // aiTS
+BOOST_AUTO_TEST_SUITE_END()   // FSPAvailabilityInfoTest
 
-BOOST_AUTO_TEST_SUITE_END()   // Cor
+} // namespace stars

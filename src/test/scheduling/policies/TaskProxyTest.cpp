@@ -20,7 +20,6 @@
 
 #include <sstream>
 #include <boost/test/unit_test.hpp>
-#include <ctime>
 #include "TaskProxy.hpp"
 #include "TestHost.hpp"
 #include "RandomQueueGenerator.hpp"
@@ -66,7 +65,7 @@ BOOST_AUTO_TEST_CASE(buildTaskProxyList) {
 
 BOOST_AUTO_TEST_CASE(sortTaskProxyList) {
     Time now = TestHost::getInstance().getCurrentTime();
-    RandomQueueGenerator & rqg = RandomQueueGenerator::getInstance();
+    RandomQueueGenerator rqg;
     for (int i = 0; i < 10; ++i) {
         TaskProxy::List l = rqg.createRandomQueue();
         l.sortBySlowness(0.2);
@@ -105,6 +104,7 @@ BOOST_AUTO_TEST_CASE(TaskProxyList_getSwitchValues) {
 
 void checkMinSlownessOrder(TaskProxy::List proxys, const std::vector<double> & lBounds) {
     if (proxys.empty()) return;
+    proxys.sortMinSlowness(lBounds);
     double slowness = proxys.getSlowness();
     double power = proxys.front().getEffectiveSpeed();
     std::ostringstream oss;
@@ -131,18 +131,14 @@ void checkMinSlownessOrder(TaskProxy::List proxys, const std::vector<double> & l
 /// SlownessAlgorithm
 BOOST_AUTO_TEST_CASE(TaskProxyList_sortMinSlowness) {
     TestHost::getInstance().reset();
-    RandomQueueGenerator & rqg = RandomQueueGenerator::getInstance();
-    time_t seed = std::time(NULL);
-    //seed = 1370884902;
-    std::cout << "Using seed " << seed << std::endl;
-    rqg.seed(seed);
+    RandomQueueGenerator rqg;
+    //rqg.seed(1371024975);
     std::vector<double> lBounds;
     TaskProxy::List proxys;
 
     {
         proxys = getTestList();
         proxys.getSwitchValues(lBounds);
-        proxys.sortMinSlowness(lBounds);
         checkMinSlownessOrder(proxys, lBounds);
     }
 
@@ -150,7 +146,6 @@ BOOST_AUTO_TEST_CASE(TaskProxyList_sortMinSlowness) {
         for (int j = 0; j < numTests; ++j) {
             proxys = rqg.createNLengthQueue(i);
             proxys.getSwitchValues(lBounds);
-            proxys.sortMinSlowness(lBounds);
             checkMinSlownessOrder(proxys, lBounds);
         }
     }

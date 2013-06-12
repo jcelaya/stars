@@ -35,15 +35,6 @@ namespace {
 MSPAvailabilityInformation::LAFunction dummy;
 
 
-void getProxys(const list<shared_ptr<Task> > & tasks, TaskProxy::List & result, vector<double> & lBounds) {
-    if (!tasks.empty()) {
-        for (list<shared_ptr<Task> >::const_iterator i = tasks.begin(); i != tasks.end(); ++i)
-            result.push_back(TaskProxy(*i));
-        result.getSwitchValues(lBounds);
-    }
-}
-
-
 double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
     static unsigned int id = 0;
     Time now = Time::getCurrentTime();

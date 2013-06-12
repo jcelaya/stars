@@ -22,27 +22,6 @@
 
 namespace stars {
 
-void TaskProxy::List::sortBySlowness(double slowness) {
-    if (size() > 1) {
-        // Sort the vector, leaving the first task as is
-        List tmp;
-        tmp.splice(tmp.begin(), *this, begin());
-        for (iterator i = begin(); i != end(); ++i)
-            i->setSlowness(slowness);
-        sort();
-        splice(begin(), tmp, tmp.begin());
-    }
-}
-
-
-bool TaskProxy::List::meetDeadlines(double slowness, Time e) const {
-    for (const_iterator i = begin(); i != end(); ++i)
-        if ((e += Duration(i->t)) > i->getDeadline(slowness))
-            return false;
-    return true;
-}
-
-
 void TaskProxy::List::sortMinSlowness(const std::vector<double> & switchValues) {
     Time now = Time::getCurrentTime();
     // Trivial case, first switch value is minimum slowness so that first task meets deadline
@@ -105,6 +84,27 @@ double TaskProxy::List::getSlowness() const {
     }
 
     return minSlowness;
+}
+
+
+void TaskProxy::List::sortBySlowness(double slowness) {
+    if (size() > 1) {
+        // Sort the vector, leaving the first task as is
+        List tmp;
+        tmp.splice(tmp.begin(), *this, begin());
+        for (iterator i = begin(); i != end(); ++i)
+            i->setSlowness(slowness);
+        sort();
+        splice(begin(), tmp, tmp.begin());
+    }
+}
+
+
+bool TaskProxy::List::meetDeadlines(double slowness, Time e) const {
+    for (const_iterator i = begin(); i != end(); ++i)
+        if ((e += Duration(i->t)) > i->getDeadline(slowness))
+            return false;
+    return true;
 }
 
 } // namespace stars

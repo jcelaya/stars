@@ -23,86 +23,48 @@
 #define RANDOMQUEUEGENERATOR_HPP_
 
 #include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
 #include "TaskProxy.hpp"
 
 namespace stars {
 
 class RandomQueueGenerator {
 public:
-    static RandomQueueGenerator & getInstance() {
-        static RandomQueueGenerator rqg;
-        return rqg;
+    RandomQueueGenerator();
+
+    RandomQueueGenerator(unsigned int s) : id(0) {
+        seed(s);
     }
 
-    void seed(unsigned int s) { gen.seed(s); }
+    void seed(unsigned int s);
 
-    TaskProxy::List createRandomQueue() {
-        TaskProxy::List result;
-        Time now = TestHost::getInstance().getCurrentTime();
-        double power = getRandomPower();
+    unsigned int getSeed() const { return theSeed; }
 
-        // Add a random number of applications, with random length and number of tasks
-        // At least one app
-        unsigned int numTasks = getRandomNumTasks();
-        int a = getRandomAppLength() / numTasks;
-        // Get a release date so that the first task is still executing
-        double rfirst = getRandomReleaseDelta(-a / power);
-        for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-            result.push_back(TaskProxy(a, power, now + Duration(rfirst)));
-            result.back().id = id++;
-        }
-
-        for(int appid = 0; boost::random::uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
-            // Get a release date after the first app
-            double r = getRandomReleaseDelta(rfirst);
-            numTasks = getRandomNumTasks();
-            a = getRandomAppLength() / numTasks;
-            for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-                result.push_back(TaskProxy(a, power, now + Duration(r)));
-                result.back().id = id++;
-            }
-        }
-
-        return result;
+    TaskProxy::List & createRandomQueue() {
+        return createRandomQueue(getRandomPower());
     }
 
-    TaskProxy::List createNLengthQueue(int n) {
-        TaskProxy::List result;
-        Time now = TestHost::getInstance().getCurrentTime();
-        double power = getRandomPower();
+    TaskProxy::List & createRandomQueue(double power);
 
-        // At least one app
-        int a = getRandomAppLength();
-        // Get a release date so that the first task is still executing
-        double rfirst = getRandomReleaseDelta(-a / power);
-        result.push_back(TaskProxy(a, power, now + Duration(rfirst)));
-        result.back().id = id++;
-        result.back().t += rfirst;
-
-        // Add n tasks with random length
-        for(int appid = 0; appid < n; ++appid) {
-            double r = getRandomReleaseDelta(rfirst);
-            // Applications between 1-4h on a 1000 MIPS computer
-            int a = getRandomAppLength();
-            result.push_back(TaskProxy(a, power, now + Duration(r)));
-            result.back().id = id++;
-        }
-
-        return result;
+    TaskProxy::List & createNLengthQueue(unsigned int numTasks) {
+        return createNLengthQueue(numTasks, getRandomPower());
     }
+
+    TaskProxy::List & createNLengthQueue(unsigned int numTasks, double power);
+
+    double getRandomPower();
 
 private:
-    // Applications between 1-4h on a 1000 MIPS computer
-    int getRandomAppLength() { return boost::random::uniform_int_distribution<>(600000, 14400000)(gen); }
-    int getRandomNumTasks() { return boost::random::uniform_int_distribution<>(1, 10)(gen); }
-    double getRandomPower() { return floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200; }
-    double getRandomReleaseDelta(int min) { return boost::random::uniform_int_distribution<>(min, 0)(gen); }
+    int getRandomAppLength();
+    unsigned int getRandomNumTasks();
+    double getRandomReleaseDelta();
+    void createRandomApp(unsigned int numTasks);
 
+    unsigned int theSeed;
     boost::random::mt19937 gen;
     unsigned int id;
-
-    RandomQueueGenerator() : id(0) {}
+    double currentPower;
+    double currentrfirst;
+    TaskProxy::List currentTasks;
 };
 
 } // namespace stars

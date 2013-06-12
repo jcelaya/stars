@@ -48,15 +48,15 @@ struct TaskProxy {
     public:
         List() : std::list<TaskProxy>() {}
 
-        void sortBySlowness(double slowness);
-
-        bool meetDeadlines(double slowness, Time e) const;
-
         void sortMinSlowness(const std::vector<double> & switchValues);
 
         void getSwitchValues(std::vector<double> & switchValues) const;
 
         double getSlowness() const;
+
+        void sortBySlowness(double slowness);
+
+        bool meetDeadlines(double slowness, Time e) const;
     };
 };
 
