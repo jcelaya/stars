@@ -75,7 +75,7 @@ private:
     Time lastTSample;
     unsigned int partialFinishedTasks, totalFinishedTasks;
     unsigned long partialComputation, totalComputation;
-    static const double delayTSample = 60;
+    static constexpr double delayTSample = 60;
 
     // App statistics
     void finishAppStatistics();

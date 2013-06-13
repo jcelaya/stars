@@ -75,7 +75,7 @@ public:
         // Send first app instance
         uint32_t client = clientVar();
         dcm.setDeadline(sim.getCurrentTime() + deadline);
-        sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
+        sim.injectMessage(client, client, boost::shared_ptr<BasicMsg>(dcm.clone()), Duration());
         nextSearch = 2;
         taskRepeat--;
     }
@@ -90,7 +90,7 @@ public:
                 taskRepeat = property("task_repeat", 1);
             }
             dcm.setDeadline(sim.getCurrentTime() + deadline);
-            sim.injectMessage(client, client, shared_ptr<BasicMsg>(dcm.clone()), Duration());
+            sim.injectMessage(client, client, boost::shared_ptr<BasicMsg>(dcm.clone()), Duration());
             percent = (nextSearch++ * 100.0 / numSearches);
             taskRepeat--;
         }

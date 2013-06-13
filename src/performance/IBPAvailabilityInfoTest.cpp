@@ -26,8 +26,8 @@
 template<> struct Priv<IBPAvailabilityInformation> {};
 
 
-template<> shared_ptr<IBPAvailabilityInformation> AggregationTest<IBPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
+template<> boost::shared_ptr<IBPAvailabilityInformation> AggregationTest<IBPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    boost::shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
     result->addNode(n.mem, n.disk);
     return result;
 }
@@ -47,7 +47,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             TaskDescription dummy;
             dummy.setMaxMemory(0);
             dummy.setMaxDisk(0);
-            shared_ptr<IBPAvailabilityInformation> result = t.test(i);
+            boost::shared_ptr<IBPAvailabilityInformation> result = t.test(i);
             result->getAvailability(clusters, dummy);
             // Do not calculate total information and then aggregate, it is not very useful
             unsigned long int aggrMem = 0, aggrDisk = 0;

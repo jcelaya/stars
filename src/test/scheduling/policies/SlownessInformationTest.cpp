@@ -34,13 +34,25 @@ using namespace boost::random;
 
 namespace stars {
 
+template <typename Func, int resolution = 100>
+void forAinDomain(uint64_t horizon, Func f) {
+    uint64_t astep = (horizon - MSPAvailabilityInformation::LAFunction::minTaskLength) / resolution;
+    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < horizon; a += astep) {
+        f(a);
+    }
+}
+
+
 class QueueFunctionPair {
 public:
     QueueFunctionPair(RandomQueueGenerator & rqg) : power(rqg.getRandomPower()) {
-        proxys = rqg.createRandomQueue();
-        proxys.getSwitchValues(lBounds);
-        function = MSPAvailabilityInformation::LAFunction(proxys, lBounds, power);
-        horizon = function.getHorizon();
+        proxys = rqg.createRandomQueue(power);
+        recompute();
+    }
+
+    void createNTaskFunction(RandomQueueGenerator & rqg, unsigned int numTasks) {
+        proxys = rqg.createNLengthQueue(numTasks, power);
+        recompute();
     }
 
     double plotSampledGetMaxDifference(int n, std::ostream & os);
@@ -50,14 +62,21 @@ public:
     vector<double> lBounds;
     MSPAvailabilityInformation::LAFunction function;
     double horizon;
+
+private:
+    void recompute() {
+        proxys.getSwitchValues(lBounds);
+        function = MSPAvailabilityInformation::LAFunction(proxys, lBounds, power);
+        horizon = function.getHorizon();
+    }
 };
 
 
 double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) {
-    uint64_t astep = (horizon*1.2 - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
     Time now = Time::getCurrentTime();
     double maxDiff = 0.0;
-    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < horizon*1.2; a += astep) {
+
+    forAinDomain(horizon*1.2, [&] (uint64_t a) {
         // Add a new task of length a
         if (!proxys.empty()) {
             vector<double> lBoundsTmp(lBounds);
@@ -100,7 +119,7 @@ double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) 
             else ++i;
         }
         os << endl;
-    }
+    } );
     return maxDiff;
 }
 
@@ -136,11 +155,28 @@ string plot(const MSPAvailabilityInformation::LAFunction & f, double ah) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_estimateSlowness) {
-    uint64_t astep = (f.horizon - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
-    for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < f.horizon; a += astep) {
+    f.createNTaskFunction(rqg, 20);
+    forAinDomain(f.horizon, [&] (uint64_t a) {
         // Check the estimation of one task
         BOOST_CHECK_CLOSE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1), 0.01);
-    }
+        BOOST_CHECK_LE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1));
+        BOOST_CHECK_LE(f.function.estimateSlowness(a, 1), f.function.estimateSlowness(a, 2));
+        BOOST_CHECK_LE(f.function.estimateSlowness(a, 2), f.function.estimateSlowness(a, 3));
+        BOOST_CHECK_LE(f.function.estimateSlowness(a, 3), f.function.estimateSlowness(a, 4));
+        BOOST_CHECK_LE(f.function.estimateSlowness(a, 4), f.function.estimateSlowness(a, 5));
+    } );
+}
+
+
+BOOST_AUTO_TEST_CASE(LAFunction_reduceMax) {
+    MSPAvailabilityInformation::setNumPieces(3);
+    f.createNTaskFunction(rqg, 20);
+    MSPAvailabilityInformation::LAFunction fred(f.function);
+    double accumAsqRed = 5 * fred.reduceMax(4, f.horizon);
+    BOOST_CHECK_GE(accumAsqRed, 0);
+    forAinDomain(f.horizon, [&] (uint64_t a) {
+        BOOST_REQUIRE_GE(fred.getSlowness(a), f.function.getSlowness(a));
+    } );
 }
 
 
@@ -190,9 +226,8 @@ BOOST_AUTO_TEST_CASE(LAFunction_operations) {
 
     // Min/max and sum of several functions
     ofstream of("laf_test.ppl");
-    MSPAvailabilityInformation::setNumPieces(3);
     for (int i = 0; i < 100; i++) {
-        LogMsg("Test.RI", INFO) << "Function " << i << ": ";
+        //LogMsg("Test.RI", INFO) << "Function " << i << ": ";
         QueueFunctionPair f11(rqg), f12(rqg), f13(rqg), f21(rqg), f22(rqg);
         double ah = 0.0;
         {
@@ -261,15 +296,6 @@ BOOST_AUTO_TEST_CASE(LAFunction_operations) {
                 + f.sqdiff(f21.function, ah)
                 + f.sqdiff(f22.function, ah), 0.0001);
 
-        MSPAvailabilityInformation::LAFunction fred(f);
-        double accumAsqRed = accumAsq + 5 * fred.reduceMax(4, ah);
-        BOOST_CHECK_GE(accumAsqRed, 0);
-        for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
-            BOOST_CHECK_GE(fred.getSlowness(a), f.getSlowness(a));
-            if (fred.getSlowness(a) < f.getSlowness(a))
-                break;
-        }
-
         // Print functions
         of << "# Functions " << i << endl;
         of << "# F" << i << " f11: " << f11.function << endl << plot(f11.function, ah) << ", \"laf_test.stat\" i " << i << " e :::0::0 w lines" << endl;
@@ -285,7 +311,6 @@ BOOST_AUTO_TEST_CASE(LAFunction_operations) {
                 << "# accumAsq2 " << accumAsq2 << " =? " << (f2.sqdiff(f21.function, ah) + f2.sqdiff(f22.function, ah)) << endl;
         of << "# F" << i << " f: " << f << endl << plot(f, ah) << endl
                 << "# accumAsq " << accumAsq << " =? " << (f.sqdiff(f11.function, ah) + f.sqdiff(f12.function, ah) + f.sqdiff(f13.function, ah) + f.sqdiff(f21.function, ah) + f.sqdiff(f22.function, ah)) << endl;
-        of << "# F" << i << " fred: " << fred << endl << plot(fred, ah) << endl << "# accumAsqRed " << accumAsqRed << endl;
         of << "# F" << i << " min: " << min << endl << plot(min, ah) << endl;
         of << "# F" << i << " max: " << max << endl << plot(max, ah) << endl;
         of << endl;
@@ -315,7 +340,7 @@ BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
     s1.setAvailability(1024, 512, proxys, lBounds, 1000.0, 0.5);
     LogMsg("Test.RI", INFO) << s1;
 
-    shared_ptr<MSPAvailabilityInformation> p;
+    boost::shared_ptr<MSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);
 }
 

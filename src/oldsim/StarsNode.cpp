@@ -42,7 +42,7 @@ using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-using boost::shared_ptr;
+//using boost::shared_ptr;
 using boost::scoped_ptr;
 
 
@@ -52,7 +52,7 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
-static shared_ptr<CheckTimersMsg> timerMsg(new CheckTimersMsg);
+static boost::shared_ptr<CheckTimersMsg> timerMsg(new CheckTimersMsg);
 
 
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
@@ -66,8 +66,8 @@ public:
 
     unsigned long int getAvailableDisk() const { return node.getAvailableDisk(); }
 
-    shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
-        return shared_ptr<Task>(new SimTask(o, reqId, ctid, d));
+    boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
+        return boost::shared_ptr<Task>(new SimTask(o, reqId, ctid, d));
     }
 };
 
@@ -89,7 +89,7 @@ CommLayer & CommLayer::getInstance() {
 
 
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
-    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), shared_ptr<BasicMsg>(msg));
+    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), boost::shared_ptr<BasicMsg>(msg));
 }
 
 
@@ -99,7 +99,7 @@ Time Time::getCurrentTime() {
 }
 
 
-int CommLayer::setTimerImpl(Time time, shared_ptr<BasicMsg> msg) {
+int CommLayer::setTimerImpl(Time time, boost::shared_ptr<BasicMsg> msg) {
     Timer t(time, msg);
     t.id <<= 1;
     // Set a new timer if this timer is the first or comes before the first
@@ -449,7 +449,7 @@ unsigned int StarsNode::getBranchLevel() const {
 
 
 void StarsNode::showRecursive(log4cpp::Priority::Value prio, unsigned int level, const string & prefix) {
-    shared_ptr<AvailabilityInformation> info = getDisp().getBranchInfo();
+    boost::shared_ptr<AvailabilityInformation> info = getDisp().getBranchInfo();
     SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(getBranch());
     if (info.get())
         LogMsg("Sim.Tree", prio) << prefix << "B@" << localAddress << ": " << branch << ' ' << *info;

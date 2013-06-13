@@ -28,14 +28,14 @@
 #include "Task.hpp"
 #include "TaskStateChgMsg.hpp"
 #include "Logger.hpp"
-using namespace boost;
+//using namespace boost;
 using namespace std;
 
 
 class UnixProcess : public Task {
     pid_t pid;
-    mutex m;
-    mutex::scoped_lock runlock;
+    boost::mutex m;
+    boost::mutex::scoped_lock runlock;
     int status;
 
     void prepareAndRun();
@@ -52,7 +52,7 @@ public:
             Task(o, reqId, ctid, d), pid(0), runlock(m), status(Inactive) {
         // Launch a thread to prepare task while waiting to be run
         try {
-            thread thrdExe(bind(&UnixProcess::prepareAndRun, this));
+            boost::thread thrdExe(boost::bind(&UnixProcess::prepareAndRun, this));
         } catch (boost::thread_resource_error & e) {
             status = Aborted;
         }
@@ -119,7 +119,7 @@ void UnixProcess::prepareAndRun() {
     //sendStatus(et.getTaskId(), UICodes::PREPARED_EXECUTION_TASK);
     {
         // Wait until run() is called
-        mutex::scoped_lock lock(m);
+        boost::mutex::scoped_lock lock(m);
     }
 
     // TODO: Obtain parameters, executable name... and fork
@@ -188,6 +188,6 @@ unsigned long int UnixExecutionEnvironment::getAvailableDisk() const {
 }
 
 
-shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
-    return shared_ptr<Task>(new UnixProcess(o, reqId, ctid, d));
+boost::shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
+    return boost::shared_ptr<Task>(new UnixProcess(o, reqId, ctid, d));
 }

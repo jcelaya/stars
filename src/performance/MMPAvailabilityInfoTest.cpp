@@ -20,7 +20,7 @@
 
 #include "AggregationTest.hpp"
 #include "MMPAvailabilityInformation.hpp"
-using namespace boost;
+//using namespace boost;
 
 
 template<> struct Priv<MMPAvailabilityInformation> {
@@ -32,12 +32,12 @@ template<> struct Priv<MMPAvailabilityInformation> {
 static Time reference = Time::getCurrentTime();
 
 
-template<> shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
     static const int min_time = 0;
     static const int max_time = 2000;
     static const int step_time = 1;
-    shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
-    Duration q(floor(uniform_int_distribution<>(min_time, max_time)(gen) / step_time) * step_time);
+    boost::shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
+    Duration q(floor(boost::random::uniform_int_distribution<>(min_time, max_time)(gen) / step_time) * step_time);
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;
@@ -62,7 +62,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             dummy.setMaxDisk(0);
             dummy.setLength(1);
             dummy.setDeadline(Time::getCurrentTime() + Duration(10000.0));
-            shared_ptr<MMPAvailabilityInformation> result = t.test(i);
+            boost::shared_ptr<MMPAvailabilityInformation> result = t.test(i);
             result->getAvailability(clusters, dummy);
             // Do not calculate total information and then aggregate, it is not very useful
             unsigned long int aggrMem = 0, aggrDisk = 0, aggrPower = 0;

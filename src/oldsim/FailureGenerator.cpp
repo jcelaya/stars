@@ -38,7 +38,7 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
-static shared_ptr<FailureMsg> failMsg(new FailureMsg);
+static boost::shared_ptr<FailureMsg> failMsg(new FailureMsg);
 
 
 void FailureGenerator::startFailures(double median_session, unsigned int minf, unsigned int maxf) {

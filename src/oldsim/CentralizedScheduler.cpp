@@ -33,7 +33,7 @@
 #include "ResourceNode.hpp"
 #include "Simulator.hpp"
 using namespace std;
-using namespace boost;
+//using namespace boost;
 using namespace boost::posix_time;
 
 
@@ -47,7 +47,7 @@ CentralizedScheduler::CentralizedScheduler() : sim(Simulator::getInstance()), qu
 }
 
 
-bool CentralizedScheduler::blockMessage(const shared_ptr<BasicMsg> & msg) {
+bool CentralizedScheduler::blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
     // Block AvailabilityInformation, RescheduleTimer and AcceptTaskMsg
     if (typeid(*msg) == typeid(RescheduleTimer) || dynamic_pointer_cast<AvailabilityInformation>(msg).get() || typeid(*msg) == typeid(AcceptTaskMsg))
         return true;
@@ -61,7 +61,7 @@ bool CentralizedScheduler::blockMessage(const shared_ptr<BasicMsg> & msg) {
 
 bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
     if (typeid(*ev.msg) == typeid(TaskBagMsg)) {
-        shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
+        boost::shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
         if (!msg->isForEN()) {
             sim.getPerfStats().startEvent("Centralized scheduling");
 
@@ -109,7 +109,7 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
 void CentralizedScheduler::sendOneTask(unsigned int to) {
     // Pre: !queues[to].empty()
     TaskDesc & task = queues[to].front();
-    shared_ptr<TaskBagMsg> tbm(task.msg->clone());
+    boost::shared_ptr<TaskBagMsg> tbm(task.msg->clone());
     tbm->setFromEN(false);
     tbm->setForEN(true);
     tbm->setFirstTask(task.tid);
@@ -167,7 +167,7 @@ void CentralizedScheduler::addToQueue(const TaskDesc & task, unsigned int node) 
     if (queueEnds[node] < now)
         queueEnds[node] = now;
     queueEnds[node] += task.a;
-    shared_ptr<AcceptTaskMsg> atm(new AcceptTaskMsg);
+    boost::shared_ptr<AcceptTaskMsg> atm(new AcceptTaskMsg);
     atm->setRequestId(task.msg->getRequestId());
     atm->setFirstTask(task.tid);
     atm->setLastTask(task.tid);
@@ -214,7 +214,7 @@ CentralizedScheduler::~CentralizedScheduler() {
 
 
 class BlindScheduler : public CentralizedScheduler {
-    bool blockMessage(const shared_ptr<BasicMsg> & msg) {
+    bool blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
         // Block AvailabilityInformation and RescheduleTimer
         if (typeid(*msg) == typeid(RescheduleTimer) || dynamic_pointer_cast<AvailabilityInformation>(msg).get())
             return true;
@@ -225,12 +225,12 @@ class BlindScheduler : public CentralizedScheduler {
         return false;
     }
 
-    void newApp(shared_ptr<TaskBagMsg> msg) {
+    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
 
         unsigned int n = clientVar();
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
-            shared_ptr<TaskBagMsg> tbm(msg->clone());
+            boost::shared_ptr<TaskBagMsg> tbm(msg->clone());
             tbm->setFromEN(false);
             tbm->setForEN(true);
             tbm->setFirstTask(i);
@@ -257,7 +257,7 @@ class CentralizedIBP : public CentralizedScheduler {
         bool operator<(const NodeAvail & r) { return a < r.a; }
     };
 
-    void newApp(shared_ptr<TaskBagMsg> msg) {
+    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -307,7 +307,7 @@ class CentralizedMMP : public CentralizedScheduler {
         bool operator<(const QueueTime & r) const { return qTime > r.qTime; }
     };
 
-    void newApp(shared_ptr<TaskBagMsg> msg) {
+    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -360,7 +360,7 @@ class CentralizedDP : public CentralizedScheduler {
         bool operator<(const Hole & r) const { return remaining < r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
     };
 
-    void newApp(shared_ptr<TaskBagMsg> msg) {
+    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -518,7 +518,7 @@ class CentralizedMSP : public CentralizedScheduler {
         return proxys.getSlowness();
     }
 
-    void newApp(shared_ptr<TaskBagMsg> msg) {
+    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = queues.size();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -646,21 +646,21 @@ public:
 };
 
 
-shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
+boost::shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
     if (type == "blind")
-        return shared_ptr<CentralizedScheduler>(new BlindScheduler());
+        return boost::shared_ptr<CentralizedScheduler>(new BlindScheduler());
     else if (type == "cent") {
         switch(StarsNode::Configuration::getInstance().getPolicy()) {
         case StarsNode::Configuration::MMPolicy:
-            return shared_ptr<CentralizedScheduler>(new CentralizedMMP());
+            return boost::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
         case StarsNode::Configuration::DPolicy:
-            return shared_ptr<CentralizedScheduler>(new CentralizedDP());
+            return boost::shared_ptr<CentralizedScheduler>(new CentralizedDP());
         case StarsNode::Configuration::MSPolicy:
-            return shared_ptr<CentralizedScheduler>(new CentralizedMSP());
+            return boost::shared_ptr<CentralizedScheduler>(new CentralizedMSP());
         default:
-            return shared_ptr<CentralizedScheduler>(new CentralizedIBP());
+            return boost::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
         }
     }
     else
-        return shared_ptr<CentralizedScheduler>();
+        return boost::shared_ptr<CentralizedScheduler>();
 }

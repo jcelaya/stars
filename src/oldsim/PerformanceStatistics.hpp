@@ -36,7 +36,7 @@ public:
         EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
     };
 
-    static const double clocksPerUSecond = CLOCKS_PER_SEC / 1000000.0;
+    static constexpr double clocksPerUSecond = CLOCKS_PER_SEC / 1000000.0;
 private:
     std::map<std::string, EventStats> handleTimeStatistics;
 

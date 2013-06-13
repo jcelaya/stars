@@ -20,7 +20,7 @@
 
 #include "AggregationTest.hpp"
 #include "DPAvailabilityInformation.hpp"
-using namespace boost;
+//using namespace boost;
 
 
 template<> struct Priv<DPAvailabilityInformation> {
@@ -30,19 +30,19 @@ template<> struct Priv<DPAvailabilityInformation> {
 
 
 namespace {
-    Time ref;
+    Time refTime;
 
-    void createRandomLAF(double power, mt19937 & gen, list<Time> & result) {
-        Time next = ref, h = ref + Duration(100000.0);
+    void createRandomLAF(double power, boost::random::mt19937 & gen, list<Time> & result) {
+        Time next = refTime, h = refTime + Duration(100000.0);
 
         // Add a random number of tasks, with random length
-        while(uniform_int_distribution<>(1, 3)(gen) != 1) {
+        while(boost::random::uniform_int_distribution<>(1, 3)(gen) != 1) {
             // Tasks of 5-60 minutes on a 1000 MIPS computer
-            unsigned long int length = uniform_int_distribution<>(300000, 3600000)(gen);
+            unsigned long int length = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(length / power);
             result.push_back(next);
             // Similar time for holes
-            unsigned long int nextHole = uniform_int_distribution<>(300000, 3600000)(gen);
+            unsigned long int nextHole = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(nextHole / power);
             result.push_back(next);
         }
@@ -54,8 +54,8 @@ namespace {
 }
 
 
-template<> shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
+template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    boost::shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
     list<Time> q;
     createRandomLAF(n.power, gen, q);
     result->addNode(n.mem, n.disk, n.power, q);
@@ -70,7 +70,7 @@ template<> shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityI
 
 
 void performanceTest(const std::vector<int> & numClusters, int levels) {
-    ref = Time::getCurrentTime();
+    refTime = Time::getCurrentTime();
     ClusteringVector<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
     unsigned int numpoints = 10;
     DPAvailabilityInformation::setNumRefPoints(numpoints);
@@ -84,7 +84,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
         AggregationTest<DPAvailabilityInformation> t;
         for (int i = 0; i < levels; i++) {
             LogMsg("Progress", WARN) << i << " levels";
-            shared_ptr<DPAvailabilityInformation> result = t.test(i);
+            boost::shared_ptr<DPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
@@ -118,7 +118,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             double meanAccuracy = 0.0;
             {
                 double prevAccuracy = 0.0;
-                Time prevTime = ref;
+                Time prevTime = refTime;
                 // Approximate the accuracy to linear...
                 for (list<Time>::iterator it = p.begin(); it != p.end(); ++it) {
                     double minAvailBeforeIt = minAvail.getAvailabilityBefore(*it);
@@ -132,7 +132,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
                     prevAccuracy = accuracy;
                     prevTime = *it;
                 }
-                meanAccuracy /= 2.0 * (p.back() - ref).seconds();
+                meanAccuracy /= 2.0 * (p.back() - refTime).seconds();
             }
             ofmd << "A," << (i + 1) << ',' << numClusters[j] << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << meanAccuracy << endl;
             ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;

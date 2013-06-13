@@ -35,17 +35,17 @@ namespace {
 MSPAvailabilityInformation::LAFunction dummy;
 
 
-double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
+double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, boost::random::mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
     static unsigned int id = 0;
     Time now = Time::getCurrentTime();
     proxys.clear();
 
     // Add a random number of applications, with random length and number of tasks
-    for(int appid = 0; uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
-        double r = uniform_int_distribution<>(-1000, 0)(gen);
-        unsigned int numTasks = uniform_int_distribution<>(1, 10)(gen);
+    for(int appid = 0; boost::random::uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
+        double r = boost::random::uniform_int_distribution<>(-1000, 0)(gen);
+        unsigned int numTasks = boost::random::uniform_int_distribution<>(1, 10)(gen);
         // Applications between 1-4h on a 1000 MIPS computer
-        int a = uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
+        int a = boost::random::uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
         for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
             proxys.push_back(TaskProxy(a, power, now + Duration(r)));
             proxys.back().id = id++;
@@ -61,8 +61,8 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
 }
 
 
-template<> shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
-    shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
+template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+    boost::shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
     TaskProxy::List proxys;
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
@@ -110,7 +110,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
         AggregationTest<MSPAvailabilityInformation> t;
         for (int i = 0; i < levels; i++) {
             LogMsg("Progress", WARN) << i << " levels";
-            shared_ptr<MSPAvailabilityInformation> result = t.test(i);
+            boost::shared_ptr<MSPAvailabilityInformation> result = t.test(i);
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;

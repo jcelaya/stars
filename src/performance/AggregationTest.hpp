@@ -31,9 +31,9 @@
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 using namespace std;
-using namespace boost;
+//using namespace boost;
 using namespace boost::posix_time;
-using namespace boost::random;
+//using namespace boost::random;
 
 template<class T> struct Priv;
 
@@ -44,13 +44,13 @@ template<class T> class AggregationTest {
         unsigned int power;
         unsigned int mem;
         unsigned int disk;
-        shared_ptr<T> avail;
+        boost::shared_ptr<T> avail;
         size_t size;
     };
     list<Node> nodes;
     unsigned long int totalPower, totalMem, totalDisk;
-    mt19937 gen;
-    uniform_int_distribution<> unifPower, unifMemory, unifDisk;
+    boost::random::mt19937 gen;
+    boost::random::uniform_int_distribution<> unifPower, unifMemory, unifDisk;
     Priv<T> privateData;
 
     typename list<Node>::iterator nextNode;
@@ -63,9 +63,9 @@ template<class T> class AggregationTest {
     ptime lastProgress;
     time_duration aggregationDuration;
 
-    shared_ptr<T> createInfo(const Node & n);
+    boost::shared_ptr<T> createInfo(const Node & n);
 
-    shared_ptr<T> newNode() {
+    boost::shared_ptr<T> newNode() {
         if (nextNode != nodes.end()) {
             recordSize(nextNode->size);
             return (nextNode++)->avail;
@@ -85,7 +85,7 @@ template<class T> class AggregationTest {
         }
     }
 
-    size_t measureSize(shared_ptr<AvailabilityInformation> e) {
+    size_t measureSize(boost::shared_ptr<AvailabilityInformation> e) {
         ostringstream oss;
         msgpack::packer<std::ostream> pk(&oss);
         e->pack(pk);
@@ -100,12 +100,12 @@ template<class T> class AggregationTest {
         messages++;
     }
 
-    shared_ptr<T> aggregateLevel(unsigned int level) {
-        shared_ptr<T> result;
+    boost::shared_ptr<T> aggregateLevel(unsigned int level) {
+        boost::shared_ptr<T> result;
         if (level == 0) {
             result.reset(newNode()->clone());
             for (unsigned int i = 1; i < fanout; i++) {
-                shared_ptr<T> tmp = newNode();
+                boost::shared_ptr<T> tmp = newNode();
                 ptime start = microsec_clock::universal_time();
                 result->join(*tmp);
                 aggregationDuration += microsec_clock::universal_time() - start;
@@ -113,7 +113,7 @@ template<class T> class AggregationTest {
         } else {
             result = aggregateLevel(level - 1);
             for (unsigned int i = 1; i < fanout; i++) {
-                shared_ptr<T> tmp = aggregateLevel(level - 1);
+                boost::shared_ptr<T> tmp = aggregateLevel(level - 1);
                 ptime start = microsec_clock::universal_time();
                 result->join(*tmp);
                 aggregationDuration += microsec_clock::universal_time() - start;
@@ -148,7 +148,7 @@ public:
     AggregationTest(unsigned int f = 2) : fanout(f), totalPower(0), totalMem(0), totalDisk(0),
             unifPower(min_power, max_power), unifMemory(min_mem, max_mem), unifDisk(min_disk, max_disk) {}
 
-    shared_ptr<T> test(unsigned int numLevels) {
+    boost::shared_ptr<T> test(unsigned int numLevels) {
         nextNode = nodes.begin();
         messages = 0;
         maxSize = 0;

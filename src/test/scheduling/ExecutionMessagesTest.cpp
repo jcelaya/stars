@@ -25,7 +25,7 @@
 #include "Task.hpp"
 #include <stdexcept>
 using namespace std;
-using namespace boost;
+//using namespace boost;
 
 /// Test cases
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_SUITE(ExecMsg)
 BOOST_AUTO_TEST_CASE(testTaskEventMsg) {
     // Ctor
     TaskEventMsg e;
-    shared_ptr<TaskEventMsg> p;
+    boost::shared_ptr<TaskEventMsg> p;
 
     // setTaskId
     e.setTaskId(2456);
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(testTaskEventMsg) {
 BOOST_AUTO_TEST_CASE(testTaskStateChgMsg) {
     // Ctor
     TaskStateChgMsg e;
-    shared_ptr<TaskStateChgMsg> p;
+    boost::shared_ptr<TaskStateChgMsg> p;
     e.setTaskId(0);
 
     // setOldState
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(testTaskStateChgMsg) {
 BOOST_AUTO_TEST_CASE(testTaskBagMsg) {
     // Ctor
     TaskBagMsg e;
-    shared_ptr<TaskBagMsg> p;
+    boost::shared_ptr<TaskBagMsg> p;
 
     // setForEN
     e.setForEN(true);

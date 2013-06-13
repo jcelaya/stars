@@ -35,7 +35,6 @@
 #include "RollbackMsg.hpp"
 #include "LeaveMsg.hpp"
 using namespace std;
-using boost::shared_ptr;
 
 
 #define DEBUG_LOG(x) LogMsg("St.SN", DEBUG) << x
@@ -73,7 +72,7 @@ void TransactionalZoneDescription::rollback() {
 }
 
 
-void TransactionalZoneDescription::setZoneFrom(const CommAddress & src, const shared_ptr<ZoneDescription> & i) {
+void TransactionalZoneDescription::setZoneFrom(const CommAddress & src, const boost::shared_ptr<ZoneDescription> & i) {
     // If the zone is not changing, the update goes only to the actual values
     if (!changing && actualLink == src) {
         actualZone = i;
@@ -138,7 +137,7 @@ string StructureNode::getStatus() const {
 }
 
 
-static bool compareZones(const shared_ptr<TransactionalZoneDescription> & l, const shared_ptr<TransactionalZoneDescription> & r) {
+static bool compareZones(const boost::shared_ptr<TransactionalZoneDescription> & l, const boost::shared_ptr<TransactionalZoneDescription> & r) {
     // Orders the nodes by address, with those without resource information first
     return !l->getZone().get() || (r->getZone().get() && l->getZone()->getMinAddress() < r->getZone()->getMinAddress());
 }
@@ -178,7 +177,7 @@ void StructureNode::checkFanout() {
             txDriver = CommLayer::getInstance().getLocalAddress();
             // This node needs to split. First look for a new father
             // by sending a StrNodeNeeded
-            shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
+            boost::shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
             snnm->setWhoNeeds(CommLayer::getInstance().getLocalAddress());
             snnm->setTransactionId(transaction);
             CommLayer::getInstance().sendMessage(CommLayer::getInstance().getLocalAddress(), snnm->clone());
@@ -203,14 +202,14 @@ void StructureNode::recomputeZone() {
     if (subZones.empty()) return;
 
     // Make a list of the non-null zones
-    list<shared_ptr<ZoneDescription> > tmp;
+    list<boost::shared_ptr<ZoneDescription> > tmp;
     for (zoneMutableIterator it = subZones.begin(); it != subZones.end(); it++)
         if ((*it)->getZone().get())
             tmp.push_back((*it)->getZone());
     if (tmp.empty())
         zoneDesc.reset();
     else {
-        list<shared_ptr<ZoneDescription> >::iterator i = tmp.begin();
+        list<boost::shared_ptr<ZoneDescription> >::iterator i = tmp.begin();
         zoneDesc.reset(new ZoneDescription(**i));
         while (i != tmp.end())
             zoneDesc->aggregate(**(i++));
@@ -234,15 +233,15 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
     // Check that we are not in the middle of another transaction
     if (transaction != NULL_TRANSACTION_ID) {
         DEBUG_LOG("In the middle of a transaction, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     } else if (state == ONLINE && !zoneDesc.get()) {
         DEBUG_LOG("Not enough resource information, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     } else if (subZones.size() >= 2*m) {
         DEBUG_LOG("Too many children, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     }
 
@@ -287,14 +286,14 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
             } else {
                 // If there are branches that lack resource information, then delay the message
                 DEBUG_LOG("Not enough subZone resource information, delaying.");
-                delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+                delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
             }
         } else {
             DEBUG_LOG("We insert it");
             // The message reaches the leaves, insert the node in the list
             transaction = msg.getTransactionId();
             txDriver = msg.getWho();
-            shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
+            boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
             newZone->setLink(msg.getWho());
             fireStartChanges();
             DEBUG_LOG("Add the new father to the list of subZones");
@@ -314,7 +313,7 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
         DEBUG_LOG("We create network");
         transaction = msg.getTransactionId();
         txDriver = msg.getWho();
-        shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
+        boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
         newZone->setLink(msg.getWho());
         fireStartChanges();
         DEBUG_LOG("Add the new father to the list of subZones");
@@ -353,7 +352,7 @@ template<> void StructureNode::handle(const CommAddress & src, const UpdateZoneM
                 return;
             }
             // It comes from child i, update its data
-            (*it)->setZoneFrom(src, shared_ptr<ZoneDescription>(new ZoneDescription(msg.getZone())));
+            (*it)->setZoneFrom(src, boost::shared_ptr<ZoneDescription>(new ZoneDescription(msg.getZone())));
             subZones.sort(compareZones);
             // Check if the resulting zone changes
             recomputeZone();
@@ -399,7 +398,7 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
         if (it == subZones.end()) {
             // Wait for an update
             DEBUG_LOG("Not enough information, waiting");
-            delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+            delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         } else {
             zoneMutableIterator direction = it++;
             int maxAvailable = (*direction)->getZone()->getAvailableStrNodes();
@@ -428,7 +427,7 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
                     CommLayer::getInstance().sendMessage(father, msg.clone());
                 } else {
                     DEBUG_LOG("Not enough information or no father, waiting");
-                    delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+                    delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
                 }
             }
         }
@@ -476,7 +475,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             // Put the node in the NoAck list
             txMembersNoAck.push_back(AddrService(msg.getWhoOffers(), false));
             // We need another node
-            shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
+            boost::shared_ptr<StrNodeNeededMsg> snnm(new StrNodeNeededMsg);
             snnm->setWhoNeeds(CommLayer::getInstance().getLocalAddress());
             snnm->setTransactionId(transaction);
             CommLayer::getInstance().sendMessage(CommLayer::getInstance().getLocalAddress(), snnm->clone());
@@ -545,7 +544,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             }
         }
         // Order the zones in increasing distance to one of that zones
-        shared_ptr<TransactionalZoneDescription> zone[numChildren];
+        boost::shared_ptr<TransactionalZoneDescription> zone[numChildren];
         {
             unsigned int pos[numChildren];
             for (unsigned int i = 0; i < numChildren; i++) pos[i] = i;
@@ -656,7 +655,7 @@ template<> void StructureNode::handle(const CommAddress & src, const InitStructN
         level = msg.getLevel();
         for (unsigned int i = 0; i < msg.getNumChildren(); i++) {
             // Get the address of each child
-            shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
+            boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
             newZone->setLink(msg.getChild(i));
             subZones.push_back(newZone);
         }
@@ -693,7 +692,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewFatherMs
     // Check if we are the driver of another transaction that should finish first
     else if (state == START_IN || state == INIT || state == ADD_CHILD) {
         DEBUG_LOG("In another transaction, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     }
 
     else if (src == father) {
@@ -733,10 +732,10 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
     // Check if we are in another transaction
     if (transaction != NULL_TRANSACTION_ID) {
         DEBUG_LOG("In another transaction, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     } else if (!msg.replaces() && subZones.size() >= 2*m) {
         DEBUG_LOG("Too many children, delaying.");
-        delayedMessages.push_back(AddrMsg(src, shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     } else {
         int i = 0; // DEBUG
         // Look for the child dividing
@@ -751,7 +750,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
                     DEBUG_LOG("We have to replace it");
                     // Replace that child with the new one
                     (*it)->setLink(msg.getChild());
-                    (*it)->setZone(shared_ptr<ZoneDescription>());
+                    (*it)->setZone(boost::shared_ptr<ZoneDescription>());
                     subZones.sort(compareZones);
                 } else {
                     // Mark that child as changed and invalidate zone info, if it has not been updated
@@ -759,10 +758,10 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
                         DEBUG_LOG("This child has already updated its info");
                     } else {
                         (*it)->setLink((*it)->getLink());
-                        (*it)->setZone(shared_ptr<ZoneDescription>());
+                        (*it)->setZone(boost::shared_ptr<ZoneDescription>());
                     }
                     // Insert the new child in the list, without resource information
-                    shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
+                    boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
                     newZone->setLink(msg.getChild());
                     DEBUG_LOG("Add the new father to the list of subZones");
                     subZones.push_front(newZone);

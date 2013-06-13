@@ -28,8 +28,8 @@
 #include "DPAvailabilityInformation.hpp"
 #include "TestHost.hpp"
 using namespace std;
-using namespace boost;
-using namespace boost::random;
+//using namespace boost;
+//using namespace boost::random;
 
 
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(tciMsg) {
 
     // Ctor
     DPAvailabilityInformation e;
-    shared_ptr<DPAvailabilityInformation> p;
+    boost::shared_ptr<DPAvailabilityInformation> p;
 
     // TODO: Check other things
 
@@ -55,18 +55,18 @@ BOOST_AUTO_TEST_SUITE_END()   // Cor
 
 
 namespace {
-    list<Time> createRandomLAF(mt19937 & gen, double power, Time ct) {
+    list<Time> createRandomLAF(boost::random::mt19937 & gen, double power, Time ct) {
         Time next = ct, h = ct + Duration(100000.0);
         list<Time> result;
 
         // Add a random number of tasks, with random length
-        while(uniform_int_distribution<>(1, 3)(gen) != 1) {
+        while(boost::random::uniform_int_distribution<>(1, 3)(gen) != 1) {
             // Tasks of 5-60 minutes on a 1000 MIPS computer
-            unsigned long int length = uniform_int_distribution<>(300000, 3600000)(gen);
+            unsigned long int length = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(length / power);
             result.push_back(next);
             // Similar time for holes
-            unsigned long int nextHole = uniform_int_distribution<>(300000, 3600000)(gen);
+            unsigned long int nextHole = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
             next += Duration(nextHole / power);
             result.push_back(next);
         }
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_SUITE(aiTS)
 
 BOOST_AUTO_TEST_CASE(ATFunction) {
     TestHost::getInstance().reset();
-    mt19937 gen;
+    boost::random::mt19937 gen;
 
     Time ct = Time::getCurrentTime();
     Time h = ct + Duration(100000.0);
@@ -123,11 +123,11 @@ BOOST_AUTO_TEST_CASE(ATFunction) {
     for (int i = 0; i < 500; i++) {
         LogMsg("Test.RI", INFO) << "Functions " << i;
 
-        double f11power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-               f12power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-               f13power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-               f21power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
-               f22power = floor(uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
+        double f11power = floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f12power = floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f13power = floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f21power = floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200,
+               f22power = floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
                DPAvailabilityInformation::ATFunction
                f11(f11power, createRandomLAF(gen, f11power, ct)),
                f12(f12power, createRandomLAF(gen, f12power, ct)),

@@ -39,7 +39,6 @@
 #include "SignalException.hpp"
 using namespace log4cpp;
 using namespace std;
-using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
 
@@ -413,7 +412,7 @@ void Simulator::run() {
 }
 
 
-unsigned long int Simulator::getMsgSize(shared_ptr<BasicMsg> msg) {
+unsigned long int Simulator::getMsgSize(boost::shared_ptr<BasicMsg> msg) {
     ostringstream oss;
     msgpack::packer<std::ostream> pk(&oss);
     msg->pack(pk);
@@ -421,7 +420,7 @@ unsigned long int Simulator::getMsgSize(shared_ptr<BasicMsg> msg) {
 }
 
 
-unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<BasicMsg> msg) {
+unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg) {
     // NOTE: msg must not be clonned, to track messages.
     if (cs.get() && cs->blockMessage(msg)) return 0;
 
@@ -459,7 +458,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, shared_ptr<Basic
 }
 
 
-unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, shared_ptr<BasicMsg> msg,
+unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
         Duration d, bool withOpDuration) {
     // NOTE: msg must not be clonned, to track messages.
     numMsgSent++;

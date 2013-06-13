@@ -31,7 +31,7 @@
 #include "ConfigurationManager.hpp"
 #include "UnixExecutionEnvironment.hpp"
 using namespace std;
-using boost::shared_ptr;
+//using boost::shared_ptr;
 
 
 Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new UnixExecutionEnvironment) {}
@@ -49,8 +49,8 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
-static shared_ptr<MonitorTimer> monTmr(new MonitorTimer);
-static shared_ptr<RescheduleTimer> reschTmr(new RescheduleTimer);
+static boost::shared_ptr<MonitorTimer> monTmr(new MonitorTimer);
+static boost::shared_ptr<RescheduleTimer> reschTmr(new RescheduleTimer);
 
 
 /**
@@ -71,13 +71,13 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         case Task::Aborted: {
             // Remove the task from the queue
             bool notFound = true;
-            for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
+            for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
                 if ((*i)->getTaskId() == msg.getTaskId()) {
                     notFound = false;
                     // For statistics purpose
                     finishedTaskEvent(**i, msg.getNewState() == Task::Finished);
                     // Send a TaskMonitorMsg to signal finalization
-                    shared_ptr<Task> task = *i;
+                    boost::shared_ptr<Task> task = *i;
                     TaskMonitorMsg * tmm = new TaskMonitorMsg;
                     tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
                     tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
@@ -165,7 +165,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
     for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
         // Check that the id exists
         bool notFound = true;
-        for (list<shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
+        for (list<boost::shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
             if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
                 notFound = false;
                 finishedTaskEvent(**it, false);
@@ -184,7 +184,7 @@ template<> void Scheduler::handle(const CommAddress & src, const MonitorTimer & 
     if (!tasks.empty()) {
         LogMsg("Ex.Sch", INFO) << "Sending monitoring reminders";
         map<CommAddress, TaskMonitorMsg *> dsts;
-        for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
+        for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
             map<CommAddress, TaskMonitorMsg *>::iterator tmm =
                 dsts.insert(dsts.begin(), make_pair((*i)->getOwner(), (TaskMonitorMsg *)NULL));
             if (tmm->second == NULL) tmm->second = new TaskMonitorMsg;
@@ -224,12 +224,12 @@ void Scheduler::setMonitorTimer() {
 }
 
 
-shared_ptr<Task> Scheduler::getTask(unsigned int id) {
+boost::shared_ptr<Task> Scheduler::getTask(unsigned int id) {
     // Check that the id exists
-    for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
+    for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
         if ((*i)->getTaskId() == id) return *i;
     LogMsg("Ex.Sch", ERROR) << "Trying to get a non-existent task!!";
-    return shared_ptr<Task>();
+    return boost::shared_ptr<Task>();
 }
 
 

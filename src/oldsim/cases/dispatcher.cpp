@@ -36,7 +36,7 @@
 #include "Distributions.hpp"
 #include "Variables.hpp"
 using namespace std;
-using namespace boost;
+//using namespace boost;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
 
@@ -73,7 +73,7 @@ public:
 
         // Send first request
         uint32_t client = clientVar();
-        shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), Time()));
+        boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), Time()));
         // Send this message to the client
         sim.injectMessage(client, client, dcm, Duration());
         nextInstance = 1;
@@ -87,7 +87,7 @@ public:
             Duration timeToNext(exponential(meanTime));
 
             uint32_t client = clientVar();
-            shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), sim.getCurrentTime() + timeToNext));
+            boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), sim.getCurrentTime() + timeToNext));
             // Send this message to the client
             sim.injectMessage(client, client, dcm, timeToNext);
             nextInstance++;
@@ -214,7 +214,7 @@ public:
         apps.pop_front();
         // Send this message to the client
         sim.getNode(r.client).getDatabase().setNextApp(r.minReq);
-        shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
+        boost::shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
         dcm->setDeadline(r.deadline);
         sim.injectMessage(r.client, r.client, dcm, r.release - Time());
         finishedApps = 0;
@@ -228,7 +228,7 @@ public:
                 apps.pop_front();
                 // Send this message to the client
                 sim.getNode(r.client).getDatabase().setNextApp(r.minReq);
-                shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
+                boost::shared_ptr<DispatchCommandMsg> dcm(new DispatchCommandMsg);
                 dcm->setDeadline(r.deadline);
                 sim.injectMessage(r.client, r.client, dcm, r.release - sim.getCurrentTime());
             }
@@ -265,7 +265,7 @@ class siteLevel : public SimulationCase {
 
         EMPTY_MSGPACK_DEFINE();
     };
-    static shared_ptr<UserEvent> timer;
+    static boost::shared_ptr<UserEvent> timer;
 
     class SendJobEvent : public BasicMsg {
     public:
@@ -273,7 +273,7 @@ class siteLevel : public SimulationCase {
 
         EMPTY_MSGPACK_DEFINE();
     };
-    static shared_ptr<SendJobEvent> sendCmd;
+    static boost::shared_ptr<SendJobEvent> sendCmd;
 
     struct User {
         enum {
@@ -439,7 +439,7 @@ public:
         } else if (&msg == sendCmd.get()) {
             User & u = users[dst];
             Simulator & sim = Simulator::getInstance();
-            shared_ptr<DispatchCommandMsg> dcm;
+            boost::shared_ptr<DispatchCommandMsg> dcm;
             Time now = sim.getCurrentTime();
             if (!u.repeat) {
                 dcm.reset(rg.generate(sim.getNode(dst), now));
@@ -496,7 +496,7 @@ public:
         sdb.appInstanceFinished(appId);
     }
 
-//    bool blockMessage(uint32_t src, uint32_t dst, const shared_ptr<BasicMsg> & msg) {
+//    bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) {
 //        // Ignore fail tolerance
 //        if (msg->getName() == "HeartbeatTimeout") return true;
 //        else if (msg->getName() == "MonitorTimer") return true;
@@ -514,5 +514,5 @@ REGISTER_SIMULATION_CASE(siteLevel);
 
 Duration siteLevel::User::morning((7*60 + 30) * 60.0), siteLevel::User::night((17*60 + 30) * 60.0);
 UniformVariable siteLevel::User::deltaVariable(-3600.0, 3600.0);
-shared_ptr<siteLevel::UserEvent> siteLevel::timer(new UserEvent);
-shared_ptr<siteLevel::SendJobEvent> siteLevel::sendCmd(new SendJobEvent);
+boost::shared_ptr<siteLevel::UserEvent> siteLevel::timer(new UserEvent);
+boost::shared_ptr<siteLevel::SendJobEvent> siteLevel::sendCmd(new SendJobEvent);

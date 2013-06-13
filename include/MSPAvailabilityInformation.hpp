@@ -83,7 +83,7 @@ public:
             double x, y, z1, z2;   // L = x/a + y*a + z1 + z2
         };
 
-        static const unsigned int minTaskLength = 1000;
+        enum: unsigned int { minTaskLength = 1000 };
 
         /// Default constructor
         LAFunction() {
