@@ -25,6 +25,7 @@
 #include "MSPAvailabilityInformation.hpp"
 #include "Time.hpp"
 
+using stars::MSPAvailabilityInformation;
 
 /**
  * \brief Resource request dispatcher for execution node requests.

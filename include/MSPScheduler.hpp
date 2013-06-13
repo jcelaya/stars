@@ -25,6 +25,8 @@
 #include "Scheduler.hpp"
 #include "MSPAvailabilityInformation.hpp"
 
+using stars::MSPAvailabilityInformation;
+using stars::TaskProxy;
 
 /**
  * \brief A fair scheduler that provides similar stretch to every application.

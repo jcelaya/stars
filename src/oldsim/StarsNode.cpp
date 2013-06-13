@@ -188,7 +188,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     IBPAvailabilityInformation::setMethod(property("aggregation_method", (int)IBPAvailabilityInformation::MINIMUM));
     MMPAvailabilityInformation::setMethod(property("aggregation_method", (int)MMPAvailabilityInformation::MINIMUM));
     DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
-    MSPAvailabilityInformation::setNumPieces(property("si_pieces", 64U));
+    stars::LAFunction::setNumPieces(property("si_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     MSPDispatcher::setBeta(property("msp_beta", 2.0));
     SimAppDatabase::reset();

@@ -25,6 +25,7 @@
 #include "ConfigurationManager.hpp"
 using std::vector;
 
+using stars::LAFunction;
 
 double MSPDispatcher::beta = 2.0;
 //int MSPDispatcher::estimations = 0;
@@ -126,16 +127,14 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     double minSlowness = INFINITY;
     Time now = Time::getCurrentTime();
     // Get the slowness functions of each branch that fulfills memory and disk requirements
-    std::vector<std::pair<MSPAvailabilityInformation::LAFunction *, unsigned int> > functions;
+    std::vector<std::pair<LAFunction *, unsigned int> > functions;
     if (leftChild.availInfo.get()) {
         LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << leftChild.addr << "): " << *leftChild.availInfo;
-        leftChild.availInfo->updateRkReference(now);
         leftChild.availInfo->getFunctions(req, functions);
     }
     rfStart = functions.size();
     if (rightChild.availInfo.get()) {
         LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << rightChild.addr << "): " << *rightChild.availInfo;
-        rightChild.availInfo->updateRkReference(now);
         rightChild.availInfo->getFunctions(req, functions);
     }
 

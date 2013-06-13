@@ -12,4 +12,5 @@ set(stars_sources ${stars_sources}
     scheduling/policies/MSPDispatcher.cpp
     scheduling/policies/MSPScheduler.cpp
     scheduling/policies/TaskProxy.cpp
+    scheduling/policies/LAFunction.cpp
     PARENT_SCOPE)

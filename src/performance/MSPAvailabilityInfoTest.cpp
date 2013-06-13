@@ -24,15 +24,17 @@
 #include "MSPScheduler.hpp"
 
 using stars::TaskProxy;
+using stars::LAFunction;
+using stars::MSPAvailabilityInformation;
 
 template<> struct Priv<MSPAvailabilityInformation> {
-    MSPAvailabilityInformation::LAFunction totalAvail;
-    MSPAvailabilityInformation::LAFunction maxAvail;
+    LAFunction totalAvail;
+    LAFunction maxAvail;
 };
 
 
 namespace {
-MSPAvailabilityInformation::LAFunction dummy;
+LAFunction dummy;
 
 
 double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, boost::random::mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
@@ -67,8 +69,8 @@ template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvai
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
-    const MSPAvailabilityInformation::LAFunction & maxL = s->getSummary()[0].maxL;
-    if (privateData.maxAvail == MSPAvailabilityInformation::LAFunction()) {
+    const LAFunction & maxL = s->getSummary()[0].maxL;
+    if (privateData.maxAvail == LAFunction()) {
         privateData.maxAvail = maxL;
     } else {
         privateData.maxAvail.max(privateData.maxAvail, maxL);
@@ -101,7 +103,7 @@ public:
 void performanceTest(const std::vector<int> & numClusters, int levels) {
     ClusteringVector<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
     unsigned int numpoints = 8;
-    MSPAvailabilityInformation::setNumPieces(numpoints);
+    LAFunction::setNumPieces(numpoints);
     ofstream ofmd("msp_mem_disk_slowness.stat");
     for (int j = 0; j < numClusters.size(); j++) {
         MSPAvailabilityInformation::setNumClusters(numClusters[j]);
@@ -114,8 +116,8 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            MSPAvailabilityInformation::LAFunction maxAvail, aggrAvail;
-            MSPAvailabilityInformation::LAFunction & totalAvail = const_cast<MSPAvailabilityInformation::LAFunction &>(t.getPrivateData().totalAvail);
+            LAFunction maxAvail, aggrAvail;
+            LAFunction & totalAvail = const_cast<LAFunction &>(t.getPrivateData().totalAvail);
             maxAvail.maxDiff(t.getPrivateData().maxAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
@@ -137,10 +139,10 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             {
                 // TODO: The accuracy is not linear...
                 double prevAccuracy = 100.0;
-                uint64_t prevA = MSPAvailabilityInformation::LAFunction::minTaskLength;
+                uint64_t prevA = LAFunction::minTaskLength;
                 double ah = totalAvail.getHorizon() * 1.2;
-                uint64_t astep = (ah - MSPAvailabilityInformation::LAFunction::minTaskLength) / 100;
-                for (uint64_t a = MSPAvailabilityInformation::LAFunction::minTaskLength; a < ah; a += astep) {
+                uint64_t astep = (ah - LAFunction::minTaskLength) / 100;
+                for (uint64_t a = LAFunction::minTaskLength; a < ah; a += astep) {
                     double maxAvailBeforeIt = maxAvail.getSlowness(a);
                     double totalAvailBeforeIt = maxAvailBeforeIt - totalAvail.getSlowness(a);
                     double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
@@ -152,7 +154,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
                     prevA = a;
                 }
 
-                meanAccuracy /= 2.0 * (ah - MSPAvailabilityInformation::LAFunction::minTaskLength);
+                meanAccuracy /= 2.0 * (ah - LAFunction::minTaskLength);
             }
             ofmd << "L," << (i + 1) << ',' << numClusters[j] << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << meanAccuracy << endl;
             ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
