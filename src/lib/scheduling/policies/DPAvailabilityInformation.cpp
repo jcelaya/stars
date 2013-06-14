@@ -688,7 +688,7 @@ void DPAvailabilityInformation::reduce() {
     memRange = maxM - minM;
     diskRange = maxD - minD;
     availRange = maxA.sqdiff(minA, aggregationTime, horizon);
-    summary.clusterize(numClusters);
+    summary.cluster(numClusters);
     size = summary.getSize();
     for (unsigned int i = 0; i < size; i++)
         summary[i].reduce();

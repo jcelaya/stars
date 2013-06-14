@@ -18,6 +18,7 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <utility>
 #include <list>
 #include "LAFunction.hpp"
 #include "Logger.hpp"
@@ -44,7 +45,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 
     // The new task
     curTasks.push_back(TaskProxy(minTaskLength, power, now));
-    for (TaskProxy::List::iterator i = curTasks.begin(); i != curTasks.end(); ++i)
+    for (auto i = curTasks.begin(); i != curTasks.end(); ++i)
         i->r = (i->rabs - now).seconds();
 
     while(true) {
@@ -53,7 +54,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
         vector<double> svCur(switchValues);
         if (!svCur.empty()) {
             // Add order change values for the new task
-            for (TaskProxy::List::iterator i = ++curTasks.begin(); i != curTasks.end(); ++i) {
+            for (auto i = ++curTasks.begin(); i != curTasks.end(); ++i) {
                 // The new task is the last in the vector
                 if (i->a != curTasks.back().a) {
                     double l = i->r / (curTasks.back().a - i->a);
@@ -99,11 +100,6 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
         TaskProxy::List::iterator tn1 = tn;
         ++tn1;
 
-//		std::ostringstream osstmp;
-//		for (size_t i = 0; i < curTasks.size(); ++i)
-//			osstmp << curTasks[i].id << ',';
-//		LogMsg("Ex.RI.Aggr", DEBUG) << "At " << curA << " maxTask is " << tm.id << " and the task order is " << osstmp.str();
-//
         // Calculate next interval based on the task that is setting the current minimum and its value
         // The current minimum slowness task is the new task
         if (tm == tn) {
@@ -113,13 +109,13 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 
             // See at which values of a other tasks mark the minimum slowness
             // Tasks before the new one
-            for (TaskProxy::List::iterator i = curTasks.begin(); i != tn; ++i) {
+            for (auto i = curTasks.begin(); i != tn; ++i) {
                 a = i->a * tm->tsum / (i->tsum - i->a / power - i->r);
                 if (a > curA && a < minA) minA = a;
             }
 
             // Tasks after the new one
-            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (auto i = tn1; i != curTasks.end(); ++i) {
                 c = tm->tsum * i->a * power;
                 b = (i->tsum - i->r) * power - i->a;
                 if (b*b + 4*c >= 0) {
@@ -160,7 +156,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
             if (a > curA && a < minA) minA = a;
 
             // Tasks after the new one
-            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (auto i = tn1; i != curTasks.end(); ++i) {
                 a = (i->a * (tm->tsum - tm->r) / tm->a - i->tsum + i->r) * power;
                 if (a > curA && a < minA) minA = a;
             }
@@ -181,7 +177,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 
             // See at which values of a other tasks mark the minimum slowness
             // Tasks before the new one
-            for (TaskProxy::List::iterator i = curTasks.begin(); i != tn; ++i) {
+            for (auto i = curTasks.begin(); i != tn; ++i) {
                 a = (tm->a * (i->tsum - i->r) / i->a - tm->tsum + tm->r) * power;
                 if (a > curA && a < minA) minA = a;
             }
@@ -195,7 +191,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
             }
 
             // Tasks after the new one
-            for (TaskProxy::List::iterator i = tn1; i != curTasks.end(); ++i) {
+            for (auto i = tn1; i != curTasks.end(); ++i) {
                 a = ((tm->tsum - tm->r) * i->a - (i->tsum - i->r) * tm->a) * power / (tm->a - i->a);
                 if (a > curA && a < minA) minA = a;
             }
@@ -234,11 +230,19 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 }
 
 
-template<int numF, class S> void LAFunction::stepper(const LAFunction * (&f)[numF], S & step) {
+struct StepInformation {
+    double * edges;
+    LAFunction::PieceVector::const_iterator * f;
+    int max;
+};
+
+template<int numF, typename Func> void LAFunction::stepper(const LAFunction * (&f)[numF], Func step) {
     // PRE: f size is numF, and numF >= 2, all functions have at least one piece
     double edges[4] = { minTaskLength, 0.0, 0.0, 0.0 };
     double & s = edges[0], e;
-    vector<std::pair<double, SubFunction> >::const_iterator cur[numF], next[numF];
+    StepInformation si;
+    PieceVector::const_iterator cur[numF], next[numF];
+    si.f = cur;
 
     for (unsigned int i = 0; i < numF; ++i) {
         next[i] = f[i]->pieces.begin();
@@ -294,9 +298,10 @@ template<int numF, class S> void LAFunction::stepper(const LAFunction * (&f)[num
                 }
             }
             edges[numEdges++] = e;
-            for (int i = 1; i < numEdges; ++i) {
-                double mid = edges[i] < INFINITY ? (edges[i - 1] + edges[i]) / 2.0 : edges[i - 1] + 1000.0;
-                step(edges[i - 1], edges[i], cur, c / mid + a * mid + b > 0 ? 0 : 1);
+            for (si.edges = edges; si.edges < edges + numEdges - 1; ++si.edges) {
+                double mid = si.edges[1] < INFINITY ? (si.edges[0] + si.edges[1]) / 2.0 : si.edges[0] + 1000.0;
+                si.max = c / mid + a * mid + b > 0 ? 0 : 1;
+                step(si);
             }
         }
         s = e;
@@ -306,88 +311,59 @@ template<int numF, class S> void LAFunction::stepper(const LAFunction * (&f)[num
 }
 
 
-struct LAFunction::minStep {
-    void operator()(double a, double b, const vector<std::pair<double, SubFunction> >::const_iterator f[2], int max) {
-        if (pieces.empty() || pieces.back().second != f[max ^ 1]->second)
-            pieces.push_back(make_pair(a, f[max ^ 1]->second));
-    }
-
-    std::vector<std::pair<double, LAFunction::SubFunction> > pieces;
-};
-
-
 void LAFunction::min(const LAFunction & l, const LAFunction & r) {
-    minStep step;
-    const LAFunction * f[] = {&l, &r};
-    stepper(f, step);
-    pieces.swap(step.pieces);
+    const LAFunction * functions[] = {&l, &r};
+    PieceVector somePieces;
+    stepper(functions, [&] (const StepInformation & si) {
+        if (somePieces.empty() || somePieces.back().second != si.f[si.max ^ 1]->second)
+            somePieces.push_back(make_pair(si.edges[0], si.f[si.max ^ 1]->second));
+    } );
+    pieces = std::move(somePieces);
 }
-
-
-struct LAFunction::maxStep {
-    void operator()(double a, double b, const vector<std::pair<double, SubFunction> >::const_iterator f[2], int max) {
-        if (pieces.empty() || pieces.back().second != f[max]->second)
-            pieces.push_back(make_pair(a, f[max]->second));
-    }
-
-    std::vector<std::pair<double, LAFunction::SubFunction> > pieces;
-};
 
 
 void LAFunction::max(const LAFunction & l, const LAFunction & r) {
-    maxStep step;
-    const LAFunction * f[] = {&l, &r};
-    stepper(f, step);
-    pieces.swap(step.pieces);
+    const LAFunction * functions[] = {&l, &r};
+    PieceVector somePieces;
+    stepper(functions, [&] (const StepInformation & si) {
+        if (somePieces.empty() || somePieces.back().second != si.f[si.max]->second)
+            somePieces.push_back(make_pair(si.edges[0], si.f[si.max]->second));
+    } );
+    pieces = std::move(somePieces);
 }
-
-
-struct LAFunction::maxDiffStep {
-    maxDiffStep(unsigned int lv, unsigned int rv) {
-        val[0] = lv;
-        val[1] = rv;
-    }
-
-    void operator()(double a, double b, const vector<std::pair<double, SubFunction> >::const_iterator f[4], int max) {
-        SubFunction sf(f[2]->second.x + f[3]->second.x + val[max^1] * (f[max]->second.x - f[max ^1]->second.x),
-                f[2]->second.y + f[3]->second.y + val[max^1] * (f[max]->second.y - f[max ^1]->second.y),
-                f[2]->second.z1 + f[3]->second.z1 + val[max^1] * (f[max]->second.z1 - f[max ^1]->second.z1),
-                f[2]->second.z2 + f[3]->second.z2 + val[max^1] * (f[max]->second.z2 - f[max ^1]->second.z2));
-        if (pieces.empty() || pieces.back().second != sf)
-            pieces.push_back(make_pair(a, sf));
-    }
-
-    unsigned int val[2];
-    std::vector<std::pair<double, LAFunction::SubFunction> > pieces;
-};
 
 
 void LAFunction::maxDiff(const LAFunction & l, const LAFunction & r,
         unsigned int lv, unsigned int rv, const LAFunction & maxL, const LAFunction & maxR) {
-    maxDiffStep step(lv, rv);
-    const LAFunction * f[] = {&l, &r, &maxL, &maxR};
-    stepper(f, step);
-    pieces.swap(step.pieces);
+    unsigned int val[2] = { lv, rv };
+    const LAFunction * functions[] = {&l, &r, &maxL, &maxR};
+    PieceVector somePieces;
+    stepper(functions, [&] (const StepInformation & si) {
+        SubFunction sf(si.f[2]->second.x + si.f[3]->second.x + val[si.max^1] * (si.f[si.max]->second.x - si.f[si.max ^1]->second.x),
+                si.f[2]->second.y + si.f[3]->second.y + val[si.max^1] * (si.f[si.max]->second.y - si.f[si.max ^1]->second.y),
+                si.f[2]->second.z1 + si.f[3]->second.z1 + val[si.max^1] * (si.f[si.max]->second.z1 - si.f[si.max ^1]->second.z1),
+                si.f[2]->second.z2 + si.f[3]->second.z2 + val[si.max^1] * (si.f[si.max]->second.z2 - si.f[si.max ^1]->second.z2));
+        if (somePieces.empty() || somePieces.back().second != sf)
+            somePieces.push_back(make_pair(si.edges[0], sf));
+    } );
+    pieces = std::move(somePieces);
 }
 
 
-struct LAFunction::sqdiffStep {
-    sqdiffStep(int lv, int rv, double _ah) : result(0.0), ah(_ah) {
-        val[0] = lv;
-        val[1] = rv;
-    }
+struct sqdiffStep {
+    sqdiffStep(int lv, int rv, double _ah) : val{ lv, rv }, result(0.0), ah(_ah) {}
 
-    void operator()(double a, double b, const vector<std::pair<double, SubFunction> >::const_iterator f[2], int max) {
-        if (b == INFINITY) b = ah;
-        I = max ^ 1;
-        u = f[max]->second.x - f[I]->second.x;
-        v = f[max]->second.y - f[I]->second.y;
-        w = f[max]->second.z1 - f[I]->second.z1 + f[max]->second.z2 - f[I]->second.z2;
-        ab = a*b;
-        ba = b - a;
-        ba2 = b*b - a*a;
-        ba3 = b*b*b - a*a*a;
-        fracba = b/a;
+    void operator()(const StepInformation & si) {
+        double b = si.edges[1] == INFINITY ? ah : si.edges[1];
+        I = si.max ^ 1;
+        u = si.f[si.max]->second.x - si.f[I]->second.x;
+        v = si.f[si.max]->second.y - si.f[I]->second.y;
+        w = si.f[si.max]->second.z1 - si.f[I]->second.z1 + si.f[si.max]->second.z2 - si.f[I]->second.z2;
+        ab = si.edges[0]*b;
+        ba = b - si.edges[0];
+        ba2 = b*b - si.edges[0]*si.edges[0];
+        ba3 = b*b*b - si.edges[0]*si.edges[0]*si.edges[0];
+        fracba = b/si.edges[0];
         // Compute v * int((f - f1)^2)
         double tmp = (u*u/ab + 2.0*u*v + w*w)*ba + w*v*ba2 + v*v*ba3/3.0 + 2.0*u*w*log(fracba);
         result += val[I] * tmp;
@@ -402,19 +378,25 @@ struct LAFunction::sqdiffStep {
 
 double LAFunction::sqdiff(const LAFunction & r, double ah) const {
     sqdiffStep step(1, 1, ah);
-    const LAFunction * f[] = {this, &r};
-    stepper(f, step);
+    const LAFunction * functions[] = {this, &r};
+    stepper(functions, [&] (const StepInformation & si) {
+        step(si);
+    } );
     return step.result;
 }
 
 
-struct LAFunction::maxAndLossStep {
-    maxAndLossStep(unsigned int lv, unsigned int rv, double _ah) : ss(lv, rv, _ah) {}
+double LAFunction::maxAndLoss(const LAFunction & l, const LAFunction & r, unsigned int lv, unsigned int rv,
+        const LAFunction & maxL, const LAFunction & maxR, double ah) {
+    sqdiffStep ss(lv, rv, ah);
+    const LAFunction * functions[] = {&l, &r, &maxL, &maxR};
+    PieceVector somePieces;
+    stepper(functions, [&] (const StepInformation & si) {
+        if (somePieces.empty() || somePieces.back().second != si.f[si.max]->second)
+            somePieces.push_back(make_pair(si.edges[0], si.f[si.max]->second));
 
-    void operator()(double a, double b, const vector<std::pair<double, SubFunction> >::const_iterator f[4], int max) {
-        ms(a, b, f, max);
-        ss(a, b, f, max);
-        int lin = 3 - max;
+        ss(si);
+        int lin = 3 - si.max;
         // Add 2 * v * int((f - f1)*(f1 - max))
 //		double u2 = f[ss.I]->second.x - f[lin]->second.x;
 //		double v2 = f[ss.I]->second.y - f[lin]->second.y;
@@ -422,30 +404,20 @@ struct LAFunction::maxAndLossStep {
 //		double tmp = ss.val[ss.I] * ((ss.u*u2/ss.ab + u2*ss.v + ss.u*v2 + ss.w*w2)*ss.ba + (ss.w*v2 + ss.v*w2)*ss.ba2/2.0 + ss.v*v2*ss.ba3/3.0 + (u2*ss.w + ss.u*w2)*log(ss.fracba));
 
         // Add 2 * int((f - f1)*(f1 - max_i(f1i)))
-        double u2 = f[lin]->second.x;
-        double v2 = f[lin]->second.y;
-        double w2 = f[lin]->second.z1 + f[lin]->second.z2;
-        double tmp = (ss.u*u2/ss.ab + u2*ss.v + ss.u*v2 + ss.w*w2)*ss.ba + (ss.w*v2 + ss.v*w2)*ss.ba2/2.0 + ss.v*v2*ss.ba3/3.0 + (u2*ss.w + ss.u*w2)*log(ss.fracba);
+        double u2 = si.f[lin]->second.x;
+        double v2 = si.f[lin]->second.y;
+        double w2 = si.f[lin]->second.z1 + si.f[lin]->second.z2;
+        double tmp = (ss.u*u2/ss.ab + u2*ss.v + ss.u*v2 + ss.w*w2)*ss.ba
+                + (ss.w*v2 + ss.v*w2)*ss.ba2/2.0 + ss.v*v2*ss.ba3/3.0
+                + (u2*ss.w + ss.u*w2)*log(ss.fracba);
         ss.result += 2.0 * tmp;
-    }
-
-    sqdiffStep ss;
-    maxStep ms;
-};
-
-
-double LAFunction::maxAndLoss(const LAFunction & l, const LAFunction & r, unsigned int lv, unsigned int rv,
-        const LAFunction & maxL, const LAFunction & maxR, double ah) {
-    maxAndLossStep step(lv, rv, ah);
-    const LAFunction * f[] = {&l, &r, &maxL, &maxR};
-    stepper(f, step);
-    pieces.swap(step.ms.pieces);
-    return step.ss.result;
+    } );
+    pieces = std::move(somePieces);
+    return ss.result;
 }
 
 
 // A search algorithm to find a good reduced solution
-namespace {
 struct ResultCost {
     LAFunction result;
     double cost;
@@ -455,21 +427,19 @@ struct ResultCost {
         return cost < r.cost;
     }
 };
-}
-
 
 double LAFunction::reduceMax(unsigned int v, double ah, unsigned int quality) {
     if (pieces.size() > numPieces) {
-        const LAFunction * f[] = {NULL, this};
+        const LAFunction * functions[] = {NULL, this};
         std::list<ResultCost> candidates(1);
         candidates.front().cost = 0.0;
         candidates.front().result = *this;
         while (candidates.front().result.pieces.size() > numPieces) {
             // Take next candidate and compute possibilities
-            vector<std::pair<double, SubFunction> > best;
+            PieceVector best;
             best.swap(candidates.front().result.pieces);
             candidates.pop_front();
-            for (vector<std::pair<double, SubFunction> >::iterator next = ++best.begin(), cur = next++, prev = best.begin();
+            for (PieceVector::iterator next = ++best.begin(), cur = next++, prev = best.begin();
                     cur != best.end(); prev = cur, cur = next++) {
                 candidates.push_back(ResultCost());
                 LAFunction & func = candidates.back().result;
@@ -485,9 +455,9 @@ double LAFunction::reduceMax(unsigned int v, double ah, unsigned int quality) {
                 func.pieces.push_back(make_pair(a, join));
                 // Maintain subfunctions from next to end
                 func.pieces.insert(func.pieces.end(), next, best.end());
-                f[0] = &func;
+                functions[0] = &func;
                 sqdiffStep ls(1, 1, ah);
-                stepper(f, ls);
+                stepper(functions, ls);
                 candidates.back().cost = ls.result;
                 // Retain only K best candidates, to reduce the exponential explosion of possibilities
                 candidates.sort();
@@ -495,7 +465,7 @@ double LAFunction::reduceMax(unsigned int v, double ah, unsigned int quality) {
                     candidates.pop_back();
             }
         }
-        pieces.swap(candidates.front().result.pieces);
+        pieces = std::move(candidates.front().result.pieces);
         return v * candidates.front().cost;
     }
     return 0.0;
@@ -503,37 +473,15 @@ double LAFunction::reduceMax(unsigned int v, double ah, unsigned int quality) {
 
 
 double LAFunction::getSlowness(uint64_t a) const {
-    vector<std::pair<double, SubFunction> >::const_iterator next = pieces.begin(), it = next++;
+    PieceVector::const_iterator next = pieces.begin(), it = next++;
     while (next != pieces.end() && next->first < a) it = next++;
     return it->second.value(a);
 }
 
 
 double LAFunction::estimateSlowness(uint64_t a, unsigned int n) const {
-    vector<std::pair<double, SubFunction> >::const_iterator next = pieces.begin(), it = next++;
+    PieceVector::const_iterator next = pieces.begin(), it = next++;
     while (next != pieces.end() && next->first < a) it = next++;
-    // FIXME: Since functions do not need to be continuous, limits are not adjusted
-//    while (next != pieces.end()) {
-//        // Recalculate the limit
-//        double alpha = n * (it->second.y - next->second.y);
-//        double b = n * (it->second.z1 - next->second.z1) + it->second.z2 - next->second.z2;
-//        double c = it->second.x - next->second.x;
-//        double limit = next->first;
-//        if (alpha == 0.0) {
-//            if (b != 0)
-//                limit = -c / b + 1.0;
-//        } else if (b*b - 4.0*alpha*c >= 0) {
-//            if (alpha < 0.0)
-//                limit = (-b - std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-//            else
-//                limit = (-b + std::sqrt(b*b - 4.0*alpha*c)) / (2.0*alpha) + 1.0;
-//        }
-//        // Calculate the limit only if the function was continuous?
-//        // If the limit is still before a, advance
-//        if (limit < a)
-//            it = next++;
-//        else break;
-//    }
     return it->second.value(a, n);
 }
 

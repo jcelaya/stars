@@ -59,6 +59,8 @@ public:
         double x, y, z1, z2;   // L = x/a + y*a + z1 + z2
     };
 
+    typedef std::vector<std::pair<double, SubFunction> > PieceVector;
+
     enum { minTaskLength = 1000 };
 
     /// Sets the number of reference points in each function.
@@ -177,19 +179,12 @@ public:
     MSGPACK_DEFINE(pieces);
 private:
     // Steps through all the intervals of a pair of functions
-    template<int numF, class S> static void stepper(const LAFunction * (&f)[numF], S & step);
+    template<int numF, typename Func> static void stepper(const LAFunction * (&f)[numF], Func step);
 
     static unsigned int numPieces;
 
-    // Steppers for the stepper method
-    struct minStep;
-    struct maxStep;
-    struct sqdiffStep;
-    struct maxDiffStep;
-    struct maxAndLossStep;
-
     /// Piece set
-    std::vector<std::pair<double, SubFunction> > pieces;
+    PieceVector pieces;
 };
 
 } // namespace stars

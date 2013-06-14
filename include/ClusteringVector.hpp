@@ -155,7 +155,7 @@ public:
         buffer.reset(tmp);
     }
 
-    void clusterize(size_t limit) {
+    void cluster(size_t limit) {
         bool useFar = false;
         // Check if we need to perform clustering
         while (size > limit) {

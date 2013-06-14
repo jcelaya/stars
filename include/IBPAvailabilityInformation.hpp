@@ -181,7 +181,7 @@ public:
     void reduce() {
         for (unsigned int i = 0; i < summary.getSize(); i++)
             summary[i].setReference(this);
-        summary.clusterize(numClusters);
+        summary.cluster(numClusters);
     }
 
     // This is documented in AvailabilityInformation.h

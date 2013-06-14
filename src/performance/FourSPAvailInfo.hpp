@@ -162,7 +162,7 @@ public:
     void reduce() {
         for (unsigned int i = 0; i < summary.getSize(); i++)
             summary[i].setReference(this);
-        summary.clusterize(numClusters);
+        summary.cluster(numClusters);
     }
 
     bool operator==(const FourSPAvailInfo & r) const {
