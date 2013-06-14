@@ -18,10 +18,12 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <fstream>
 #include <sstream>
 #include "AggregationTest.hpp"
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
+#include "../sim/MemoryManager.hpp"
 
 using stars::TaskProxy;
 using stars::LAFunction;
@@ -69,7 +71,7 @@ template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvai
     vector<double> lBounds;
     double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
     s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
-    const LAFunction & maxL = s->getSummary()[0].maxL;
+    const LAFunction & maxL = s->getSummary().front().maxL;
     if (privateData.maxAvail == LAFunction()) {
         privateData.maxAvail = maxL;
     } else {
@@ -101,7 +103,7 @@ public:
 
 
 void performanceTest(const std::vector<int> & numClusters, int levels) {
-    ClusteringVector<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
+    stars::ClusteringList<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
     unsigned int numpoints = 8;
     LAFunction::setNumPieces(numpoints);
     ofstream ofmd("msp_mem_disk_slowness.stat");
@@ -110,9 +112,12 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
         ofmd << "# " << numClusters[j] << " clusters" << endl;
         LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<MSPAvailabilityInformation> t;
+        MemoryManager::getInstance().setUpdateDuration(0.0);
+        unsigned long int initialMemory = MemoryManager::getInstance().getUsedMemory();
         for (int i = 0; i < levels; i++) {
             LogMsg("Progress", WARN) << i << " levels";
             boost::shared_ptr<MSPAvailabilityInformation> result = t.test(i);
+            LogMsg("Progress", WARN) << i << " levels used " << MemoryManager::getInstance().getUsedMemory() << " bytes.";
 
             unsigned long int minMem = t.getNumNodes() * t.min_mem;
             unsigned long int minDisk = t.getNumNodes() * t.min_disk;
@@ -122,9 +127,8 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
-                const ClusteringVector<MSPAvailabilityInformation::MDLCluster> & clusters = result->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const MSPAvailabilityInformation::MDLCluster & u = clusters[j];
+                const stars::ClusteringList<MSPAvailabilityInformation::MDLCluster> & clusters = result->getSummary();
+                for (auto & u : clusters) {
                     aggrMem += (unsigned long int)u.minM * u.value;
                     aggrDisk += (unsigned long int)u.minD * u.value;
                     aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);

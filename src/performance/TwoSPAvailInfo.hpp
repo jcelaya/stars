@@ -21,7 +21,7 @@
 #define TWOSPAVAILINFO_HPP_
 
 #include "AvailabilityInformation.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
 #include "ScalarParameter.hpp"
 
@@ -86,7 +86,7 @@ public:
         MSGPACK_DEFINE(value, minM, minD);
 
     private:
-        friend class ClusteringVector<Cluster>;
+        friend class stars::ClusteringList<Cluster>;
 
         TwoSPAvailInfo * reference;
 
@@ -114,8 +114,8 @@ public:
     }
 
     void join(const TwoSPAvailInfo & r) {
-        if (!r.summary.isEmpty()) {
-            if (summary.isEmpty()) {
+        if (!r.summary.empty()) {
+            if (summary.empty()) {
                 // operator= forbidden
                 memoryRange = r.memoryRange;
                 diskRange = r.diskRange;
@@ -123,13 +123,13 @@ public:
                 memoryRange.extend(r.memoryRange);
                 diskRange.extend(r.diskRange);
             }
-            summary.add(r.summary);
+            summary.insert(summary.end(), r.summary.begin(), r.summary.end());
         }
     }
 
     void reduce() {
-        for (unsigned int i = 0; i < summary.getSize(); i++)
-            summary[i].setReference(this);
+        for (auto & i : summary)
+            i.setReference(this);
         summary.cluster(numClusters);
     }
 
@@ -138,9 +138,9 @@ public:
     }
 
     void getAvailability(std::list<Cluster *> & clusters, const TaskDescription & req) {
-        for (unsigned int i = 0; i < summary.getSize(); i++) {
-            if (summary[i].fulfills(req)) {
-                clusters.push_back(&summary[i]);
+        for (auto & i : summary) {
+            if (i.fulfills(req)) {
+                clusters.push_back(&i);
             }
         }
     }
@@ -150,14 +150,14 @@ public:
     }
 
     void addNode(uint32_t mem, uint32_t disk) {
-        if (summary.isEmpty()) {
+        if (summary.empty()) {
             memoryRange.setLimits(mem);
             diskRange.setLimits(disk);
         } else {
             memoryRange.extend(mem);
             diskRange.extend(disk);
         }
-        summary.pushBack(Cluster(this, mem, disk));
+        summary.push_back(Cluster(this, mem, disk));
     }
 
     void output(std::ostream& os) const {
@@ -169,7 +169,7 @@ public:
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    ClusteringVector<Cluster> summary;
+    stars::ClusteringList<Cluster> summary;
     Interval<int32_t> memoryRange;
     Interval<int32_t> diskRange;
 };

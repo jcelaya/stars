@@ -631,8 +631,8 @@ void DPAvailabilityInformation::MDFCluster::reduce() {
 
 void DPAvailabilityInformation::addNode(uint32_t mem, uint32_t disk, double power, const std::list<Time> & p) {
     MDFCluster tmp(this, mem, disk, power, p);
-    summary.pushBack(tmp);
-    if (summary.getSize() == 1) {
+    summary.push_back(tmp);
+    if (summary.size() == 1) {
         minM = maxM = mem;
         minD = maxD = disk;
         minA = maxA = tmp.minA;
@@ -650,10 +650,10 @@ void DPAvailabilityInformation::addNode(uint32_t mem, uint32_t disk, double powe
 
 
 void DPAvailabilityInformation::join(const DPAvailabilityInformation & r) {
-    if (!r.summary.isEmpty()) {
+    if (!r.summary.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
 
-        if (summary.isEmpty()) {
+        if (summary.empty()) {
             // operator= forbidden
             minM = r.minM;
             maxM = r.maxM;
@@ -671,27 +671,25 @@ void DPAvailabilityInformation::join(const DPAvailabilityInformation & r) {
             maxA.max(maxA, r.maxA);
             if (horizon < r.horizon) horizon = r.horizon;
         }
-        summary.add(r.summary);
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].setReference(this);
+        summary.insert(summary.end(), r.summary.begin(), r.summary.end());
+//        unsigned int size = summary.getSize();
+//        for (unsigned int i = 0; i < size; i++)
+//            summary[i].setReference(this);
     }
 }
 
 
 void DPAvailabilityInformation::reduce() {
-    unsigned int size = summary.getSize();
-    for (unsigned int i = 0; i < size; i++)
-        summary[i].setReference(this);
+    for (auto & i : summary)
+        i.setReference(this);
     // Set up clustering variables
     aggregationTime = Time::getCurrentTime();
     memRange = maxM - minM;
     diskRange = maxD - minD;
     availRange = maxA.sqdiff(minA, aggregationTime, horizon);
     summary.cluster(numClusters);
-    size = summary.getSize();
-    for (unsigned int i = 0; i < size; i++)
-        summary[i].reduce();
+       for (auto & i : summary)
+        i.reduce();
 }
 
 
@@ -700,14 +698,14 @@ void DPAvailabilityInformation::getAvailability(list<AssignmentInfo> & ai, const
     Time now = Time::getCurrentTime();
     if (desc.getDeadline() > now) {
         // Make a list of suitable cells
-        for (size_t i = 0; i < summary.getSize(); i++) {
-            unsigned long int avail = summary[i].minA.getAvailabilityBefore(desc.getDeadline());
-            unsigned int availNow = summary[i].minA.getAvailabilityBefore(now);
+        for (auto & i : summary) {
+            unsigned long int avail = i.minA.getAvailabilityBefore(desc.getDeadline());
+            unsigned int availNow = i.minA.getAvailabilityBefore(now);
             avail = avail > availNow ? avail - availNow : 0;
-            if (summary[i].value > 0 && avail >= desc.getLength() && summary[i].minM >= desc.getMaxMemory() && summary[i].minD >= desc.getMaxDisk()) {
+            if (i.value > 0 && avail >= desc.getLength() && i.minM >= desc.getMaxMemory() && i.minD >= desc.getMaxDisk()) {
                 unsigned int numTasks = avail / desc.getLength();
                 unsigned long int restAvail = avail % desc.getLength();
-                ai.push_back(AssignmentInfo(i, summary[i].value * numTasks, summary[i].minM - desc.getMaxMemory(), summary[i].minD - desc.getMaxDisk(), restAvail));
+                ai.push_back(AssignmentInfo(const_cast<MDFCluster *>(&i), i.value * numTasks, i.minM - desc.getMaxMemory(), i.minD - desc.getMaxDisk(), restAvail));
             }
         }
     }
@@ -717,7 +715,7 @@ void DPAvailabilityInformation::getAvailability(list<AssignmentInfo> & ai, const
 void DPAvailabilityInformation::update(const list<DPAvailabilityInformation::AssignmentInfo> & ai, const TaskDescription & desc) {
     // For each cluster
     for (list<AssignmentInfo>::const_iterator it = ai.begin(); it != ai.end(); it++) {
-        MDFCluster & cluster = summary[it->cluster];
+        MDFCluster & cluster = *it->cluster;
         double avail = cluster.minA.getAvailabilityBefore(desc.getDeadline());
         uint64_t tasksPerNode = avail / desc.getLength();
         if (tasksPerNode > 0) {
@@ -735,7 +733,7 @@ void DPAvailabilityInformation::update(const list<DPAvailabilityInformation::Ass
             else
                 tmp.minA.update(desc.getLength() * tasksPerNode, desc.getDeadline(), horizon);
 
-            summary.pushBack(tmp);
+            summary.push_back(tmp);
             minA.min(minA, tmp.minA);
         }
     }
@@ -743,6 +741,6 @@ void DPAvailabilityInformation::update(const list<DPAvailabilityInformation::Ass
 
 
 void DPAvailabilityInformation::output(std::ostream& os) const {
-    for (size_t i = 0; i < summary.getSize(); i++)
-        os << "(" << summary[i] << ')';
+    for (auto & i : summary)
+        os << "(" << i << ')';
 }

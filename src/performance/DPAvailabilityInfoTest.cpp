@@ -18,6 +18,7 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <fstream>
 #include "AggregationTest.hpp"
 #include "DPAvailabilityInformation.hpp"
 //using namespace boost;
@@ -59,7 +60,7 @@ template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvaila
     list<Time> q;
     createRandomLAF(n.power, gen, q);
     result->addNode(n.mem, n.disk, n.power, q);
-    const DPAvailabilityInformation::ATFunction & minA = result->getSummary()[0].minA;
+    const DPAvailabilityInformation::ATFunction & minA = result->getSummary().front().minA;
     if (privateData.minAvail.getSlope() == 0.0)
         privateData.minAvail = minA;
     else
@@ -71,7 +72,7 @@ template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvaila
 
 void performanceTest(const std::vector<int> & numClusters, int levels) {
     refTime = Time::getCurrentTime();
-    ClusteringVector<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
+    stars::ClusteringList<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
     unsigned int numpoints = 10;
     DPAvailabilityInformation::setNumRefPoints(numpoints);
     ofstream ofmd("dp_mem_disk_avail.stat");
@@ -94,9 +95,8 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
 
             unsigned long int aggrMem = 0, aggrDisk = 0;
             {
-                const ClusteringVector<DPAvailabilityInformation::MDFCluster> & clusters = result->getSummary();
-                for (size_t j = 0; j < clusters.getSize(); j++) {
-                    const DPAvailabilityInformation::MDFCluster & u = clusters[j];
+                const stars::ClusteringList<DPAvailabilityInformation::MDFCluster> & clusters = result->getSummary();
+                for (auto & u : clusters) {
                     aggrMem += (unsigned long int)u.minM * u.value;
                     aggrDisk += (unsigned long int)u.minD * u.value;
                     aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);

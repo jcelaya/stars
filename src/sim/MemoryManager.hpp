@@ -32,6 +32,7 @@ class MemoryManager {
     pid_t pid;
     char pidText[20], * p;
     boost::posix_time::ptime nextUpdate;
+    boost::posix_time::time_duration updateDuration;
     boost::mutex m;
 
     MemoryManager();
@@ -57,6 +58,10 @@ public:
     unsigned long int getMaxUsedMemory() {
         update();
         return maxUsed;
+    }
+
+    void setUpdateDuration(double seconds) {
+        updateDuration = boost::posix_time::microseconds(seconds * 1000000.0);
     }
 
     void reset() {

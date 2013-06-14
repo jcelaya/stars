@@ -18,6 +18,7 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <fstream>
 #include "AggregationTest.hpp"
 #include "MMPAvailabilityInformation.hpp"
 //using namespace boost;

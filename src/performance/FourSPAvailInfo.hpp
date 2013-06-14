@@ -21,7 +21,7 @@
 #define FOURSPAVAILINFO_HPP_
 
 #include "AvailabilityInformation.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
 #include "ScalarParameter.hpp"
 
@@ -101,7 +101,7 @@ public:
         MSGPACK_DEFINE(value, minM, minD, minS, maxQ);
 
     private:
-        friend class ClusteringVector<Cluster>;
+        friend class stars::ClusteringList<Cluster>;
 
         FourSPAvailInfo * reference;
 
@@ -138,12 +138,12 @@ public:
         diskRange.setLimits(disk);
         powerRange.setLimits(power);
         queueRange.setLimits(end.seconds());
-        summary.pushBack(Cluster(this, mem, disk, power, end));
+        summary.push_back(Cluster(this, mem, disk, power, end));
     }
 
     void join(const FourSPAvailInfo & r) {
-        if (!r.summary.isEmpty()) {
-            if (summary.isEmpty()) {
+        if (!r.summary.empty()) {
+            if (summary.empty()) {
                 // operator= forbidden
                 memoryRange = r.memoryRange;
                 diskRange = r.diskRange;
@@ -155,13 +155,13 @@ public:
                 powerRange.extend(r.powerRange);
                 queueRange.extend(r.queueRange);
             }
-            summary.add(r.summary);
+            summary.insert(summary.begin(), r.summary.begin(), r.summary.end());
         }
     }
 
     void reduce() {
-        for (unsigned int i = 0; i < summary.getSize(); i++)
-            summary[i].setReference(this);
+        for (auto & i : summary)
+            i.setReference(this);
         summary.cluster(numClusters);
     }
 
@@ -170,9 +170,9 @@ public:
     }
 
     void getAvailability(std::list<Cluster *> & clusters, const TaskDescription & req) {
-        for (unsigned int i = 0; i < summary.getSize(); i++) {
-            if (summary[i].fulfills(req)) {
-                clusters.push_back(&summary[i]);
+        for (auto & i : summary) {
+            if (i.fulfills(req)) {
+                clusters.push_back(&i);
             }
         }
     }
@@ -190,7 +190,7 @@ public:
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    ClusteringVector<Cluster> summary;
+    stars::ClusteringList<Cluster> summary;
     Interval<int32_t> memoryRange;
     Interval<int32_t> diskRange;
     Interval<int32_t> powerRange;

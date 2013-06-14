@@ -31,9 +31,7 @@
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 using namespace std;
-//using namespace boost;
 using namespace boost::posix_time;
-//using namespace boost::random;
 
 template<class T> struct Priv;
 

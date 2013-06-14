@@ -18,9 +18,11 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <fstream>
 #include "AggregationTest.hpp"
 #include "IBPAvailabilityInformation.hpp"
 #include "Logger.hpp"
+#include "../sim/MemoryManager.hpp"
 
 
 template<> struct Priv<IBPAvailabilityInformation> {};
@@ -41,6 +43,8 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
         ofmd << "# " << numClusters[j] << " clusters" << endl;
         LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
         AggregationTest<IBPAvailabilityInformation> t;
+        MemoryManager::getInstance().setUpdateDuration(0.0);
+        unsigned long int initialMemory = MemoryManager::getInstance().getUsedMemory();
         for (int i = 0; i < levels; ++i) {
             LogMsg("Progress", WARN) << i << " levels";
             list<IBPAvailabilityInformation::MDCluster *> clusters;
@@ -48,6 +52,7 @@ void performanceTest(const std::vector<int> & numClusters, int levels) {
             dummy.setMaxMemory(0);
             dummy.setMaxDisk(0);
             boost::shared_ptr<IBPAvailabilityInformation> result = t.test(i);
+            LogMsg("Progress", WARN) << i << " levels used " << MemoryManager::getInstance().getUsedMemory() << " bytes.";
             result->getAvailability(clusters, dummy);
             // Do not calculate total information and then aggregate, it is not very useful
             unsigned long int aggrMem = 0, aggrDisk = 0;

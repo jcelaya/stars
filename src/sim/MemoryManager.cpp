@@ -25,8 +25,9 @@
 #include "MemoryManager.hpp"
 
 
-MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(sysconf(_SC_PAGESIZE)),
-        pid(getpid()), nextUpdate(boost::posix_time::microsec_clock::local_time() - boost::posix_time::seconds(1)) {
+MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(getpid()),
+        nextUpdate(boost::posix_time::microsec_clock::local_time() - boost::posix_time::seconds(1)),
+        updateDuration(boost::posix_time::seconds(5)) {
     p = &pidText[14];
     strcpy(p--, "/stat");
     while (pid > 0) {
@@ -54,6 +55,6 @@ void MemoryManager::update() {
         current *= pagesize;
         if (maxUsed < current) maxUsed = current;
 
-        nextUpdate = now + boost::posix_time::seconds(5);
+        nextUpdate = now + updateDuration;
     }
 }

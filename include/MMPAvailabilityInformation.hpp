@@ -24,7 +24,7 @@
 #include <cmath>
 #include "Time.hpp"
 #include "AvailabilityInformation.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
 
 
@@ -120,9 +120,9 @@ public:
     }
     MMPAvailabilityInformation(const MMPAvailabilityInformation & copy) : AvailabilityInformation(copy), maxQueue(copy.maxQueue), summary(copy.summary), minM(copy.minM),
             maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minP(copy.minP), maxP(copy.maxP), minT(copy.minT), maxT(copy.maxT) {
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].setReference(this);
+//        unsigned int size = summary.getSize();
+//        for (unsigned int i = 0; i < size; i++)
+//            summary[i].setReference(this);
     }
 
     static void setMethod(int method) {
@@ -164,8 +164,8 @@ public:
     void join(const MMPAvailabilityInformation & o);
 
     virtual void reduce() {
-        for (unsigned int i = 0; i < summary.getSize(); i++)
-            summary[i].setReference(this);
+        for (auto & i : summary)
+            i.setReference(this);
         summary.cluster(numClusters);
     }
 
@@ -200,7 +200,7 @@ private:
     static unsigned int numIntervals;
     static int aggrMethod;
     Time maxQueue;
-    ClusteringVector<MDPTCluster> summary;   ///< List clusters representing queues
+    stars::ClusteringList<MDPTCluster> summary;   ///< List clusters representing queues
     uint32_t minM, maxM, minD, maxD, minP, maxP;
     Time minT, maxT;
 };

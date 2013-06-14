@@ -28,7 +28,7 @@
 #include <ostream>
 #include <boost/shared_ptr.hpp>
 #include "AvailabilityInformation.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 #include "Time.hpp"
 #include "TaskDescription.hpp"
 #include "TaskProxy.hpp"
@@ -118,7 +118,7 @@ public:
         numIntervals = (unsigned int)floor(cbrt(c));
     }
 
-    const ClusteringVector<MDLCluster> & getSummary() const {
+    const ClusteringList<MDLCluster> & getSummary() const {
         return summary;
     }
 
@@ -192,18 +192,14 @@ private:
     /// Copy constructor, sets the reference to the newly created object.
     MSPAvailabilityInformation(const MSPAvailabilityInformation & copy) : AvailabilityInformation(copy), summary(copy.summary), minM(copy.minM),
             maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minL(copy.minL), maxL(copy.maxL), lengthHorizon(copy.lengthHorizon),
-            minimumSlowness(copy.minimumSlowness), maximumSlowness(copy.maximumSlowness) {
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].reference = this;
-    }
+            minimumSlowness(copy.minimumSlowness), maximumSlowness(copy.maximumSlowness) {}
 
     MSPAvailabilityInformation & operator=(const MSPAvailabilityInformation & copy) {}
 
     static unsigned int numClusters;
     static unsigned int numIntervals;
 
-    ClusteringVector<MDLCluster> summary;   ///< List of clusters representing queues and their availability
+    ClusteringList<MDLCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
     LAFunction minL, maxL;                  ///< Minimum and maximum values of availability
     double lengthHorizon;                   ///< Last meaningful task length

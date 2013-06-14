@@ -1,16 +1,18 @@
-CONFIG?=Debug
+CONFIG ?= Debug
+BUILD_DIR ?= build
+MAKEFILE_PATH := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
-all: build/$(CONFIG)/Makefile
-	$(MAKE) -C build/$(CONFIG)
+all: $(BUILD_DIR)/$(CONFIG)/Makefile
+	$(MAKE) -C $(BUILD_DIR)/$(CONFIG)
 
-build/$(CONFIG)/Makefile: build/$(CONFIG)
-	cmake -E chdir build/$(CONFIG) cmake -G "Unix Makefiles" ../../ -DCMAKE_BUILD_TYPE:STRING=$(CONFIG)
+$(BUILD_DIR)/$(CONFIG)/Makefile: $(BUILD_DIR)/$(CONFIG)
+	cmake -E chdir $(BUILD_DIR)/$(CONFIG) cmake -G "Unix Makefiles" $(MAKEFILE_PATH) -DCMAKE_BUILD_TYPE:STRING=$(CONFIG)
 
-build/$(CONFIG):
-	mkdir -p build/$(CONFIG)
+$(BUILD_DIR)/$(CONFIG):
+	mkdir -p $(BUILD_DIR)/$(CONFIG)
 
 .PHONY: clean
 
 clean:
-	rm -fr build/$(CONFIG)
+	rm -fr $(BUILD_DIR)/$(CONFIG)
 	

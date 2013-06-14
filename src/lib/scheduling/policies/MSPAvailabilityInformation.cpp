@@ -125,17 +125,16 @@ void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const T
     minD = maxD = d;
     minimumSlowness = maximumSlowness = minSlowness;
     summary.clear();
-    summary.pushBack(MDLCluster(this, m, d, curTasks, switchValues, power));
-    minL = maxL = summary[0].maxL;
+    summary.push_back(MDLCluster(this, m, d, curTasks, switchValues, power));
+    minL = maxL = summary.front().maxL;
     lengthHorizon = minL.getHorizon();
 }
 
 
 void MSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f) {
-    unsigned int size = summary.getSize();
-    for (unsigned int i = 0; i < size; ++i)
-        if (summary[i].fulfills(req))
-            f.push_back(std::make_pair(&summary[i].maxL, summary[i].value));
+    for (auto & i : summary)
+        if (i.fulfills(req))
+            f.push_back(std::make_pair(&i.maxL, i.value));
 }
 
 
@@ -145,10 +144,10 @@ double MSPAvailabilityInformation::getSlowestMachine() const {
 
 
 void MSPAvailabilityInformation::join(const MSPAvailabilityInformation & r) {
-    if (!r.summary.isEmpty()) {
+    if (!r.summary.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
 
-        if (summary.isEmpty()) {
+        if (summary.empty()) {
             // operator= forbidden
             minM = r.minM;
             maxM = r.maxM;
@@ -159,7 +158,6 @@ void MSPAvailabilityInformation::join(const MSPAvailabilityInformation & r) {
             lengthHorizon = r.lengthHorizon;
             minimumSlowness = r.minimumSlowness;
             maximumSlowness = r.maximumSlowness;
-            summary.add(r.summary);
         } else {
             if (minM > r.minM) minM = r.minM;
             if (maxM < r.maxM) maxM = r.maxM;
@@ -173,11 +171,8 @@ void MSPAvailabilityInformation::join(const MSPAvailabilityInformation & r) {
                 minimumSlowness = r.minimumSlowness;
             if (maximumSlowness < r.maximumSlowness)
                 maximumSlowness = r.maximumSlowness;
-            summary.add(r.summary);
         }
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].reference = this;
+        summary.insert(summary.end(), r.summary.begin(), r.summary.end());
     }
 }
 
@@ -187,10 +182,11 @@ void MSPAvailabilityInformation::reduce() {
     memRange = maxM - minM;
     diskRange = maxD - minD;
     slownessRange = maxL.sqdiff(minL, lengthHorizon);
+    for (auto & i : summary)
+        i.reference = this;
     summary.cluster(numClusters);
-    unsigned int size = summary.getSize();
-    for (unsigned int i = 0; i < size; i++)
-        summary[i].reduce();
+    for (auto & i : summary)
+        i.reduce();
 }
 
 
@@ -199,8 +195,8 @@ void MSPAvailabilityInformation::output(std::ostream & os) const {
     os << '(' << minM << "MB, " << maxM << "MB) ";
     os << '(' << minD << "MB, " << maxD << "MB) ";
     os << '(' << minL << ", " << maxL << ") (";
-    for (unsigned int i = 0; i < summary.getSize(); i++)
-        os << summary[i] << ',';
+    for (auto & i : summary)
+        os << i << ',';
     os << ')';
 }
 

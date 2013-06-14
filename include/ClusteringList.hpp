@@ -18,20 +18,18 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CLUSTERINGVECTOR_H_
-#define CLUSTERINGVECTOR_H_
+#ifndef CLUSTERINGLIST_HPP_
+#define CLUSTERINGLIST_HPP_
 
-#include <utility>
-#include <algorithm>
-#include <fstream>
-#include <limits>
+#include <list>
 #include <boost/scoped_array.hpp>
-#include <msgpack.hpp>
 #include "Logger.hpp"
 
 
+namespace stars {
+
 /**
- * \brief Defines a vector of sample clusters
+ * \brief Defines a list of sample clusters
  *
  * A sample cluster is a class/struct with, at least:
  * <ul>
@@ -43,125 +41,30 @@
  *     <li>Serializable interface</li>
  * </ul>
  */
-template<class T> class ClusteringVector {
+template<class T> class ClusteringList : public std::list<T> {
 public:
     static void setDistVectorSize(unsigned int k) {
         K = k;
     }
 
-    ClusteringVector() : size(0) {}
-
-    /// Construct an uninitialized vector
-    ClusteringVector(size_t newSize) : size(newSize) {
-        if (size > 0) {
-            buffer.reset(new T[size]);
-        }
-    }
-
-    ClusteringVector(const ClusteringVector<T> & copy) : size(copy.size) {
-        if (size > 0) {
-            buffer.reset(new T[size]);
-            std::copy(copy.buffer.get(), copy.buffer.get() + size, buffer.get());
-        }
-    }
-
-    ClusteringVector & operator=(const ClusteringVector<T> & copy) {
-        size = copy.size;
-        if (size > 0) {
-            buffer.reset(new T[size]);
-            std::copy(copy.buffer.get(), copy.buffer.get() + size, buffer.get());
-        } else buffer.reset();
-        return *this;
-    }
-
-    size_t getSize() const {
-        return size;
-    }
-
-    const T & operator[](size_t i) const {
-        return buffer[i];
-    }
-    T & operator[](size_t i) {
-        return buffer[i];
-    }
-
-    void clear() {
-        buffer.reset();
-        size = 0;
-    }
-
-    bool isEmpty() const {
-        return size == 0;
-    }
-
-    bool operator==(const ClusteringVector<T> & r) const {
-        if (size != r.size) return false;
-        else
-            for (size_t i = 0; i < size; i++)
-                if (!(buffer[i] == r.buffer[i])) return false;
-        return true;
-    }
-
-    void add(const ClusteringVector<T> & r) {
-        if (r.size == 0) return;
-        T * tmp = new T[size + r.size];
-        std::copy(buffer.get(), buffer.get() + size, tmp);
-        std::copy(r.buffer.get(), r.buffer.get() + r.size, tmp + size);
-        size += r.size;
-        if (size > 1000000) {
-            LogMsg("Ex.RI.Aggr", WARN) << "Cluster vector size over 1000000 after adding vector, is it correct??";
-        }
-        buffer.reset(tmp);
-    }
-
-    void merge(const ClusteringVector<T> & r) {
-        if (r.size == 0) return;
-        T * tmp = new T[size + r.size];
-        std::merge(buffer.get(), buffer.get() + size, r.buffer.get(), r.buffer.get() + r.size, tmp);
-        size += r.size;
-        if (size > 1000000) {
-            LogMsg("Ex.RI.Aggr", WARN) << "Cluster vector size over 1000000 after adding vector, is it correct??";
-        }
-        buffer.reset(tmp);
-    }
-
-    void pushBack(const T & t) {
-        T * tmp = new T[size + 1];
-        std::copy(buffer.get(), buffer.get() + size, tmp);
-        tmp[size] = t;
-        size++;
-        if (size > 1000000) {
-            LogMsg("Ex.RI.Aggr", WARN) << "Cluster vector size over 1000000 after adding element, is it correct??";
-        }
-        buffer.reset(tmp);
-    }
-
     void purge() {
         // Remove clusters with value equal to zero
-        if (size == 0) return;
-        size_t zeroes = 0;
-        for (T * i = buffer.get(); i < buffer.get() + size; i++)
-            if (i->value == 0)
-                zeroes++;
-        if (zeroes == 0) return;
-        size -= zeroes;
-        if (size > 1000000) {
-            LogMsg("Ex.RI.Aggr", WARN) << "Cluster vector size over 1000000 after purging, is it correct??";
+        for (auto i = this->begin(); i != this->end();) {
+            if (i->value == 0) {
+                i = this->erase(i);
+            } else {
+                ++i;
+            }
         }
-        T * tmp = new T[size];
-        for (T * i = buffer.get(), * j = tmp; j < tmp + size; i++)
-            if (i->value != 0)
-                *j++ = *i;
-        buffer.reset(tmp);
     }
 
     void cluster(size_t limit) {
         bool useFar = false;
         // Check if we need to perform clustering
-        while (size > limit) {
+        while (this->size() > limit) {
             LogMsg("Ex.RI.Aggr", DEBUG) << "Clusterizing";
             // Make vector of distances
-            size_t distSize = size - 1;
+            size_t distSize = this->size() - 1;
             boost::scoped_array<DistanceList> tmpDls(new DistanceList[distSize]);
             boost::scoped_array<DistanceList *> tmpDistances(new DistanceList *[distSize]);
             boost::scoped_array<T> tmpSums(new T[distSize * K + 1]);
@@ -170,15 +73,14 @@ public:
             DistanceList ** distances = tmpDistances.get();
             {
                 unsigned int additions = 0;
-                T * i = buffer.get();
-                T * last = buffer.get() + size;
+                auto i = this->begin();
                 for (DistanceList * dlsi = dls, ** distancesi = distances; dlsi < dls + distSize; dlsi++) {
                     *(distancesi++) = dlsi;
-                    dlsi->src = i++;
+                    dlsi->src = &(*i++);
                     // Calculate distance with K nearest
-                    for (T * j = i; j < last; j++) {
+                    for (auto j = i; j != this->end(); ++j) {
                         if (useFar || !dlsi->src->far(*j)) {
-                            dlsi->add(dlsi->src->distance(*j, *free), j, free, top);
+                            dlsi->add(dlsi->src->distance(*j, *free), &(*j), free, top);
                             additions++;
                         }
                     }
@@ -190,7 +92,7 @@ public:
             if (distances[0]->dst->d == std::numeric_limits<double>::infinity()) break;
 
             // Make rsize - MAX_CLUSTERS new clusters
-            unsigned int numClusters = size - limit;
+            unsigned int numClusters = this->size() - limit;
             for (unsigned int count = 0; distSize > 0 && count < numClusters;) {
                 // Get best distance
                 std::pop_heap(distances, distances + distSize, compDL);
@@ -247,30 +149,18 @@ public:
             // Remove invalid clusters
             purge();
         }
-        LogMsg("Ex.RI.Aggr", DEBUG) << "We end up with " << size << " clusters:";
+        LogMsg("Ex.RI.Aggr", DEBUG) << "We end up with " << this->size() << " clusters:";
         LogMsg("Ex.RI.Aggr", DEBUG) << *this;
     }
 
-    friend std::ostream & operator<<(std::ostream & os, const ClusteringVector & o) {
-        for (unsigned int i = 0; i < o.size; i++)
-            os << '(' << o.buffer[i] << ')';
+    friend std::ostream & operator<<(std::ostream & os, const ClusteringList & o) {
+        for (auto & i : o)
+            os << '(' << i << ')';
         return os;
     }
 
-    template <typename Packer> void msgpack_pack(Packer& pk) const {
-        pk.pack_array(size + 1);
-        pk.pack(size);
-        for (size_t i = 0; i < size; ++i)
-            pk.pack(buffer[i]);
-    }
-    void msgpack_unpack(msgpack::object o) {
-        if(o.type != msgpack::type::ARRAY) { throw msgpack::type_error(); }
-        o.via.array.ptr[0].convert(&size);
-        if (size) buffer.reset(new T[size]);
-        else buffer.reset();
-        for (size_t i = 0; i < size; i++)
-            o.via.array.ptr[i + 1].convert(&buffer[i]);
-    }
+    MSGPACK_DEFINE((std::list<T> &)*this);
+
 private:
     /// Maximum size of the vector of samples
     static unsigned int K;
@@ -321,11 +211,10 @@ private:
     static bool compDL(const DistanceList * l, const DistanceList * r) {
         return l->dsts_size == 0 || (r->dsts_size > 0 && l->dst->d > r->dst->d);
     }
-
-    boost::scoped_array<T> buffer;
-    size_t size;
 };
 
-template<class T> unsigned int ClusteringVector<T>::K = 10;
+template<class T> unsigned int ClusteringList<T>::K = 10;
 
-#endif /* CLUSTERINGVECTOR_H_ */
+} // namespace stars
+
+#endif /* CLUSTERINGLIST_HPP_ */

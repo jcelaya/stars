@@ -120,18 +120,18 @@ void MMPAvailabilityInformation::setQueueEnd(uint32_t mem, uint32_t disk, uint32
     minD = maxD = disk;
     minP = maxP = power;
     minT = maxT = maxQueue = end;
-    summary.pushBack(MDPTCluster(this, mem, disk, power, end));
+    summary.push_back(MDPTCluster(this, mem, disk, power, end));
 }
 
 
 void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
-    if (!r.summary.isEmpty()) {
+    if (!r.summary.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
         // Aggregate max queue time
         if (r.maxQueue > maxQueue)
             maxQueue = r.maxQueue;
 
-        if (summary.isEmpty()) {
+        if (summary.empty()) {
             minM = r.minM;
             maxM = r.maxM;
             minD = r.minD;
@@ -153,15 +153,16 @@ void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
 
         // Create a vector of clusters with those clusters which min or max time is earlier than current time
         Time current = Time::getCurrentTime();
-        summary.merge(r.summary);
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++) {
-            if (summary[i].maxT < current) {
+
+        std::list<MDPTCluster> tmpList(r.summary.begin(), r.summary.end());
+        summary.merge(tmpList);
+        for (auto & i : summary) {
+            if (i.maxT < current) {
                 // Adjust max and accum time
-                summary[i].accumTsq = summary[i].accumTln = 0;
-                summary[i].maxT = current;
+                i.accumTsq = i.accumTln = 0;
+                i.maxT = current;
             }
-            summary[i].setReference(this);
+            i.setReference(this);
         }
 
         // Do not clusterize at this moment, wait until serialization
@@ -208,8 +209,7 @@ Time MMPAvailabilityInformation::getAvailability(list<MDPTCluster *> & clusters,
 unsigned int MMPAvailabilityInformation::getAvailability(list<MDPTCluster *> & clusters, const TaskDescription & req) {
     unsigned int result = 0;
     Time now = Time::getCurrentTime();
-    for (unsigned int i = 0; i < summary.getSize(); i++) {
-        MDPTCluster & c = summary[i];
+    for (auto & c : summary) {
         Time start = now;
         if (c.maxT > start) start = c.maxT;
         if (start < req.getDeadline() && c.fulfills(req)) {

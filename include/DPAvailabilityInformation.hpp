@@ -27,7 +27,7 @@
 #include "Time.hpp"
 #include "AvailabilityInformation.hpp"
 #include "TaskDescription.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 
 
 /**
@@ -254,11 +254,11 @@ public:
     };
 
     class AssignmentInfo {
-        AssignmentInfo(unsigned int c, uint32_t v, uint32_t m, uint32_t d, uint32_t t) :
+        AssignmentInfo(MDFCluster * c, uint32_t v, uint32_t m, uint32_t d, uint32_t t) :
                 cluster(c), remngMem(m), remngDisk(d), remngAvail(t), numTasks(v) {}
         friend class DPAvailabilityInformation;
     public:
-        unsigned int cluster;
+        MDFCluster * cluster;
         uint32_t remngMem, remngDisk, remngAvail;
         uint32_t numTasks;
     };
@@ -273,9 +273,9 @@ public:
     /// Copy constructor, sets the reference to the newly created object
     DPAvailabilityInformation(const DPAvailabilityInformation & copy) : AvailabilityInformation(copy), summary(copy.summary), minM(copy.minM),
             maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minA(copy.minA), maxA(copy.maxA), horizon(copy.horizon) {
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].setReference(this);
+//        unsigned int size = summary.getSize();
+//        for (unsigned int i = 0; i < size; i++)
+//            summary[i].setReference(this);
     }
 
     static void setNumClusters(unsigned int c) {
@@ -334,7 +334,7 @@ public:
     // This is documented in BasicMsg
     void output(std::ostream& os) const;
 
-    const ClusteringVector<MDFCluster> & getSummary() const {
+    const stars::ClusteringList<MDFCluster> & getSummary() const {
         return summary;
     }
 
@@ -344,7 +344,7 @@ private:
     static unsigned int numIntervals;
     static unsigned int numRefPoints;
 
-    ClusteringVector<MDFCluster> summary;   ///< List of clusters representing queues and their availability
+    stars::ClusteringList<MDFCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
     ATFunction minA, maxA;                  ///< Minimum and maximum values of availability
     Time horizon;             ///< Last meaningful time

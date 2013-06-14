@@ -23,7 +23,7 @@
 
 #include <cmath>
 #include "AvailabilityInformation.hpp"
-#include "ClusteringVector.hpp"
+#include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
 
 
@@ -143,9 +143,9 @@ public:
     }
     IBPAvailabilityInformation(const IBPAvailabilityInformation & copy) : AvailabilityInformation(copy), summary(copy.summary),
             minM(copy.minM), maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD) {
-        unsigned int size = summary.getSize();
-        for (unsigned int i = 0; i < size; i++)
-            summary[i].setReference(this);
+//        unsigned int size = summary.getSize();
+//        for (unsigned int i = 0; i < size; i++)
+//            summary[i].setReference(this);
     }
 
     void reset() {
@@ -158,8 +158,8 @@ public:
      * @param o The other instance to be aggregated.
      */
     void join(const IBPAvailabilityInformation & r) {
-        if (!r.summary.isEmpty()) {
-            if (summary.isEmpty()) {
+        if (!r.summary.empty()) {
+            if (summary.empty()) {
                 // operator= forbidden
                 minM = r.minM;
                 maxM = r.maxM;
@@ -171,17 +171,14 @@ public:
                 if (minD > r.minD) minD = r.minD;
                 if (maxD < r.maxD) maxD = r.maxD;
             }
-            summary.add(r.summary);
-            unsigned int size = summary.getSize();
-            for (unsigned int i = 0; i < size; i++)
-                summary[i].setReference(this);
+            summary.insert(summary.end(), r.summary.begin(), r.summary.end());
         }
     }
 
     void reduce() {
-        for (unsigned int i = 0; i < summary.getSize(); i++)
-            summary[i].setReference(this);
-        summary.cluster(numClusters);
+        for (auto & i : summary) {
+            i.setReference(this);
+        }
     }
 
     // This is documented in AvailabilityInformation.h
@@ -190,8 +187,8 @@ public:
     }
 
     void getAvailability(std::list<MDCluster *> & clusters, const TaskDescription & req) {
-        for (unsigned int i = 0; i < summary.getSize(); i++) {
-            if (summary[i].fulfills(req)) clusters.push_back(&summary[i]);
+        for (auto & i : summary) {
+            if (i.fulfills(req)) clusters.push_back(&i);
         }
     }
 
@@ -200,7 +197,7 @@ public:
     }
 
     void addNode(uint32_t mem, uint32_t disk) {
-        if (summary.isEmpty()) {
+        if (summary.empty()) {
             minM = mem;
             maxM = mem;
             minD = disk;
@@ -211,7 +208,7 @@ public:
             if (minD > disk) minD = disk;
             if (maxD < disk) maxD = disk;
         }
-        summary.pushBack(MDCluster(this, mem, disk));
+        summary.push_back(MDCluster(this, mem, disk));
     }
 
     // This is documented in BasicMsg
@@ -225,7 +222,7 @@ private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     static int aggrMethod;
-    ClusteringVector<MDCluster> summary;
+    stars::ClusteringList<MDCluster> summary;
     uint32_t minM, maxM;
     uint32_t minD, maxD;
 };
