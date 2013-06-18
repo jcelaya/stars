@@ -119,13 +119,12 @@ void MSPAvailabilityInformation::MDLCluster::reduce() {
 }
 
 
-void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
-        const std::vector<double> & switchValues, double power, double minSlowness) {
+void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power) {
     minM = maxM = m;
     minD = maxD = d;
-    minimumSlowness = maximumSlowness = minSlowness;
+    minimumSlowness = maximumSlowness = curTasks.getSlowness();   // curTasks must be sorted!!
     summary.clear();
-    summary.push_back(MDLCluster(this, m, d, curTasks, switchValues, power));
+    summary.push_back(MDLCluster(m, d, curTasks, power));
     minL = maxL = summary.front().maxL;
     lengthHorizon = minL.getHorizon();
 }

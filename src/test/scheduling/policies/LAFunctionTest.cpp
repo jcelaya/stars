@@ -61,28 +61,26 @@ void forAinDomain(uint64_t horizon, Func f) {
 
 class QueueFunctionPair {
 public:
-    QueueFunctionPair(RandomQueueGenerator & rqg) : power(rqg.getRandomPower()) {
-        proxys = rqg.createRandomQueue(power);
+    QueueFunctionPair(RandomQueueGenerator & rqg) : power(rqg.getRandomPower()), proxys(std::move(rqg.createRandomQueue(power))) {
         recompute();
     }
 
     void createNTaskFunction(RandomQueueGenerator & rqg, unsigned int numTasks) {
-        proxys = rqg.createNLengthQueue(numTasks, power);
+        proxys = FSPTaskList(std::move(rqg.createNLengthQueue(numTasks, power)));
         recompute();
     }
 
     double plotSampledGetMaxDifference(int n, std::ostream & os);
 
     double power;
-    TaskProxy::List proxys;
-    vector<double> lBounds;
+    FSPTaskList proxys;
     LAFunction function;
     double horizon;
 
 private:
     void recompute() {
-        proxys.getSwitchValues(lBounds);
-        function = LAFunction(proxys, lBounds, power);
+        proxys.sortMinSlowness();
+        function = LAFunction(proxys, power);
         horizon = function.getHorizon();
     }
 };
@@ -91,12 +89,13 @@ private:
 double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) {
     Time now = Time::getCurrentTime();
     double maxDiff = 0.0;
+    const vector<double> & lBounds = proxys.getBoundaries();
 
     forAinDomain(horizon*1.2, [&] (uint64_t a) {
         // Add a new task of length a
         if (!proxys.empty()) {
             vector<double> lBoundsTmp(lBounds);
-            for (TaskProxy::List::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
+            for (FSPTaskList::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
                 if (it->a != a) {
                     double l = (now - it->rabs).seconds() / (it->a - a);
                     if (l > 0.0) {
@@ -113,7 +112,7 @@ double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) 
         double estimate = function.estimateSlowness(a, n), real = 0.0;
         Time e = Time::getCurrentTime();
         // For each task, calculate finishing time
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
+        for (FSPTaskList::iterator i = proxys.begin(); i != proxys.end(); ++i) {
             e += Duration(i->t);
             double slowness = (e - i->rabs).seconds() / i->a;
             if (slowness > real)
@@ -128,7 +127,7 @@ double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) 
         }
         if (difference > maxDiff) maxDiff = difference;
         os << a << ',' << estimate << ',' << real << ',' << difference << "  # ";
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end();) {
+        for (FSPTaskList::iterator i = proxys.begin(); i != proxys.end();) {
             os << i->id << ',';
             if (i->id == (unsigned int)-1)
                 proxys.erase(i++);

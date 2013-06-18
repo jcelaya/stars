@@ -278,7 +278,7 @@ void StarsNode::fail() {
             services[Disp] = new DPDispatcher(getBranch());
             break;
         case Configuration::MSPolicy:
-            services[Sch] = new MSPScheduler(getLeaf());
+            services[Sch] = new stars::MSPScheduler(getLeaf());
             services[Disp] = new MSPDispatcher(getBranch());
             break;
         default:
@@ -303,7 +303,7 @@ void StarsNode::createServices() {
             services.push_back(new DPDispatcher(getBranch()));
             break;
         case Configuration::MSPolicy:
-            services.push_back(new MSPScheduler(getLeaf()));
+            services.push_back(new stars::MSPScheduler(getLeaf()));
             services.push_back(new MSPDispatcher(getBranch()));
             break;
         default:

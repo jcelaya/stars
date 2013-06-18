@@ -35,6 +35,7 @@
 using namespace std;
 //using namespace boost;
 using namespace boost::posix_time;
+using namespace stars;
 
 
 CentralizedScheduler::CentralizedScheduler() : sim(Simulator::getInstance()), queues(sim.getNumNodes()),
@@ -473,92 +474,101 @@ class CentralizedMSP : public CentralizedScheduler {
         bool operator<(const SlownessTasks & o) const { return slowness < o.slowness || (slowness == o.slowness && numTasks < o.numTasks); }
     };
 
-    vector<TaskProxy::List > proxysN;
-    vector<vector<double> > switchValuesN;
+    vector<FSPTaskList> proxysN;
     vector<Time> firstTaskEndTimeN;
 
     virtual void taskFinished(unsigned int node) {
-        TaskProxy::List & proxys = proxysN[node];
-        vector<double> & switchValues = switchValuesN[node];
-        // Remove the proxy
-        proxys.pop_front();
+        FSPTaskList & proxys = proxysN[node];
+        // Remove the proxy, it is set as dirty
+        proxys.removeTask(proxys.front().id);
         if (!proxys.empty()) {
             // Adjust the time of the first task
             firstTaskEndTimeN[node] = Time::getCurrentTime() + (++queues[node].begin())->a;
         }
-        // Recalculate switch values
-        proxys.getSwitchValues(switchValues);
         CentralizedScheduler::taskFinished(node);
     }
 
-    //double addTasks(TaskProxy::List & proxys, vector<std::pair<double, int> > & switchValues, unsigned int n, double a, double power, Time now) {
-    double addTasks(TaskProxy::List & proxys, vector<double> & switchValues, unsigned int n, double a, double power, Time now) {
-        size_t numOriginalTasks = proxys.size();
-        proxys.push_back(TaskProxy(a, power, now));
-        TaskProxy::List::iterator ni = --proxys.end();
-        for (unsigned int j = 1; j < n; ++j)
-            proxys.push_back(TaskProxy(a, power, now));
-        vector<double> svNew;
-        // If there were more than the first task, sort them with the new tasks
-        if (numOriginalTasks > 1) {
-            // Calculate bounds with the rest of the tasks, except the first
-            for (TaskProxy::List::iterator it = ++proxys.begin(); it != ni; ++it)
-                if (it->a != a) {
-                    double l = (now - it->rabs).seconds() / (it->a - a);
-                    if (l > switchValues.front()) {
-                        switchValues.push_back(l);
-                    }
-                }
-            std::sort(switchValues.begin(), switchValues.end());
-            // Remove duplicate values
-            vector<double>::iterator last = std::unique(switchValues.begin(), switchValues.end());
-            switchValues.resize(last - switchValues.begin());
-            proxys.sortMinSlowness(switchValues);
-        }
-        return proxys.getSlowness();
-    }
-
     void newApp(boost::shared_ptr<TaskBagMsg> msg) {
-        unsigned int numNodes = queues.size();
         unsigned long a = msg->getMinRequirements().getLength();
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
         Time now = sim.getCurrentTime();
 
-        unsigned int totalTasks = 0;
         // Number of tasks sent to each node
-        vector<int> tpn(numNodes, -1);
-        // Discard the uncapable nodes
-        for (size_t n = 0; n < numNodes; ++n) {
-            assert(proxysN[n].size() == queues[n].size());
-            StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
-                tpn[n] = 0;
-                // Adjust the time of the first task
-                if (!proxysN[n].empty()) {
-                    proxysN[n].front().t = (firstTaskEndTimeN[n] - now).seconds();
-                    if (proxysN[n].front().t < -100.0) {
-                        std::cerr << "Negative time to finish (" << proxysN[n].front().t << ") for node " << n << " at " << now << endl;
-                        assert(false);
-                    }
+        vector<int> tpn = calculateTasksPerNode(msg->getMinRequirements(), msg->getLastTask() - msg->getFirstTask() + 1);
+
+        // Assign tasks
+        TaskDesc task(msg);
+        task.tid = 1;
+        for (size_t n = 0; n < queues.size(); ++n) {
+            if (tpn[n] > 0) {
+                unsigned int tasksToSend = tpn[n];
+                FSPTaskList & proxys = proxysN[n];
+                proxys.addTasks(TaskProxy(a, sim.getNode(n).getAveragePower(), now), tasksToSend);
+                double slowness = proxys.getSlowness();
+
+                // Send tasks to the node
+                task.d = now + Duration(slowness * a);
+                task.a = Duration(a / sim.getNode(n).getAveragePower());
+                if (queues[n].empty()) {
+                    firstTaskEndTimeN[n] = now + task.a;
                 }
+                else {
+                    // Update all deadlines
+                    for (list<TaskDesc>::iterator it = queues[n].begin(); it != queues[n].end(); ++it)
+                        it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
+                }
+
+                //LogMsg("Dsp.Cent", DEBUG) << tasksToNode << " tasks allocated to node " << assignment[i].node << " with room for " << assignment[i].numTasks << " tasks";
+                for (unsigned int j = 0; j < tasksToSend; j++, task.tid++) {
+                    //LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
+                    addToQueue(task, n);
+                }
+                // Sort the queue
+                updateQueue(n);
+
+//                // Check order
+//                assert(queues[n].size() == proxys.size());
+//                if (proxys.size() > 0) {
+//                    list<TaskDesc>::iterator qi = ++queues[n].begin();
+//                    FSPTaskList::iterator pi = ++proxys.begin();
+//                    while (qi != queues[n].end()) {
+//                        if (qi->a != Duration(pi->t)) {
+//                            cerr << "Queues are different, slowness should be " << slowness << ", queue yields " << getMaxSlowness(n) << endl;
+//                            cerr << "queue:";
+//                            for (list<TaskDesc>::iterator qj = queues[n].begin(); qj != queues[n].end(); ++qj) {
+//                                cerr << ' ' << *qj;
+//                            }
+//                            cerr << endl << "proxys:";
+//                            for (FSPTaskList::iterator qj = proxys.begin(); qj != proxys.end(); ++qj) {
+//                                qj->setSlowness(slowness);
+//                                cerr << ' ' << *qj;
+//                            }
+//                            cerr << endl;
+//                            break;
+//                        }
+//                        ++qi;
+//                        ++pi;
+//                    }
+//                }
             }
         }
-        // Heap of slowness values
-        vector<std::pair<double, size_t> > slownessHeap;
+    }
 
+    vector<int> calculateTasksPerNode(const TaskDescription & req, unsigned int numTasks) {
+        vector<int> tpn = initTasksPerNode(req);
+        vector<std::pair<double, size_t> > slownessHeap;
         bool tryOneMoreTask = true;
+        unsigned int totalTasks = 0;
+        Time now = sim.getCurrentTime();
         for (int currentTpn = 1; tryOneMoreTask; ++currentTpn) {
             // Try with one more task per node
             tryOneMoreTask = false;
-            for (size_t n = 0; n < numNodes; ++n) {
+            for (size_t n = 0; n < queues.size(); ++n) {
                 // With those functions that got an additional task per node in the last iteration,
                 if (tpn[n] == currentTpn - 1) {
                     // calculate the slowness with one task more
-                    TaskProxy::List proxys = proxysN[n];
-                    vector<double> switchValues = switchValuesN[n];
-                    double slowness = addTasks(proxys, switchValues, currentTpn, a, sim.getNode(n).getAveragePower(), now);
+                    FSPTaskList proxys = proxysN[n];
+                    proxys.addTasks(TaskProxy(req.getLength(), sim.getNode(n).getAveragePower(), now), currentTpn);
+                    double slowness = proxys.getSlowness();
                     // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
                     if (totalTasks < numTasks || slowness < slownessHeap.front().first) {
                         slownessHeap.push_back(std::make_pair(slowness, n));
@@ -579,70 +589,35 @@ class CentralizedMSP : public CentralizedScheduler {
                 }
             }
         }
-
-        // Assign tasks
-        TaskDesc task(msg);
-        task.tid = 1;
-        for (size_t n = 0; n < numNodes; ++n) {
-            if (tpn[n] > 0) {
-                unsigned int tasksToSend = tpn[n];
-                TaskProxy::List & proxys = proxysN[n];
-                vector<double> & switchValues = switchValuesN[n];
-                double slowness = addTasks(proxys, switchValues, tasksToSend, a, sim.getNode(n).getAveragePower(), now);
-
-                // Send tasks to the node
-                task.d = now + Duration(slowness * a);
-                task.a = Duration(a / sim.getNode(n).getAveragePower());
-                if (queues[n].empty()) {
-                    firstTaskEndTimeN[n] = now + task.a;
-                    // First value is slowness so that first task meets deadline
-                    switchValues.push_back(1.0 / sim.getNode(n).getAveragePower());
-                    assert(slowness + 0.000000001 >= switchValues.front());
-                }
-                else {
-                    // Update all deadlines
-                    for (list<TaskDesc>::iterator it = queues[n].begin(); it != queues[n].end(); ++it)
-                        it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
-                }
-
-                //LogMsg("Dsp.Cent", DEBUG) << tasksToNode << " tasks allocated to node " << assignment[i].node << " with room for " << assignment[i].numTasks << " tasks";
-                for (unsigned int j = 0; j < tasksToSend; j++, task.tid++) {
-                    //LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
-                    addToQueue(task, n);
-                }
-                // Sort the queue
-                updateQueue(n);
-
-//                // Check order
-//                assert(queues[n].size() == proxys.size());
-//                if (proxys.size() > 0) {
-//                    list<TaskDesc>::iterator qi = ++queues[n].begin();
-//                    TaskProxy::List::iterator pi = ++proxys.begin();
-//                    while (qi != queues[n].end()) {
-//                        if (qi->a != Duration(pi->t)) {
-//                            cerr << "Queues are different, slowness should be " << slowness << ", queue yields " << getMaxSlowness(n) << endl;
-//                            cerr << "queue:";
-//                            for (list<TaskDesc>::iterator qj = queues[n].begin(); qj != queues[n].end(); ++qj) {
-//                                cerr << ' ' << *qj;
-//                            }
-//                            cerr << endl << "proxys:";
-//                            for (TaskProxy::List::iterator qj = proxys.begin(); qj != proxys.end(); ++qj) {
-//                                qj->setSlowness(slowness);
-//                                cerr << ' ' << *qj;
-//                            }
-//                            cerr << endl;
-//                            break;
-//                        }
-//                        ++qi;
-//                        ++pi;
-//                    }
-//                }
-            }
-        }
+        return tpn;
     }
 
+    vector<int> initTasksPerNode(const TaskDescription & req) {
+        Time now = sim.getCurrentTime();
+        // Number of tasks sent to each node
+        vector<int> tpn(queues.size(), -1);
+        // Discard the uncapable nodes
+        for (size_t n = 0; n < tpn.size(); ++n) {
+            assert(proxysN[n].size() == queues[n].size());
+            StarsNode & node = sim.getNode(n);
+            if (node.getAvailableMemory() >= req.getMaxMemory() && node.getAvailableDisk() >= req.getMaxDisk()) {
+                tpn[n] = 0;
+                // Adjust the time of the first task
+                if (!proxysN[n].empty()) {
+                    proxysN[n].front().t = (firstTaskEndTimeN[n] - now).seconds();
+                    if (proxysN[n].front().t < -100.0) {
+                        std::cerr << "Negative time to finish (" << proxysN[n].front().t << ") for node " << n << " at " << now << endl;
+                        assert(false);
+                    }
+                }
+            }
+        }
+        return tpn;
+    }
+
+
 public:
-    CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), switchValuesN(queues.size()), firstTaskEndTimeN(queues.size()) {}
+    CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), firstTaskEndTimeN(queues.size()) {}
 };
 
 

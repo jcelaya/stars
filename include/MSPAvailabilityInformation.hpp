@@ -31,7 +31,7 @@
 #include "ClusteringList.hpp"
 #include "Time.hpp"
 #include "TaskDescription.hpp"
-#include "TaskProxy.hpp"
+#include "FSPTaskList.hpp"
 #include "LAFunction.hpp"
 
 namespace stars {
@@ -54,9 +54,8 @@ public:
         /// Default constructor, for serialization purposes mainly
         MDLCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDLCluster(MSPAvailabilityInformation * r, uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
-                const std::vector<double> & switchValues, double power)
-                : reference(r), value(1), minM(m), minD(d), maxL(curTasks, switchValues, power), accumMsq(0), accumDsq(0),
+        MDLCluster(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power)
+                : value(1), minM(m), minD(d), maxL(curTasks, power), accumMsq(0), accumDsq(0),
                 accumMln(0), accumDln(0), accumLsq(0.0), accumMaxL(maxL) {}
 
         /// Comparison operator
@@ -108,11 +107,9 @@ public:
 
     MESSAGE_SUBCLASS(MSPAvailabilityInformation);
 
-    /// Default constructor.
     MSPAvailabilityInformation() : AvailabilityInformation(), minM(0), maxM(0), minD(0), maxD(0),
             lengthHorizon(0.0), minimumSlowness(0.0), maximumSlowness(0.0) {}
 
-    /// Sets the number of clusters allowed in the vector.
     static void setNumClusters(unsigned int c) {
         numClusters = c;
         numIntervals = (unsigned int)floor(cbrt(c));
@@ -122,9 +119,6 @@ public:
         return summary;
     }
 
-    /**
-     * Comparison operator.
-     */
     bool operator==(const MSPAvailabilityInformation & r) const {
         return summary == r.summary && minimumSlowness == r.minimumSlowness && maximumSlowness == r.maximumSlowness;
     }
@@ -135,15 +129,7 @@ public:
      */
     void getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f);
 
-    /**
-     * Initializes the information in this summary from the data of the scheduler.
-     * @param m Available memory in the execution node.
-     * @param d Available disk space in the execution node.
-     * @param tasks Task queue.
-     * @param power Computing power of the execution node.
-     */
-    void setAvailability(uint32_t m, uint32_t d, const TaskProxy::List & curTasks,
-            const std::vector<double> & switchValues, double power, double minSlowness);
+    void setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power);
 
     /**
      * Returns the current minimum stretch for this set of nodes
@@ -200,13 +186,13 @@ private:
     static unsigned int numIntervals;
 
     ClusteringList<MDLCluster> summary;   ///< List of clusters representing queues and their availability
-    uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
-    LAFunction minL, maxL;                  ///< Minimum and maximum values of availability
-    double lengthHorizon;                   ///< Last meaningful task length
-    double minimumSlowness;                 ///< Minimum slowness among the nodes in this branch
-    double maximumSlowness;                 ///< Minimum slowness among the nodes in this branch
+    uint32_t minM, maxM, minD, maxD;      ///< Minimum and maximum values of memory and disk availability
+    LAFunction minL, maxL;                ///< Minimum and maximum values of availability
+    double lengthHorizon;                 ///< Last meaningful task length
+    double minimumSlowness;               ///< Minimum slowness among the nodes in this branch
+    double maximumSlowness;               ///< Minimum slowness among the nodes in this branch
 
-    // Aggregation variables
+    // Aggregation values
     unsigned int memRange, diskRange;
     double slownessRange;
 };

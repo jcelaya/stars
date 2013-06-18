@@ -22,6 +22,7 @@
 #ifndef RANDOMQUEUEGENERATOR_HPP_
 #define RANDOMQUEUEGENERATOR_HPP_
 
+#include <list>
 #include <boost/random/mersenne_twister.hpp>
 #include "TaskProxy.hpp"
 
@@ -39,17 +40,17 @@ public:
 
     unsigned int getSeed() const { return theSeed; }
 
-    TaskProxy::List & createRandomQueue() {
+    std::list<TaskProxy> & createRandomQueue() {
         return createRandomQueue(getRandomPower());
     }
 
-    TaskProxy::List & createRandomQueue(double power);
+    std::list<TaskProxy> & createRandomQueue(double power);
 
-    TaskProxy::List & createNLengthQueue(unsigned int numTasks) {
+    std::list<TaskProxy> & createNLengthQueue(unsigned int numTasks) {
         return createNLengthQueue(numTasks, getRandomPower());
     }
 
-    TaskProxy::List & createNLengthQueue(unsigned int numTasks, double power);
+    std::list<TaskProxy> & createNLengthQueue(unsigned int numTasks, double power);
 
     double getRandomPower();
 
@@ -64,7 +65,7 @@ private:
     unsigned int id;
     double currentPower;
     double currentrfirst;
-    TaskProxy::List currentTasks;
+    std::list<TaskProxy> currentTasks;
 };
 
 } // namespace stars

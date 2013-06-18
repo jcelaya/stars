@@ -24,7 +24,7 @@
 #include <vector>
 #include <utility>
 #include <msgpack.hpp>
-#include "TaskProxy.hpp"
+#include "FSPTaskList.hpp"
 
 
 namespace stars {
@@ -76,8 +76,7 @@ public:
     /**
      * Creates an LAFunction from a task queue.
      */
-    LAFunction(TaskProxy::List curTasks,
-            const std::vector<double> & switchValues, double power);
+    LAFunction(FSPTaskList curTasks, double power);
 
     LAFunction(const LAFunction & copy) : pieces(copy.pieces) {}
 
@@ -146,7 +145,7 @@ public:
         return pieces.empty() ? 0.0 : pieces.back().first;
     }
 
-    const std::vector<std::pair<double, SubFunction> > & getPieces() const {
+    const PieceVector & getPieces() const {
         return pieces;
     }
 
@@ -170,7 +169,7 @@ public:
 
     friend std::ostream & operator<<(std::ostream & os, const LAFunction & o) {
         os << "[LAF";
-        for (std::vector<std::pair<double, SubFunction> >::const_iterator i = o.pieces.begin(); i != o.pieces.end(); i++) {
+        for (auto i = o.pieces.begin(); i != o.pieces.end(); i++) {
             os << " (" << i->first << ", " << i->second << ')';
         }
         return os << ']';

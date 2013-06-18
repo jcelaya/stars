@@ -30,8 +30,7 @@ namespace stars {
 unsigned int LAFunction::numPieces = 64;
 
 
-LAFunction::LAFunction(TaskProxy::List curTasks,
-        const std::vector<double> & switchValues, double power) {
+LAFunction::LAFunction(FSPTaskList curTasks, double power) {
     // Trivial case
     if (curTasks.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Creating availability info for empty queue and power " << power;
@@ -41,17 +40,17 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 
     // General case
     LogMsg("Ex.RI.Aggr", DEBUG) << "Creating availability info for " << curTasks.size() << " tasks and power " << power;
-    Time now = Time::getCurrentTime();
 
     // The new task
-    curTasks.push_back(TaskProxy(minTaskLength, power, now));
-    for (auto i = curTasks.begin(); i != curTasks.end(); ++i)
-        i->r = (i->rabs - now).seconds();
+    curTasks.push_back(TaskProxy(minTaskLength, power, Time::getCurrentTime()));
+    curTasks.updateReleaseTime();
+
+    const vector<double> & boundaries = curTasks.getBoundaries();
 
     while(true) {
         // Order the queue and calculate minimum slowness
         // The new task is at the end of the queue
-        vector<double> svCur(switchValues);
+        vector<double> svCur(boundaries);
         if (!svCur.empty()) {
             // Add order change values for the new task
             for (auto i = ++curTasks.begin(); i != curTasks.end(); ++i) {
@@ -71,12 +70,12 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
         }
 
         // Update the index of the task that sets maximum slowness
-        TaskProxy::List::iterator tn, tm = curTasks.begin();
+        FSPTaskList::iterator tn, tm = curTasks.begin();
         // For each task, calculate its slowness and its tendency
         double e = curTasks.front().t, maxSlowness = (e - curTasks.front().r) / curTasks.front().a, maxTendency = 0.0;
         curTasks.front().tsum = curTasks.front().t;
         bool beforeNewTask = true, minBeforeNew = true;
-        for (TaskProxy::List::iterator i = curTasks.begin(), prev = i++; i != curTasks.end(); prev = i++) {
+        for (FSPTaskList::iterator i = curTasks.begin(), prev = i++; i != curTasks.end(); prev = i++) {
             double tendency = beforeNewTask ? 0.0 : 1.0 / i->a;
             if (i->id == (unsigned int)-1) {
                 tn = i;
@@ -97,7 +96,7 @@ LAFunction::LAFunction(TaskProxy::List curTasks,
 
         // Calculate possible order and maximum changes, and take the nearest one
         double a, b, c, minA = INFINITY, curA = tn->a;
-        TaskProxy::List::iterator tn1 = tn;
+        FSPTaskList::iterator tn1 = tn;
         ++tn1;
 
         // Calculate next interval based on the task that is setting the current minimum and its value

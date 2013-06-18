@@ -35,7 +35,7 @@ void RandomQueueGenerator::seed(unsigned int s) {
 }
 
 
-TaskProxy::List & RandomQueueGenerator::createRandomQueue(double power) {
+std::list<TaskProxy> & RandomQueueGenerator::createRandomQueue(double power) {
     currentPower = power;
     currentTasks.clear();
 
@@ -48,7 +48,7 @@ TaskProxy::List & RandomQueueGenerator::createRandomQueue(double power) {
 }
 
 
-TaskProxy::List & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
+std::list<TaskProxy> & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
     currentPower = power;
     currentTasks.clear();
 
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_SUITE(RandomQueueGeneratorTest)
 BOOST_AUTO_TEST_CASE(RandomQueueGenerator_createRandomQueue) {
     TestHost::getInstance().reset();
     RandomQueueGenerator rqg;
-    TaskProxy::List proxys = rqg.createRandomQueue(1500.0);
+    std::list<TaskProxy> proxys = rqg.createRandomQueue(1500.0);
 
 }
 

@@ -20,26 +20,9 @@
 
 #include "Logger.hpp"
 #include "MSPScheduler.hpp"
-#include <algorithm>
-#include <cmath>
-using std::vector;
-using std::list;
 
 
-double MSPScheduler::sortMinSlowness(TaskProxy::List & proxys, const vector<double> & switchValues, list<boost::shared_ptr<Task> > & tasks) {
-    if (!proxys.empty()) {
-        proxys.sortMinSlowness(switchValues);
-
-        // Reconstruct task list
-        tasks.clear();
-        for (TaskProxy::List::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-            tasks.push_back(i->origin);
-        }
-
-        return proxys.getSlowness();
-    } else return 0.0;
-}
-
+namespace stars {
 
 void MSPScheduler::reschedule() {
     if (!proxys.empty()) {
@@ -47,20 +30,11 @@ void MSPScheduler::reschedule() {
         proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
     }
 
-    double minSlowness = 0.0;
-    if (dirty) {
-        proxys.getSwitchValues(switchValues);
-        dirty = false;
-    }
-
-    if (!proxys.empty()) {
-        minSlowness = sortMinSlowness(proxys, switchValues, tasks);
-    }
-
-    LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << minSlowness;
+    sortMinSlowness();
+    LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << proxys.getSlowness();
 
     info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
-            proxys, switchValues, backend.impl->getAveragePower(), minSlowness);
+            proxys, backend.impl->getAveragePower());
 
     // Start first task if it is not executing yet.
     if (!tasks.empty()) {
@@ -74,6 +48,19 @@ void MSPScheduler::reschedule() {
 }
 
 
+void MSPScheduler::sortMinSlowness() {
+    if (!proxys.empty()) {
+        proxys.sortMinSlowness();
+
+        // Reconstruct task list
+        tasks.clear();
+        for (auto i = proxys.begin(); i != proxys.end(); ++i) {
+            tasks.push_back(i->origin);
+        }
+    }
+}
+
+
 unsigned int MSPScheduler::acceptable(const TaskBagMsg & msg) {
     // Always accept new tasks
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
@@ -81,22 +68,4 @@ unsigned int MSPScheduler::acceptable(const TaskBagMsg & msg) {
     return numAccepted;
 }
 
-
-void MSPScheduler::removeTask(const boost::shared_ptr<Task> & task) {
-    // Look for the proxy
-    for (TaskProxy::List::iterator p = proxys.begin(); p != proxys.end(); ++p) {
-        if (p->id == task->getTaskId()) {
-            // Remove the proxy
-            proxys.erase(p);
-            dirty = true;
-            break;
-        }
-    }
-}
-
-
-void MSPScheduler::acceptTask(const boost::shared_ptr<Task> & task) {
-    // Add a new proxy for this task
-    proxys.push_back(TaskProxy(task));
-    dirty = true;
 }

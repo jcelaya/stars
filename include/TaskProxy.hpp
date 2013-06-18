@@ -21,9 +21,6 @@
 #ifndef TASKPROXY_HPP_
 #define TASKPROXY_HPP_
 
-#include <ostream>
-#include <list>
-#include <vector>
 #include <boost/shared_ptr.hpp>
 #include "Task.hpp"
 #include "Time.hpp"
@@ -43,21 +40,6 @@ struct TaskProxy {
     void setSlowness(double L) { d = getDeadline(L); }
     bool operator<(const TaskProxy & rapp) const { return d < rapp.d || (d == rapp.d && a < rapp.a); }
     double getEffectiveSpeed() { return a / (t + (Time::getCurrentTime() - rabs).seconds()); }
-
-    class List : public std::list<TaskProxy> {
-    public:
-        List() : std::list<TaskProxy>() {}
-
-        void sortMinSlowness(const std::vector<double> & switchValues);
-
-        void getSwitchValues(std::vector<double> & switchValues) const;
-
-        double getSlowness() const;
-
-        void sortBySlowness(double slowness);
-
-        bool meetDeadlines(double slowness, Time e) const;
-    };
 };
 
 } // namespace stars

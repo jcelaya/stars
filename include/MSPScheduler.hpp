@@ -21,12 +21,11 @@
 #ifndef MSPSCHEDULER_H_
 #define MSPSCHEDULER_H_
 
-#include <vector>
 #include "Scheduler.hpp"
+#include "FSPTaskList.hpp"
 #include "MSPAvailabilityInformation.hpp"
 
-using stars::MSPAvailabilityInformation;
-using stars::TaskProxy;
+namespace stars {
 
 /**
  * \brief A fair scheduler that provides similar stretch to every application.
@@ -40,18 +39,10 @@ public:
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MSPScheduler(OverlayLeaf & l) : Scheduler(l), dirty(false) {
+    MSPScheduler(OverlayLeaf & l) : Scheduler(l) {
         reschedule();
         notifySchedule();
     }
-
-    /**
-     * Generates a list of applications from a task queue, sorted so that they have the minimum stretch.
-     * @param tasks The task queue.
-     * @param result The resulting list of applications.
-     * @return The maximum stretch among all these applications, once they are ordered to minimize this value.
-     */
-    static double sortMinSlowness(TaskProxy::List & proxys, const std::vector<double> & switchValues, std::list<boost::shared_ptr<Task> > & tasks);
 
     // This is documented in Scheduler
     virtual unsigned int acceptable(const TaskBagMsg & msg);
@@ -63,18 +54,24 @@ public:
 
 private:
     MSPAvailabilityInformation info;
-    TaskProxy::List proxys;
-    std::vector<double> switchValues;
-    bool dirty;
+    stars::FSPTaskList proxys;
+
+    void sortMinSlowness();
 
     // This is documented in Scheduler
     virtual void reschedule();
 
     // This is documented in Scheduler
-    virtual void removeTask(const boost::shared_ptr<Task> & task);
+    virtual void acceptTask(const boost::shared_ptr<Task> & task) {
+        proxys.addTasks(TaskProxy(task));
+    }
 
     // This is documented in Scheduler
-    virtual void acceptTask(const boost::shared_ptr<Task> & task);
+    virtual void removeTask(const boost::shared_ptr<Task> & task) {
+        proxys.removeTask(task->getTaskId());
+    }
 };
+
+} // namespace stars
 
 #endif /* MSPSCHEDULER_H_ */

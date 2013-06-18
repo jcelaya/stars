@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
     ResourceNode * rn = new ResourceNode();
     CommLayer::getInstance().registerService(rn);
-    MSPScheduler * sched = new MSPScheduler(*rn);
+    stars::MSPScheduler * sched = new stars::MSPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
     list<boost::shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;

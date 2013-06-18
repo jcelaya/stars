@@ -25,9 +25,7 @@
 #include "MSPScheduler.hpp"
 #include "../sim/MemoryManager.hpp"
 
-using stars::TaskProxy;
-using stars::LAFunction;
-using stars::MSPAvailabilityInformation;
+using namespace stars;
 
 template<> struct Priv<MSPAvailabilityInformation> {
     LAFunction totalAvail;
@@ -35,12 +33,10 @@ template<> struct Priv<MSPAvailabilityInformation> {
 };
 
 
-namespace {
 LAFunction dummy;
 
 
-double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power, boost::random::mt19937 & gen, TaskProxy::List & proxys, vector<double> & lBounds) {
-    static unsigned int id = 0;
+void createRandomQueue(double power, boost::random::mt19937 & gen, FSPTaskList & proxys) {
     Time now = Time::getCurrentTime();
     proxys.clear();
 
@@ -50,27 +46,22 @@ double createRandomQueue(unsigned int maxmem, unsigned int maxdisk, double power
         unsigned int numTasks = boost::random::uniform_int_distribution<>(1, 10)(gen);
         // Applications between 1-4h on a 1000 MIPS computer
         int a = boost::random::uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
-        for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-            proxys.push_back(TaskProxy(a, power, now + Duration(r)));
-            proxys.back().id = id++;
-        }
+        proxys.addTasks(TaskProxy(a, power, now + Duration(r)), numTasks);
     }
 
-    if (!proxys.empty()) {
-        proxys.getSwitchValues(lBounds);
-        proxys.sortMinSlowness(lBounds);
-        return proxys.getSlowness();
-    } else return 0.0;
-}
+    unsigned int id = 0;
+    for (auto & i: proxys)
+        i.id = ++id;
+
+    proxys.sortMinSlowness();
 }
 
 
 template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
     boost::shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
-    TaskProxy::List proxys;
-    vector<double> lBounds;
-    double minSlowness = createRandomQueue(n.mem, n.disk, n.power, gen, proxys, lBounds);
-    s->setAvailability(n.mem, n.disk, proxys, lBounds, n.power, minSlowness);
+    FSPTaskList proxys;
+    createRandomQueue(n.power, gen, proxys);
+    s->setAvailability(n.mem, n.disk, proxys, n.power);
     const LAFunction & maxL = s->getSummary().front().maxL;
     if (privateData.maxAvail == LAFunction()) {
         privateData.maxAvail = maxL;
