@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(FSPTaskList_addTasks) {
     BOOST_CHECK_EQUAL(boundaries[6], 0.1);
 }
 
-BOOST_AUTO_TEST_CASE(FSPTaskList_computeBoundaries) {
+BOOST_AUTO_TEST_CASE(FSPTaskList_removeTask_computeBoundaries) {
     FSPTaskList l = getTestList();
     l.removeTask(5);
     const std::vector<double> & boundaries = l.getBoundaries();

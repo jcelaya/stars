@@ -7,6 +7,8 @@ include_directories(.)
 
 add_executable(sweeper sweeper.cpp SimulationsFile.cpp)
 
+add_executable(gdbserverwrapper gdbserverwrapper.cpp)
+
 add_executable(sweeperdaemon sweeperdaemon.cpp SimulationsFile.cpp)
 target_link_libraries(sweeperdaemon ${Boost_LIBRARIES})
 

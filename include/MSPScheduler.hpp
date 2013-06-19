@@ -56,8 +56,6 @@ private:
     MSPAvailabilityInformation info;
     stars::FSPTaskList proxys;
 
-    void sortMinSlowness();
-
     // This is documented in Scheduler
     virtual void reschedule();
 

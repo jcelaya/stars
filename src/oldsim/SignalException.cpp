@@ -34,7 +34,7 @@ void SignalException::Handler::setHandler() {
     std::ostringstream oss;
     // FIXME: only one debugged process at a time...
     oss << "/usr/bin/gdbserver host:12345 --attach " << getpid();
-    getInstance().gdbservercmd = oss.str();
+    gdbservercmd = oss.str();
     signal(SIGSEGV, SignalException::Handler::handler);
     signal(SIGILL, SignalException::Handler::handler);
     signal(SIGFPE, SignalException::Handler::handler);

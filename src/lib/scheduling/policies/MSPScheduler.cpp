@@ -30,7 +30,12 @@ void MSPScheduler::reschedule() {
         proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
     }
 
-    sortMinSlowness();
+    proxys.sortMinSlowness();
+    // Reconstruct task list
+    tasks.clear();
+    for (auto & i: proxys) {
+        tasks.push_back(i.origin);
+    }
     LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << proxys.getSlowness();
 
     info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
@@ -44,19 +49,6 @@ void MSPScheduler::reschedule() {
         }
         // Program a timer
         rescheduleAt(Time::getCurrentTime() + Duration(600.0));
-    }
-}
-
-
-void MSPScheduler::sortMinSlowness() {
-    if (!proxys.empty()) {
-        proxys.sortMinSlowness();
-
-        // Reconstruct task list
-        tasks.clear();
-        for (auto i = proxys.begin(); i != proxys.end(); ++i) {
-            tasks.push_back(i->origin);
-        }
     }
 }
 

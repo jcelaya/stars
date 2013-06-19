@@ -154,15 +154,15 @@ BOOST_FIXTURE_TEST_SUITE(LAFunctionTest, LAFunctionFixture)
 string plot(const LAFunction & f, double ah) {
     std::ostringstream oss;
     oss << "plot [" << LAFunction::minTaskLength << ':' << ah << "] ";
-    const std::vector<std::pair<double, LAFunction::SubFunction> > & pieces = f.getPieces();
+    const LAFunction::PieceVector & pieces = f.getPieces();
     for (unsigned int j = 0; j < pieces.size(); ++j) {
-        const LAFunction::SubFunction & p = pieces[j].second;
+        const LAFunction::SubFunction & p = pieces[j];
         if (j > 0) {
             oss << ", ";
         }
-        oss << p.x << "/x + " << p.y << "*x + " << p.z1 << " + " << p.z2 << " s $1 >= " << pieces[j].first;
+        oss << p.x << "/x + " << p.y << "*x + " << p.z1 << " + " << p.z2 << " s $1 >= " << pieces[j].leftEndpoint;
         if (j < pieces.size() - 1)
-                oss << " and $1 < " << pieces[j + 1].first;
+                oss << " and $1 < " << pieces[j + 1].leftEndpoint;
         oss << " title \"" << p << "\" w lines col " << j;
     }
     return oss.str();
@@ -216,9 +216,10 @@ BOOST_AUTO_TEST_CASE(LAFunction_estimateSlowness) {
 
 BOOST_AUTO_TEST_CASE(LAFunction_reduceMax) {
     LAFunction::setNumPieces(3);
+    //rqg.seed(1371628638);
     f.createNTaskFunction(rqg, 20);
     LAFunction fred(f.function);
-    double accumAsqRed = 5 * fred.reduceMax(4, f.horizon);
+    double accumAsqRed = 5 * fred.reduceMax(f.horizon);
     BOOST_CHECK_GE(accumAsqRed, 0);
     forAinDomain(f.horizon, [&] (uint64_t a) {
         BOOST_REQUIRE_GE(fred.getSlowness(a), f.function.getSlowness(a));

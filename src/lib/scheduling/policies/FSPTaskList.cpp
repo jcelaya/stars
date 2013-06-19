@@ -149,8 +149,8 @@ void FSPTaskList::sortMinSlowness(const std::vector<double> & altBoundaries) {
 
 void FSPTaskList::updateReleaseTime() {
     Time now = Time::getCurrentTime();
-    for (auto i = begin(); i != end(); ++i)
-        i->r = (i->rabs - now).seconds();
+    for (auto & i: *this)
+        i.r = (i.rabs - now).seconds();
 }
 
 

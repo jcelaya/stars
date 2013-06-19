@@ -33,33 +33,42 @@ class LAFunction {
 public:
     class SubFunction {
     public:
-        SubFunction() : x(0.0), y(0.0), z1(0.0), z2(0.0) {}
+        SubFunction() : leftEndpoint(minTaskLength), x(0.0), y(0.0), z1(0.0), z2(0.0) {}
 
-        SubFunction(double _x, double _y, double _z1, double _z2) : x(_x), y(_y), z1(_z1), z2(_z2) {}
+        SubFunction(double s, double _x, double _y, double _z1, double _z2) : leftEndpoint(s), x(_x), y(_y), z1(_z1), z2(_z2) {}
+
+        SubFunction(double s, const SubFunction & copy) : leftEndpoint(s), x(copy.x), y(copy.y), z1(copy.z1), z2(copy.z2) {}
+
+        SubFunction(const SubFunction & l, const SubFunction & r, double rightEndpoint);
+
+        bool covers(double a) const {
+            return a >= leftEndpoint;
+        }
 
         double value(double a, int n = 1) const {
             return x / a + y * a * n + z1 * n + z2;
         }
 
         bool operator==(const SubFunction & r) const {
-            return x == r.x && y == r.y && z1 == r.z1 && z2 == r.z2;
+            return leftEndpoint == r.leftEndpoint && x == r.x && y == r.y && z1 == r.z1 && z2 == r.z2;
         }
 
-        bool operator!=(const SubFunction & r) const {
-            return !operator==(r);
+        bool extends(const SubFunction & l) const {
+            return leftEndpoint >= l.leftEndpoint && x == l.x && y == l.y && z1 == l.z1 && z2 == l.z2;
         }
 
         friend std::ostream & operator<<(std::ostream & os, const SubFunction & o) {
-            return os << "L = " << o.x << "/a + " << o.y << "a + " << o.z1 << " + " << o.z2;
+            return os << " (" << o.leftEndpoint << ": L = " << o.x << "/a + " << o.y << "a + " << o.z1 << " + " << o.z2 << ')';
         }
 
-        MSGPACK_DEFINE(x, y, z1, z2);
+        MSGPACK_DEFINE(leftEndpoint, x, y, z1, z2);
 
+        double leftEndpoint;
         // z1 is the sum of the independent term in L = x/a + z1, while z2 is the independent part in the other functions
         double x, y, z1, z2;   // L = x/a + y*a + z1 + z2
     };
 
-    typedef std::vector<std::pair<double, SubFunction> > PieceVector;
+    typedef std::vector<SubFunction> PieceVector;
 
     enum { minTaskLength = 1000 };
 
@@ -70,7 +79,7 @@ public:
 
     /// Default constructor
     LAFunction() {
-        pieces.push_back(std::make_pair(minTaskLength, SubFunction()));
+        pieces.push_back(SubFunction());
     }
 
     /**
@@ -133,7 +142,9 @@ public:
      * Reduces the number of points of the function to a specific number, resulting in a function
      * with approximate value over the original.
      */
-    double reduceMax(unsigned int v, double ah, unsigned int quality = 10);
+    double reduceMax(double horizon, unsigned int quality = 10);
+
+    std::vector<LAFunction> getReductionOptions(double horizon) const;
 
     /// Comparison operator
     bool operator==(const LAFunction & r) const {
@@ -142,7 +153,7 @@ public:
 
     /// Returns the maximum significant task length
     double getHorizon() const {
-        return pieces.empty() ? 0.0 : pieces.back().first;
+        return pieces.empty() ? 0.0 : pieces.back().leftEndpoint;
     }
 
     const PieceVector & getPieces() const {
@@ -169,8 +180,8 @@ public:
 
     friend std::ostream & operator<<(std::ostream & os, const LAFunction & o) {
         os << "[LAF";
-        for (auto i = o.pieces.begin(); i != o.pieces.end(); i++) {
-            os << " (" << i->first << ", " << i->second << ')';
+        for (auto & i: o.pieces) {
+            os << i;
         }
         return os << ']';
     }

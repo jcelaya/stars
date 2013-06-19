@@ -35,6 +35,7 @@
 #include "TestHost.hpp"
 #include "Scheduler.hpp"
 #include "Logger.hpp"
+#include "../oldsim/SignalException.hpp"
 using log4cpp::Category;
 using log4cpp::Priority;
 using boost::shared_ptr;
@@ -94,6 +95,7 @@ bool init_unit_test_suite() {
     std::vector<Category *> * cats = Category::getCurrentCategories();
     for (std::vector<Category *>::iterator it = cats->begin(); it != cats->end(); it++)
         (*it)->setPriority((*it)->getName() == std::string("") ? Priority::WARN : Priority::NOTSET);
+    delete cats;
 
     // Load log config file
     boost::filesystem::ifstream logconf(boost::filesystem::path("share/test/LibStarsTest.logconf"));
@@ -110,6 +112,8 @@ bool init_unit_test_suite() {
     console->setLayout(layout);
     Category::getRoot().setAdditivity(false);
     Category::getRoot().addAppender(console);
+
+    SignalException::Handler::getInstance().setHandler();
 
     return true;
 }

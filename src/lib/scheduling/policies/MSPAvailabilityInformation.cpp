@@ -114,8 +114,8 @@ void MSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & l, con
 
 
 void MSPAvailabilityInformation::MDLCluster::reduce() {
-//    accumLsq += maxL.reduceMax(value, reference->lengthHorizon);
-//    accumMaxL.reduceMax(1, reference->lengthHorizon);
+//    accumLsq += value * maxL.reduceMax(reference->lengthHorizon);
+//    accumMaxL.reduceMax(reference->lengthHorizon);
 }
 
 
