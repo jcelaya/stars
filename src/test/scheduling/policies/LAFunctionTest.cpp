@@ -61,12 +61,15 @@ void forAinDomain(uint64_t horizon, Func f) {
 
 class QueueFunctionPair {
 public:
-    QueueFunctionPair(RandomQueueGenerator & rqg) : power(rqg.getRandomPower()), proxys(std::move(rqg.createRandomQueue(power))) {
+    QueueFunctionPair(RandomQueueGenerator & r) : rqg(r), power(r.getRandomPower()), horizon(0.0) {}
+
+    void createNTaskFunction(unsigned int numTasks) {
+        proxys = FSPTaskList(std::move(rqg.createNLengthQueue(numTasks, power)));
         recompute();
     }
 
-    void createNTaskFunction(RandomQueueGenerator & rqg, unsigned int numTasks) {
-        proxys = FSPTaskList(std::move(rqg.createNLengthQueue(numTasks, power)));
+    void createRandomFunction() {
+        proxys = FSPTaskList(std::move(rqg.createRandomQueue(power)));
         recompute();
     }
 
@@ -78,6 +81,8 @@ public:
     double horizon;
 
 private:
+    RandomQueueGenerator & rqg;
+
     void recompute() {
         proxys.sortMinSlowness();
         function = LAFunction(proxys, power);
@@ -170,6 +175,7 @@ string plot(const LAFunction & f, double ah) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_copyconst) {
+    f.createRandomFunction();
     BOOST_CHECK(!f.function.getPieces().empty());
     LAFunction copy(f.function);
     BOOST_CHECK_EQUAL(f.function, copy);
@@ -177,6 +183,7 @@ BOOST_AUTO_TEST_CASE(LAFunction_copyconst) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_copyassign) {
+    f.createRandomFunction();
     LAFunction copy;
     copy = f.function;
     BOOST_CHECK_EQUAL(f.function, copy);
@@ -184,6 +191,7 @@ BOOST_AUTO_TEST_CASE(LAFunction_copyassign) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_moveconst) {
+    f.createRandomFunction();
     LAFunction copy(f.function);
     LAFunction move(std::move(copy));
     BOOST_CHECK_EQUAL(f.function, move);
@@ -192,6 +200,7 @@ BOOST_AUTO_TEST_CASE(LAFunction_moveconst) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_moveassign) {
+    f.createRandomFunction();
     LAFunction copy(f.function);
     LAFunction move;
     move = std::move(copy);
@@ -201,7 +210,7 @@ BOOST_AUTO_TEST_CASE(LAFunction_moveassign) {
 
 
 BOOST_AUTO_TEST_CASE(LAFunction_estimateSlowness) {
-    f.createNTaskFunction(rqg, 20);
+    f.createNTaskFunction(20);
     forAinDomain(f.horizon, [&] (uint64_t a) {
         // Check the estimation of one task
         BOOST_CHECK_CLOSE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1), 0.01);
@@ -214,16 +223,63 @@ BOOST_AUTO_TEST_CASE(LAFunction_estimateSlowness) {
 }
 
 
+BOOST_AUTO_TEST_CASE(LAFunction_continuity) {
+    //rqg.seed(1371628638);
+    for (int i = 0; i < 100; ++i) {
+        f.createNTaskFunction(20);
+        const LAFunction::PieceVector & pieces = f.function.getPieces();
+        for (auto i = ++pieces.begin(); i != pieces.end(); ++i) {
+            auto prev = i;
+            --prev;
+            BOOST_CHECK_CLOSE(prev->value(i->leftEndpoint), i->value(i->leftEndpoint), 0.1);
+        }
+    }
+}
+
+
+BOOST_AUTO_TEST_CASE(SubFunction_isBiggerThan) {
+    LAFunction::SubFunction a(1, 0, 0.5, 0.5, 0), b(3, 6, 0, 0, 0), c(1, -3, -0.5, 4.5, 0);
+    BOOST_CHECK(c.isBiggerThan(a, b, 6));
+}
+
+
+BOOST_AUTO_TEST_CASE(SubFunction_fromThreePoints) {
+    LAFunction::SubFunction a(1, 0, 0.5, 0.5, 0), b(3, 6, 0, 0, 0), c(1, -3, -0.5, 4.5, 0), d;
+    double A[] = { 1, 3, 6 };
+    double B[] = { 1, 2, 1 };
+    d.fromThreePoints(A, B);
+    BOOST_CHECK_EQUAL(d, c);
+    BOOST_CHECK(d.isBiggerThan(a, b, 6));
+}
+
+
+BOOST_AUTO_TEST_CASE(SubFunction_fromTwoPointsAndSlope) {
+    LAFunction::SubFunction a(1, 2.4, 0, -0.4, 0), b(6, 0, 2.0/3.0, -4, 0), c(1, 2.7, 0.3, -1, 0), d(1, 6.75, 0.75, -5.5, 0), e;
+    double A[] = { 1, 6, 9 };
+    double B[] = { 2, 0, 2 };
+    A[1] = A[0]; B[1] = a.slope(A[0]);
+    e.fromTwoPointsAndSlope(A, B);
+    //BOOST_CHECK_EQUAL(e, c); // This test does not pass because of rounding problems
+    BOOST_CHECK(e.isBiggerThan(a, b, 6));
+    A[1] = A[2]; B[1] = b.slope(A[2]);
+    e.fromTwoPointsAndSlope(A, B);
+    BOOST_CHECK_EQUAL(e, d);
+    BOOST_CHECK(!e.isBiggerThan(a, b, 6));
+}
+
+
 BOOST_AUTO_TEST_CASE(LAFunction_reduceMax) {
     LAFunction::setNumPieces(3);
     //rqg.seed(1371628638);
-    f.createNTaskFunction(rqg, 20);
-    LAFunction fred(f.function);
-    double accumAsqRed = 5 * fred.reduceMax(f.horizon);
-    BOOST_CHECK_GE(accumAsqRed, 0);
-    forAinDomain(f.horizon, [&] (uint64_t a) {
-        BOOST_REQUIRE_GE(fred.getSlowness(a), f.function.getSlowness(a));
-    } );
+    for (int i = 0; i < 100; ++i) {
+        f.createNTaskFunction(20);
+        LAFunction fred(f.function);
+        double accumAsqRed = 5 * fred.reduceMax(f.horizon);
+        BOOST_CHECK_GE(accumAsqRed, 0);
+        forAinDomain(f.horizon, [&] (uint64_t a) {
+            BOOST_REQUIRE_GE(fred.getSlowness(a) * 1.000001, f.function.getSlowness(a));
+        } );
+    }
 }
 
 
@@ -232,6 +288,7 @@ BOOST_AUTO_TEST_CASE(LAFunction_plotSampled) {
     ofstream ofs("laf_test.stat");
     ofs << "# F" << f.function << endl;
     ofs << "# Estimation with 1 task" << endl;
+    f.createRandomFunction();
     double maxDiff = f.plotSampledGetMaxDifference(1, ofs);
     BOOST_CHECK_LE(maxDiff, 0.01);
     ofs << endl;
@@ -276,6 +333,11 @@ BOOST_AUTO_TEST_CASE(LAFunction_operations) {
     for (int i = 0; i < 100; i++) {
         //LogMsg("Test.RI", INFO) << "Function " << i << ": ";
         QueueFunctionPair f11(rqg), f12(rqg), f13(rqg), f21(rqg), f22(rqg);
+        f11.createRandomFunction();
+        f12.createRandomFunction();
+        f13.createRandomFunction();
+        f21.createRandomFunction();
+        f22.createRandomFunction();
         double ah = 0.0;
         {
             if (f11.horizon > ah) ah = f11.horizon;

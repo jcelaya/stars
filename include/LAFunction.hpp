@@ -41,12 +41,22 @@ public:
 
         SubFunction(const SubFunction & l, const SubFunction & r, double rightEndpoint);
 
+        void fromThreePoints(double a[3], double b[3]);
+
+        void fromTwoPointsAndSlope(double a[3], double b[3]);
+
+        bool isBiggerThan(const SubFunction & l, const SubFunction & r, double rightEndpoint) const;
+
         bool covers(double a) const {
             return a >= leftEndpoint;
         }
 
         double value(double a, int n = 1) const {
             return x / a + y * a * n + z1 * n + z2;
+        }
+
+        double slope(double a) const {
+            return y - x / (a * a);
         }
 
         bool operator==(const SubFunction & r) const {
@@ -58,7 +68,7 @@ public:
         }
 
         friend std::ostream & operator<<(std::ostream & os, const SubFunction & o) {
-            return os << " (" << o.leftEndpoint << ": L = " << o.x << "/a + " << o.y << "a + " << o.z1 << " + " << o.z2 << ')';
+            return os << '(' << o.leftEndpoint << ": L = " << o.x << "/a + " << o.y << "a + " << o.z1 << " + " << o.z2 << ')';
         }
 
         MSGPACK_DEFINE(leftEndpoint, x, y, z1, z2);
@@ -181,7 +191,7 @@ public:
     friend std::ostream & operator<<(std::ostream & os, const LAFunction & o) {
         os << "[LAF";
         for (auto & i: o.pieces) {
-            os << i;
+            os << ' ' << i;
         }
         return os << ']';
     }

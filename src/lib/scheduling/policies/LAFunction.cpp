@@ -124,15 +124,15 @@ LAFunction::LAFunction(FSPTaskList curTasks, double power) {
             }
 
             // See at which value of a the new task would change position with its next task
-            if (tn1 != curTasks.end()) {
-                // Solve the second grade equation L(a) = frac(r_{k+1} - r_k)(a - a_{k+1})
-                c = tm->tsum * tn1->a * power;
-                b = (tm->tsum - tn1->r) * power - tn1->a;
-                if (b*b + 4*c >= 0) {
-                    a = (-b + sqrt(b*b + 4*c)) / 2.0;
-                    if (a > curA && a < minA) minA = a;
-                }
-            }
+//            if (tn1 != curTasks.end()) {
+//                // Solve the second grade equation L(a) = frac(r_{k+1} - r_k)(a - a_{k+1})
+//                c = tm->tsum * tn1->a * power;
+//                b = (tm->tsum - tn1->r) * power - tn1->a;
+//                if (b*b + 4*c >= 0) {
+//                    a = (-b + sqrt(b*b + 4*c)) / 2.0;
+//                    if (a > curA && a < minA) minA = a;
+//                }
+//            }
 
             // See at which value of a other tasks change order
             if (!svCur.empty() && svCur.front() < maxSlowness) {
@@ -467,13 +467,65 @@ vector<LAFunction> LAFunction::getReductionOptions(double horizon) const {
 
 
 LAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & r, double rightEndpoint) {
-    leftEndpoint = l.leftEndpoint;
-    double a = l.leftEndpoint, b = r.leftEndpoint, c = rightEndpoint;
-    double pc = (b - a) / (c - a), cc = (c - b) / (c - a);
-    x = l.x * pc + r.x * cc;
-    y = l.y * pc + r.y * cc;
-    z1 = l.z1 * pc + r.z1 * cc;
-    z2 = l.z2 * pc + r.z2 * cc;
+    double a[] = { l.leftEndpoint, r.leftEndpoint, rightEndpoint };
+    double b[] = { l.value(l.leftEndpoint), l.value(r.leftEndpoint), r.value(rightEndpoint) };
+    if (b[1] < r.value(r.leftEndpoint)) {
+        b[1] = r.value(r.leftEndpoint);
+    }
+    fromThreePoints(a, b);
+    if (!isBiggerThan(l, r, rightEndpoint)) {
+        a[1] = a[0];
+        b[1] = l.slope(a[0]);
+        fromTwoPointsAndSlope(a, b);
+        if (!isBiggerThan(l, r, rightEndpoint)) {
+            a[1] = a[2];
+            b[1] = r.slope(a[2]);
+            fromTwoPointsAndSlope(a, b);
+        }
+    }
+//    leftEndpoint = l.leftEndpoint;
+//    double a = l.leftEndpoint, b = r.leftEndpoint, c = rightEndpoint;
+//    double pc = (b - a) / (c - a), cc = (c - b) / (c - a);
+//    x = l.x * pc + r.x * cc;
+//    y = l.y * pc + r.y * cc;
+//    z1 = l.z1 * pc + r.z1 * cc;
+//    z2 = l.z2 * pc + r.z2 * cc;
+}
+
+
+void LAFunction::SubFunction::fromThreePoints(double a[3], double b[3]) {
+    leftEndpoint = a[0];
+    // TODO: Solve this with pivoting
+    x = (b[2] - b[0] - (b[1] - b[0])*(a[2] - a[0])/(a[1] - a[0])) * a[0]*a[1]*a[2] / ((a[1] - a[2]) * (a[0] - a[2]));
+    y = (b[1] - b[0]) / (a[1] - a[0]) + x / (a[0]*a[1]);
+    z1 = b[0] - a[0]*y - x/a[0];
+    z2 = 0.0; // TODO
+}
+
+
+void LAFunction::SubFunction::fromTwoPointsAndSlope(double a[3], double b[3]) {
+    double bprima = b[1];
+    bool leftTangent = a[0] == a[1];
+    leftEndpoint = a[0];
+    x = (b[2] - b[0] - (a[2] - a[0])*bprima) * (leftTangent ? a[0]*a[0]*a[2] : -a[2]*a[2]*a[0]) / ((a[0] - a[2])*(a[0] - a[2]));
+    y = bprima + x / (leftTangent ? a[0]*a[0] : a[2]*a[2]);
+    z1 = b[0] - a[0]*y - x/a[0];
+    z2 = 0.0; // TODO
+}
+
+
+bool LAFunction::SubFunction::isBiggerThan(const SubFunction & l, const SubFunction & r, double rightEndpoint) const {
+    // Pre: this function touches l at l.leftEndpoint and r at rightEndpoint
+    double b2 = value(r.leftEndpoint) * 1.00001;  // Some margin...
+    bool midPoint = b2 >= l.value(r.leftEndpoint) && b2 >= r.value(r.leftEndpoint);
+    double b1prima = slope(l.leftEndpoint);
+    b1prima += abs(b1prima) * 0.00001;
+    double lb1prima = l.slope(l.leftEndpoint);
+    double b3prima = slope(rightEndpoint);
+    b3prima += abs(b3prima) * 0.00001;
+    double rb3prima = r.slope(rightEndpoint);
+    bool slopes = b1prima >= lb1prima && b3prima <= rb3prima;
+    return midPoint && slopes;
 }
 
 
