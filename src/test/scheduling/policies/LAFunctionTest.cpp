@@ -44,7 +44,7 @@
 #include <utility>
 #include "TestHost.hpp"
 #include "LAFunction.hpp"
-#include "RandomQueueGenerator.hpp"
+#include "../RandomQueueGenerator.hpp"
 using namespace std;
 
 

@@ -23,7 +23,7 @@
 #include "CheckMsg.hpp"
 #include "TestHost.hpp"
 #include "MSPAvailabilityInformation.hpp"
-#include "RandomQueueGenerator.hpp"
+#include "../RandomQueueGenerator.hpp"
 using namespace std;
 
 

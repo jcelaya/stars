@@ -55,7 +55,13 @@ namespace {
 }
 
 
-template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+template<> AggregationTestImpl<DPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("dp_mem_disk_avail.stat", 2) {
+    stars::ClusteringList<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
+    DPAvailabilityInformation::setNumRefPoints(10);
+}
+
+
+template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     boost::shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
     list<Time> q;
     createRandomLAF(n.power, gen, q);
@@ -70,75 +76,54 @@ template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTest<DPAvaila
 }
 
 
-void performanceTest(const std::vector<int> & numClusters, int levels) {
-    refTime = Time::getCurrentTime();
-    stars::ClusteringList<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
-    unsigned int numpoints = 10;
-    DPAvailabilityInformation::setNumRefPoints(numpoints);
-    ofstream ofmd("dp_mem_disk_avail.stat");
-    DPAvailabilityInformation::ATFunction dummy;
+template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(const boost::shared_ptr<DPAvailabilityInformation> & summary) {
+    static DPAvailabilityInformation::ATFunction dummy;
+    unsigned long int minMem = nodes.size() * min_mem;
+    unsigned long int minDisk = nodes.size() * min_disk;
+    DPAvailabilityInformation::ATFunction minAvail, aggrAvail;
+    minAvail.lc(privateData.minAvail, dummy, nodes.size(), 1.0);
 
-    for (int j = 0; j < numClusters.size(); j++) {
-        DPAvailabilityInformation::setNumClusters(numClusters[j]);
-        ofmd << "# " << numClusters[j] << " clusters" << endl;
-        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
-        AggregationTest<DPAvailabilityInformation> t;
-        for (int i = 0; i < levels; i++) {
-            LogMsg("Progress", WARN) << i << " levels";
-            boost::shared_ptr<DPAvailabilityInformation> result = t.test(i);
-
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            DPAvailabilityInformation::ATFunction minAvail, aggrAvail;
-            DPAvailabilityInformation::ATFunction & totalAvail = const_cast<DPAvailabilityInformation::ATFunction &>(t.getPrivateData().totalAvail);
-            minAvail.lc(t.getPrivateData().minAvail, dummy, t.getNumNodes(), 1.0);
-
-            unsigned long int aggrMem = 0, aggrDisk = 0;
-            {
-                const stars::ClusteringList<DPAvailabilityInformation::MDFCluster> & clusters = result->getSummary();
-                for (auto & u : clusters) {
-                    aggrMem += (unsigned long int)u.minM * u.value;
-                    aggrDisk += (unsigned long int)u.minD * u.value;
-                    aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
-                }
-            }
-
-            list<Time> p;
-            for (vector<pair<Time, double> >::const_iterator it = aggrAvail.getPoints().begin(); it != aggrAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            for (vector<pair<Time, double> >::const_iterator it = totalAvail.getPoints().begin(); it != totalAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            for (vector<pair<Time, double> >::const_iterator it = minAvail.getPoints().begin(); it != minAvail.getPoints().end(); it++)
-                p.push_back(it->first);
-            p.sort();
-            p.erase(std::unique(p.begin(), p.end()), p.end());
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << "M," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << aggrMem << ',' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << endl;
-            ofmd << "D," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << aggrDisk << ',' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << endl;
-            double meanAccuracy = 0.0;
-            {
-                double prevAccuracy = 0.0;
-                Time prevTime = refTime;
-                // Approximate the accuracy to linear...
-                for (list<Time>::iterator it = p.begin(); it != p.end(); ++it) {
-                    double minAvailBeforeIt = minAvail.getAvailabilityBefore(*it);
-                    double totalAvailBeforeIt = totalAvail.getAvailabilityBefore(*it)- minAvailBeforeIt;
-                    double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(*it)- minAvailBeforeIt;
-                    double accuracy = totalAvailBeforeIt > minAvailBeforeIt ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
-                    if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
-                        LogMsg("test", ERROR) << numClusters[j] << " clusters, total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
-                    //ofmd << "#," << *it << ',' << totalAvailBeforeIt << ',' << aggrAvailBeforeIt << ',' << accuracy << endl;
-                    meanAccuracy += (prevAccuracy + accuracy) * (*it - prevTime).seconds();
-                    prevAccuracy = accuracy;
-                    prevTime = *it;
-                }
-                meanAccuracy /= 2.0 * (p.back() - refTime).seconds();
-            }
-            ofmd << "A," << (i + 1) << ',' << numClusters[j] << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << meanAccuracy << endl;
-            ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
-            ofmd << endl;
-        }
-        ofmd << endl;
+    unsigned long int aggrMem = 0, aggrDisk = 0;
+    double meanAccuracy = 0.0;
+    const stars::ClusteringList<DPAvailabilityInformation::MDFCluster> & clusters = summary->getSummary();
+    for (auto & u : clusters) {
+        aggrMem += (unsigned long int)u.minM * u.value;
+        aggrDisk += (unsigned long int)u.minD * u.value;
+        aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
     }
-    ofmd.close();
+    list<Time> p;
+    for (auto & i: aggrAvail.getPoints())
+        p.push_back(i.first);
+    for (auto & i: privateData.totalAvail.getPoints())
+        p.push_back(i.first);
+    for (auto & i: minAvail.getPoints())
+        p.push_back(i.first);
+    p.sort();
+    p.erase(std::unique(p.begin(), p.end()), p.end());
+    // TODO: The accuracy is not linear...
+    double prevAccuracy = 0.0;
+    Time prevTime = refTime;
+    // Approximate the accuracy to linear...
+    for (auto & i: p) {
+        double minAvailBeforeIt = minAvail.getAvailabilityBefore(i);
+        double totalAvailBeforeIt = privateData.totalAvail.getAvailabilityBefore(i)- minAvailBeforeIt;
+        double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(i)- minAvailBeforeIt;
+        double accuracy = totalAvailBeforeIt > minAvailBeforeIt ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
+        if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
+            LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
+        meanAccuracy += (prevAccuracy + accuracy) * (i - prevTime).seconds();
+        prevAccuracy = accuracy;
+        prevTime = i;
+    }
+    meanAccuracy /= 2.0 * (p.back() - refTime).seconds();
+
+    results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
+    results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));
+    results["A"].value(0.0).value(0.0).value(0.0).value(meanAccuracy);
+}
+
+
+AggregationTest & AggregationTest::getInstance() {
+    static AggregationTestImpl<DPAvailabilityInformation> instance;
+    return instance;
 }

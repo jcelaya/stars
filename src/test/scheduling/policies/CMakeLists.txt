@@ -8,5 +8,4 @@ set(starstest_sources ${starstest_sources}
     scheduling/policies/TimeConstraintInfoTest.cpp
     scheduling/policies/TaskProxyTest.cpp
     scheduling/policies/LAFunctionTest.cpp
-    scheduling/policies/RandomQueueGenerator.cpp
     PARENT_SCOPE)

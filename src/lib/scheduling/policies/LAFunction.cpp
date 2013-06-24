@@ -495,11 +495,10 @@ LAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & 
 
 void LAFunction::SubFunction::fromThreePoints(double a[3], double b[3]) {
     leftEndpoint = a[0];
-    // TODO: Solve this with pivoting
     x = (b[2] - b[0] - (b[1] - b[0])*(a[2] - a[0])/(a[1] - a[0])) * a[0]*a[1]*a[2] / ((a[1] - a[2]) * (a[0] - a[2]));
     y = (b[1] - b[0]) / (a[1] - a[0]) + x / (a[0]*a[1]);
     z1 = b[0] - a[0]*y - x/a[0];
-    z2 = 0.0; // TODO
+    z2 = 0.0; // TODO: This is a conservative option
 }
 
 

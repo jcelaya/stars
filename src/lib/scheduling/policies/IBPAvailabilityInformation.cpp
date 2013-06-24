@@ -26,4 +26,3 @@ REGISTER_MESSAGE(IBPAvailabilityInformation);
 
 unsigned int IBPAvailabilityInformation::numClusters = 256;
 unsigned int IBPAvailabilityInformation::numIntervals = 16;
-int IBPAvailabilityInformation::aggrMethod = IBPAvailabilityInformation::MINIMUM;

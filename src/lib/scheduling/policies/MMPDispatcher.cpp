@@ -96,11 +96,11 @@ struct MMPDispatcher::DecissionInfo {
 
     DecissionInfo(MMPAvailabilityInformation::MDPTCluster * c, const TaskDescription & req, bool b, double d)
             : cluster(c), leftBranch(b), distance(d) {
-        double oneTaskTime = req.getLength() / (double)c->minP;
+        double oneTaskTime = req.getLength() / (double)c->getMinimumPower();
         availability = ALPHA_MEM * c->getLostMemory(req)
                 + ALPHA_DISK * c->getLostDisk(req)
-                + ALPHA_TIME / ((req.getDeadline() - c->maxT).seconds() + oneTaskTime);
-        numTasks = c->value * ((req.getDeadline() - c->maxT).seconds() / oneTaskTime);
+                + ALPHA_TIME / ((req.getDeadline() - c->getMaximumQueue()).seconds() + oneTaskTime);
+        numTasks = c->getValue() * ((req.getDeadline() - c->getMaximumQueue()).seconds() / oneTaskTime);
     }
 
     bool operator<(const DecissionInfo & r) {
@@ -176,7 +176,7 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         leftChild.availInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.QB", DEBUG) << (*git)->value << " tasks of size availability " << req.getLength();
+            LogMsg("Dsp.QB", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
             groups.push_back(DecissionInfo(*git, req, true, leftDistance));
         }
     }
@@ -185,7 +185,7 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         rightChild.availInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from right child.";
         for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.QB", DEBUG) << (*git)->value << " tasks of size availability " << req.getLength();
+            LogMsg("Dsp.QB", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
             groups.push_back(DecissionInfo(*git, req, true, leftDistance));
         }
     }
@@ -204,7 +204,7 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
             remainingTasks = 0;
         }
-        it->cluster->maxT = balancedQueue;
+        it->cluster->updateMaximumQueue(balancedQueue);
     }
 
     if (leftTasks > 0)

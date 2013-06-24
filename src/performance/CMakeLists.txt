@@ -4,15 +4,9 @@ include_directories(../../include)
 include_directories(.)
 
 set(LIBS ${STARS_LIBRARIES} ${STARS_DB_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} tcmalloc)
-set(MAIN_SRCS main.cpp ../sim/MemoryManager.cpp)
+set(MAIN_SRCS main.cpp ../util/MemoryManager.cpp)
 
 # add the executables
-add_executable(twosp-aggrtest ${MAIN_SRCS} TwoScalarParamsPT.cpp)
-target_link_libraries(twosp-aggrtest ${LIBS})
-
-add_executable(foursp-aggrtest ${MAIN_SRCS} FourScalarParamsPT.cpp)
-target_link_libraries(foursp-aggrtest ${LIBS})
-
 add_executable(ibp-aggrtest ${MAIN_SRCS} IBPAvailabilityInfoTest.cpp)
 target_link_libraries(ibp-aggrtest ${LIBS})
 

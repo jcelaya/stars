@@ -20,7 +20,6 @@
  */
 
 #include <ctime>
-#include <boost/test/unit_test.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include "RandomQueueGenerator.hpp"
 #include "TestHost.hpp"
@@ -105,17 +104,5 @@ double RandomQueueGenerator::getRandomReleaseDelta() {
 RandomQueueGenerator::RandomQueueGenerator() : id(0) {
     seed(std::time(NULL));
 }
-
-/// Test Cases
-BOOST_AUTO_TEST_SUITE(RandomQueueGeneratorTest)
-
-BOOST_AUTO_TEST_CASE(RandomQueueGenerator_createRandomQueue) {
-    TestHost::getInstance().reset();
-    RandomQueueGenerator rqg;
-    std::list<TaskProxy> proxys = rqg.createRandomQueue(1500.0);
-
-}
-
-BOOST_AUTO_TEST_SUITE_END()   // TaskProxyTest
 
 } // namespace stars

@@ -38,7 +38,7 @@ struct IntervalFixture {
         IN = 0,
     };
 
-    Interval<int> interval0, interval1, interval2, extension;
+    Interval<int, int> interval0, interval1, interval2, extension;
 };
 
 BOOST_FIXTURE_TEST_SUITE(IntervalTest, IntervalFixture)

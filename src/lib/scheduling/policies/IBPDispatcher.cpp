@@ -54,7 +54,8 @@ struct IBPDispatcher::DecisionInfo {
     static const uint32_t ALPHA_DISK = 1;
 
     DecisionInfo(IBPAvailabilityInformation::MDCluster & c, uint32_t mem, uint32_t disk, bool b, double d)
-            : cluster(c), leftBranch(b), distance(d), availability((c.minM - mem) * ALPHA_MEM + (c.minD - disk) * ALPHA_DISK) {}
+            : cluster(c), leftBranch(b), distance(d),
+              availability((c.getRemainingMemory(mem)) * ALPHA_MEM + (c.getRemainingDisk(disk)) * ALPHA_DISK) {}
 
     bool operator<(const DecisionInfo & r) {
         return availability < r.availability || (availability == r.availability && distance < r.distance);
@@ -85,7 +86,6 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         leftChild.availInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<IBPAvailabilityInformation::MDCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.Simple", DEBUG) << (*git)->value << " nodes with " << (*git)->minM << " memory and " << (*git)->minD << " disk";
             groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), true, branch.getLeftDistance(msg.getRequester())));
         }
     }
@@ -95,7 +95,6 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         rightChild.availInfo->getAvailability(nodeGroups, req);
         LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<IBPAvailabilityInformation::MDCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.Simple", DEBUG) << (*git)->value << " nodes with " << (*git)->minM << " memory and " << (*git)->minD << " disk";
             groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), false, branch.getRightDistance(msg.getRequester())));
         }
     }
@@ -106,16 +105,10 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // Now divide the request between the zones
     unsigned int leftTasks = 0, rightTasks = 0;
     for (std::list<DecisionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; ++it) {
-        LogMsg("Dsp.Simple", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->cluster.value << " nodes, availability is " << it->availability;
-        if (remainingTasks > it->cluster.value) {
-            (it->leftBranch ? leftTasks : rightTasks) += it->cluster.value;
-            remainingTasks -= it->cluster.value;
-            it->cluster.value = 0;
-        } else {
-            (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
-            it->cluster.value -= remainingTasks;
-            remainingTasks = 0;
-        }
+        LogMsg("Dsp.Simple", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->cluster.getValue() << " nodes, availability is " << it->availability;
+        uint32_t numTaken = remainingTasks - it->cluster.takeUpToNodes(remainingTasks);
+        (it->leftBranch ? leftTasks : rightTasks) += numTaken;
+        remainingTasks -= numTaken;
     }
     if (leftChild.availInfo.get())
         leftChild.availInfo->updated();

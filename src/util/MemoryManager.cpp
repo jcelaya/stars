@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <cstring>
-#include "MemoryManager.hpp"
+#include "util/MemoryManager.hpp"
 
 
 MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(getpid()),

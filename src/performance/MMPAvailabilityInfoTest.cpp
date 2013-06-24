@@ -21,7 +21,6 @@
 #include <fstream>
 #include "AggregationTest.hpp"
 #include "MMPAvailabilityInformation.hpp"
-//using namespace boost;
 
 
 template<> struct Priv<MMPAvailabilityInformation> {
@@ -33,12 +32,16 @@ template<> struct Priv<MMPAvailabilityInformation> {
 static Time reference = Time::getCurrentTime();
 
 
-template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+template<> AggregationTestImpl<MMPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("mmp_mem_disk_power_queue.stat", 2) {
+}
+
+
+template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTestImpl<MMPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     static const int min_time = 0;
     static const int max_time = 2000;
     static const int step_time = 1;
     boost::shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
-    Duration q(floor(boost::random::uniform_int_distribution<>(min_time, max_time)(gen) / step_time) * step_time);
+    Duration q((double)floor(boost::random::uniform_int_distribution<>(min_time, max_time)(gen) / step_time) * step_time);
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;
@@ -47,48 +50,38 @@ template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTest<MMPAvai
 }
 
 
-void performanceTest(const std::vector<int> & numClusters, int levels) {
-    ofstream ofmd("mmp_mem_disk_power_queue.stat");
+template<> void AggregationTestImpl<MMPAvailabilityInformation>::computeResults(const boost::shared_ptr<MMPAvailabilityInformation> & summary) {
+    list<MMPAvailabilityInformation::MDPTCluster *> clusters;
+    TaskDescription dummy;
+    dummy.setMaxMemory(0);
+    dummy.setMaxDisk(0);
+    dummy.setLength(1);
+    dummy.setDeadline(Time::getCurrentTime() + Duration(10000.0));
+    summary->getAvailability(clusters, dummy);
+    unsigned long int minMem = nodes.size() * min_mem;
+    unsigned long int minDisk = nodes.size() * min_disk;
+    unsigned long int minPower = nodes.size() * min_power;
+    Duration maxQueue = privateData.maxQueue * nodes.size();
+    Duration totalQueue = maxQueue - privateData.totalQueue;
+    unsigned long int aggrMem = 0, aggrDisk = 0, aggrPower = 0;
+    Duration aggrQueue;
 
-    for (int j = 0; j < numClusters.size(); j++) {
-        MMPAvailabilityInformation::setNumClusters(numClusters[j]);
-        ofmd << "# " << numClusters[j] << " clusters" << endl;
-        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
-        AggregationTest<MMPAvailabilityInformation> t;
-        for (int i = 0; i < levels; i++) {
-            LogMsg("Progress", WARN) << i << " levels";
-            list<MMPAvailabilityInformation::MDPTCluster *> clusters;
-            TaskDescription dummy;
-            dummy.setMaxMemory(0);
-            dummy.setMaxDisk(0);
-            dummy.setLength(1);
-            dummy.setDeadline(Time::getCurrentTime() + Duration(10000.0));
-            boost::shared_ptr<MMPAvailabilityInformation> result = t.test(i);
-            result->getAvailability(clusters, dummy);
-            // Do not calculate total information and then aggregate, it is not very useful
-            unsigned long int aggrMem = 0, aggrDisk = 0, aggrPower = 0;
-            Duration aggrQueue;
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            unsigned long int minPower = t.getNumNodes() * t.min_power;
-            Duration maxQueue = t.getPrivateData().maxQueue * t.getNumNodes();
-            Duration totalQueue = maxQueue - t.getPrivateData().totalQueue;
-            for (list<MMPAvailabilityInformation::MDPTCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
-                aggrMem += (unsigned long int)(*it)->minM * (*it)->value;
-                aggrDisk += (unsigned long int)(*it)->minD * (*it)->value;
-                aggrPower += (unsigned long int)(*it)->minP * (*it)->value;
-                aggrQueue += (t.getPrivateData().maxQueue - ((*it)->maxT - reference)) * (*it)->value;
-            }
-
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << "M," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << aggrMem << ',' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << endl;
-            ofmd << "D," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << aggrDisk << ',' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << endl;
-            ofmd << "S," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalPower() << ',' << minPower << ',' << aggrPower << ',' << ((aggrPower - minPower) * 100.0 / (t.getTotalPower() - minPower)) << endl;
-            ofmd << "Q," << (i + 1) << ',' << numClusters[j] << ',' << totalQueue.seconds() << ',' << maxQueue.seconds() << ',' << aggrQueue.seconds() << ',' << ((aggrQueue.seconds()) * 100.0 / (totalQueue.seconds())) << endl;
-            ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
-            ofmd << endl;
-        }
-        ofmd << endl;
+    for (auto & u : clusters) {
+        aggrMem += u->getTotalMemory();
+        aggrDisk += u->getTotalDisk();
+        aggrPower += u->getTotalSpeed();
+        aggrQueue += privateData.maxQueue * u->getValue() - u->getTotalQueue(reference);
     }
-    ofmd.close();
+
+    results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
+    results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));
+    results["S"].value(totalPower).value(minPower).value(aggrPower).value((aggrPower - minPower) * 100.0 / (totalPower - minPower));
+    results["Q"].value(totalQueue.seconds()).value(maxQueue.seconds()).value(aggrQueue.seconds())
+            .value(aggrQueue.seconds() * 100.0 / totalQueue.seconds());
+}
+
+
+AggregationTest & AggregationTest::getInstance() {
+    static AggregationTestImpl<MMPAvailabilityInformation> instance;
+    return instance;
 }

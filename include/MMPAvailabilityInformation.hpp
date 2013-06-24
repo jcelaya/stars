@@ -26,6 +26,12 @@
 #include "AvailabilityInformation.hpp"
 #include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
+#include "ScalarParameter.hpp"
+
+
+template <> inline int64_t Interval<Time, int64_t>::difference(Time M, Time m) {
+    return int64_t((M - m).seconds());
+}
 
 
 /**
@@ -38,19 +44,11 @@ class MMPAvailabilityInformation : public AvailabilityInformation {
 public:
     class MDPTCluster {
     public:
-        MSGPACK_DEFINE(value, minM, minD, minP, accumMsq, accumDsq, accumPsq, accumMln, accumDln, accumPln, maxT, accumTsq, accumTln);
-
-        uint32_t value;
-        uint32_t minM, minD, minP;
-        int64_t accumMsq, accumDsq, accumPsq;
-        int64_t accumMln, accumDln, accumPln;
-        Time maxT;
-        int64_t accumTsq, accumTln;
+        MSGPACK_DEFINE(value, minM, minD, minP, maxT);
 
         MDPTCluster() : reference(NULL), value(0) {}
-        MDPTCluster(MMPAvailabilityInformation * r, uint32_t m, uint32_t d, uint32_t p, Time t)
-                : reference(r), value(1), minM(m), minD(d), minP(p), accumMsq(0), accumDsq(0),
-                  accumPsq(0), accumMln(0), accumDln(0), accumPln(0), maxT(t), accumTsq(0.0), accumTln(0.0) {}
+        MDPTCluster(int32_t m, int32_t d, int32_t p, Time t)
+                : reference(NULL), value(1), minM(m), minD(d), minP(p), maxT(t) {}
 
         void setReference(MMPAvailabilityInformation * r) {
             reference = r;
@@ -58,75 +56,104 @@ public:
 
         // Order by maxT value
         bool operator<(const MDPTCluster & r) const {
-            return maxT < r.maxT;
+            return maxT.getValue() < r.maxT.getValue();
         }
 
         bool operator==(const MDPTCluster & r) const {
-            return minM == r.minM && accumMsq == r.accumMsq && accumMln == r.accumMln
-                   && minD == r.minD && accumDsq == r.accumDsq && accumDln == r.accumDln
-                   && minP == r.minP && accumPsq == r.accumPsq && accumPln == r.accumPln
-                   && maxT == r.maxT && accumTsq == r.accumTsq && accumTln == r.accumTln
-                   && value == r.value;
+            return minM == r.minM && minD == r.minD && minP == r.minP && maxT == r.maxT && value == r.value;
         }
 
-        double distance(const MDPTCluster & r, MDPTCluster & sum) const;
+        double distance(const MDPTCluster & r, MDPTCluster & sum) const {
+            sum = *this;
+            sum.aggregate(r);
+            return sum.minM.norm(reference->memoryRange, sum.value)
+                    + sum.minD.norm(reference->diskRange, sum.value)
+                    + sum.minP.norm(reference->powerRange, sum.value)
+                    + sum.maxT.norm(reference->queueRange, sum.value);
+        }
 
-        bool far(const MDPTCluster & r) const;
+        bool far(const MDPTCluster & r) const {
+            return minM.far(r.minM, reference->memoryRange, numIntervals) ||
+                    minD.far(r.minD, reference->diskRange, numIntervals) ||
+                    minP.far(r.minP, reference->powerRange, numIntervals) ||
+                    maxT.far(r.maxT, reference->queueRange, numIntervals);
+        }
 
-        void aggregate(const MDPTCluster & r);
+        void aggregate(const MDPTCluster & r) {
+            // Update minimums/maximums and sum up counts
+            minM.aggregate(value, r.minM, r.value);
+            minD.aggregate(value, r.minD, r.value);
+            minP.aggregate(value, r.minP, r.value);
+            maxT.aggregate(value, r.maxT, r.value);
+            value += r.value;
+        }
 
         bool fulfills(const TaskDescription & req) const {
-            return minM >= req.getMaxMemory() && minD >= req.getMaxDisk();
+            return minM.getValue() >= req.getMaxMemory() && minD.getValue() >= req.getMaxDisk();
         }
 
-        uint32_t getLostMemory(const TaskDescription & req) const {
-            return minM - req.getMaxMemory();
+        uint32_t getValue() const {
+            return value;
         }
 
-        uint32_t getLostDisk(const TaskDescription & req) const {
-            return minD - req.getMaxDisk();
+        int32_t getMinimumPower() const {
+            return minP.getValue();
         }
 
-        uint32_t getLostTime(const TaskDescription & req) const {
-            unsigned int max = (unsigned long)((req.getDeadline() - maxT).seconds()) % (req.getLength() / minP);
-            return (req.getDeadline() - maxT).seconds() - max * req.getLength() / minP;
+        Time getMaximumQueue() const {
+            return maxT.getValue();
+        }
+
+
+        int32_t getLostMemory(const TaskDescription & req) const {
+            return minM.getValue() - req.getMaxMemory();
+        }
+
+        int32_t getLostDisk(const TaskDescription & req) const {
+            return minD.getValue() - req.getMaxDisk();
+        }
+
+        int64_t getTotalMemory() const {
+            return minM.getValue() * value;
+        }
+
+        int64_t getTotalDisk() const {
+            return minD.getValue() * value;
+        }
+
+        int64_t getTotalSpeed() const {
+            return minP.getValue() * value;
+        }
+
+        Duration getTotalQueue(Time reference) const {
+            return (maxT.getValue() - reference) * value;
         }
 
         static std::string getName() {
             return std::string("MDPTCluster");
         }
 
+        void updateMaximumQueue(Time m) {
+            maxT = MaxParameter<Time, int64_t>(m);
+        }
+
         friend std::ostream & operator<<(std::ostream & os, const MDPTCluster & o) {
-            os << 'M' << o.minM << '-' << o.accumMsq << '-' << o.accumMln << ',';
-            os << 'D' << o.minD << '-' << o.accumDsq << '-' << o.accumDln << ',';
-            os << 'P' << o.minP << '-' << o.accumPsq << '-' << o.accumPln << ',';
-            os << 'T' << o.maxT << '-' << o.accumTsq << '-' << o.accumTln << ',';
-            return os << o.value;
+            return os << 'M' << o.minM << ',' << 'D' << o.minD << ',' << 'P' << o.minP << ',' << 'T' << o.maxT << ',' << o.value;
         }
     private:
-        MMPAvailabilityInformation * reference;
-    };
+        friend class stars::ClusteringList<MDPTCluster>;
+        friend class MMPAvailabilityInformation;
 
-    enum {
-        MINIMUM = 0,
-        MEAN_QUEUE,
-        MEAN_FULL,
+        MMPAvailabilityInformation * reference;
+        uint32_t value;
+        MinParameter<int32_t, int64_t> minM, minD, minP;
+        MaxParameter<Time, int64_t> maxT;
     };
 
     MESSAGE_SUBCLASS(MMPAvailabilityInformation);
 
     MMPAvailabilityInformation() {
         reset();
-    }
-    MMPAvailabilityInformation(const MMPAvailabilityInformation & copy) : AvailabilityInformation(copy), maxQueue(copy.maxQueue), summary(copy.summary), minM(copy.minM),
-            maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minP(copy.minP), maxP(copy.maxP), minT(copy.minT), maxT(copy.maxT) {
-//        unsigned int size = summary.getSize();
-//        for (unsigned int i = 0; i < size; i++)
-//            summary[i].setReference(this);
-    }
-
-    static void setMethod(int method) {
-        aggrMethod = method;
     }
 
     static void setNumClusters(unsigned int c) {
@@ -135,9 +162,12 @@ public:
     }
 
     void reset() {
-        minT = maxT = maxQueue = Time::getCurrentTime();
+        memoryRange.setLimits(0);
+        diskRange.setLimits(0);
+        powerRange.setLimits(0);
+        maxQueue = Time::getCurrentTime();
+        queueRange.setLimits(maxQueue);
         summary.clear();
-        minM = maxM = minD = maxD = minP = maxP = 0;
     }
 
     /**
@@ -145,7 +175,7 @@ public:
      * @param mem Available memory.
      * @param disk Available disk space.
      */
-    void setQueueEnd(uint32_t mem, uint32_t disk, uint32_t power, Time end);
+    void setQueueEnd(int32_t mem, int32_t disk, int32_t power, Time end);
 
     void setMaxQueueLength(Time q) {
         maxQueue = q;
@@ -155,7 +185,7 @@ public:
         return maxQueue;
     }
 
-    double getMinPower() const { return minP; }
+    //double getMinPower() const { return powerRange.getMin(); }
 
     /**
      * Aggregates an TimeConstraintInfo to this object.
@@ -187,22 +217,23 @@ public:
 
     void updateAvailability(const TaskDescription & req);
 
-    void updateMaxT(Time m) { if (maxT < m) maxT = m; }
+    void updateMaxT(Time m) { queueRange.extend(m); }
 
     // This is documented in BasicMsg
     void output(std::ostream & os) const {
         os << maxQueue << ',' << summary;
     }
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, maxQueue, summary, minM, maxM, minD, maxD, minP, maxP, minT, maxT);
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, maxQueue, summary, memoryRange, diskRange, powerRange, queueRange);
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    static int aggrMethod;
     Time maxQueue;
     stars::ClusteringList<MDPTCluster> summary;   ///< List clusters representing queues
-    uint32_t minM, maxM, minD, maxD, minP, maxP;
-    Time minT, maxT;
+    Interval<int32_t, int64_t> memoryRange;
+    Interval<int32_t, int64_t> diskRange;
+    Interval<int32_t, int64_t> powerRange;
+    Interval<Time, int64_t> queueRange;
 };
 
 #endif /* MMPAVAILABILITYINFORMATION_H_ */

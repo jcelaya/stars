@@ -22,54 +22,43 @@
 #include "AggregationTest.hpp"
 #include "IBPAvailabilityInformation.hpp"
 #include "Logger.hpp"
-#include "../sim/MemoryManager.hpp"
 
 
 template<> struct Priv<IBPAvailabilityInformation> {};
 
 
-template<> boost::shared_ptr<IBPAvailabilityInformation> AggregationTest<IBPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+template<> AggregationTestImpl<IBPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("ibp_mem_disk.stat", 2) {
+}
+
+
+template<> boost::shared_ptr<IBPAvailabilityInformation> AggregationTestImpl<IBPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     boost::shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
     result->addNode(n.mem, n.disk);
     return result;
 }
 
 
-void performanceTest(const std::vector<int> & numClusters, int levels) {
-    ofstream ofmd("ibp_mem_disk.stat");
+template<> void AggregationTestImpl<IBPAvailabilityInformation>::computeResults(const boost::shared_ptr<IBPAvailabilityInformation> & summary) {
+    list<IBPAvailabilityInformation::MDCluster *> clusters;
+    TaskDescription dummy;
+    dummy.setMaxMemory(0);
+    dummy.setMaxDisk(0);
+    summary->getAvailability(clusters, dummy);
+    unsigned long int minMem = nodes.size() * min_mem;
+    unsigned long int minDisk = nodes.size() * min_disk;
+    unsigned long int aggrMem = 0, aggrDisk = 0;
 
-    for (int j = 0; j < numClusters.size(); ++j) {
-        IBPAvailabilityInformation::setNumClusters(numClusters[j]);
-        ofmd << "# " << numClusters[j] << " clusters" << endl;
-        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
-        AggregationTest<IBPAvailabilityInformation> t;
-        MemoryManager::getInstance().setUpdateDuration(0.0);
-        unsigned long int initialMemory = MemoryManager::getInstance().getUsedMemory();
-        for (int i = 0; i < levels; ++i) {
-            LogMsg("Progress", WARN) << i << " levels";
-            list<IBPAvailabilityInformation::MDCluster *> clusters;
-            TaskDescription dummy;
-            dummy.setMaxMemory(0);
-            dummy.setMaxDisk(0);
-            boost::shared_ptr<IBPAvailabilityInformation> result = t.test(i);
-            LogMsg("Progress", WARN) << i << " levels used " << MemoryManager::getInstance().getUsedMemory() << " bytes.";
-            result->getAvailability(clusters, dummy);
-            // Do not calculate total information and then aggregate, it is not very useful
-            unsigned long int aggrMem = 0, aggrDisk = 0;
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            for (list<IBPAvailabilityInformation::MDCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++) {
-                aggrMem += (unsigned long int)(*it)->minM * (*it)->value;
-                aggrDisk += (unsigned long int)(*it)->minD * (*it)->value;
-            }
-
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << "M," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << aggrMem << ',' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << endl;
-            ofmd << "D," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << aggrDisk << ',' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << endl;
-            ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
-            ofmd << endl;
-        }
-        ofmd << endl;
+    for (auto & u : clusters) {
+        aggrMem += u->getTotalMemory();
+        aggrDisk += u->getTotalDisk();
     }
-    ofmd.close();
+
+    results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
+    results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));
+}
+
+
+AggregationTest & AggregationTest::getInstance() {
+    static AggregationTestImpl<IBPAvailabilityInformation> instance;
+    return instance;
 }

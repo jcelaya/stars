@@ -185,8 +185,6 @@ void StarsNode::libStarsConfigure(const Properties & property) {
             MSPAvailabilityInformation::setNumClusters(clusters);
         }
     }
-    IBPAvailabilityInformation::setMethod(property("aggregation_method", (int)IBPAvailabilityInformation::MINIMUM));
-    MMPAvailabilityInformation::setMethod(property("aggregation_method", (int)MMPAvailabilityInformation::MINIMUM));
     DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
     stars::LAFunction::setNumPieces(property("si_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));

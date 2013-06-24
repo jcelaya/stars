@@ -24,6 +24,7 @@
 #include <cmath>
 #include <msgpack.hpp>
 #include <Interval.hpp>
+#include <cstdint>
 
 
 template <class T> struct ScalarParameterTraits;
@@ -32,6 +33,8 @@ template <class T>
 class ScalarParameter {
 public:
     typedef typename ScalarParameterTraits<T>::scalar scalar;
+    typedef typename ScalarParameterTraits<T>::scalar_difference scalar_difference;
+    typedef Interval<scalar, scalar_difference> interval;
 
     ScalarParameter() : parameter(0), mse(0), linearTerm(0) {}
     ScalarParameter(scalar p) : parameter(p), mse(0), linearTerm(0) {}
@@ -40,16 +43,16 @@ public:
         return parameter == r.parameter && mse == r.mse && linearTerm == r.linearTerm;
     }
 
-    double norm(const Interval<scalar> & range, unsigned int count) {
-        return mse / (count * range.getExtent() * range.getExtent());
+    double norm(const interval & range, unsigned int count) {
+        return mse / ((double)count * range.getExtent() * range.getExtent());
     }
 
-    bool far(const ScalarParameter<T> & r, const Interval<scalar> & range, unsigned int numIntervals) const {
-        return range.getExtent() > 0.0 && getInterval(range, numIntervals) != r.getInterval(range, numIntervals);
+    bool far(const ScalarParameter<T> & r, const interval & range, unsigned int numIntervals) const {
+        return !range.empty() && getInterval(range, numIntervals) != r.getInterval(range, numIntervals);
     }
 
-    unsigned int getInterval(const Interval<scalar> & range, unsigned int numIntervals) const {
-        return std::floor((parameter - range.getMin()) * numIntervals / range.getExtent());
+    unsigned int getInterval(const interval & range, unsigned int numIntervals) const {
+        return std::floor((double)interval::difference(parameter, range.getMin()) * numIntervals / range.getExtent());
     }
 
     scalar getValue() const {
@@ -58,7 +61,8 @@ public:
 
     void aggregate(unsigned long count, const ScalarParameter<T> & r, unsigned long rcount) {
         scalar newParameter = T::reduce(parameter, count, r.parameter, rcount);
-        double difference = newParameter - parameter, rdifference = newParameter - r.parameter;
+        scalar_difference difference = interval::difference(newParameter, parameter),
+                rdifference = interval::difference(newParameter, r.parameter);
         mse += count * difference * difference + 2 * difference * linearTerm
                + r.mse + rcount * rdifference * rdifference + 2 * rdifference * r.linearTerm;
         linearTerm += count * difference + r.linearTerm + rcount * rdifference;
@@ -73,16 +77,16 @@ public:
 
 private:
     scalar parameter;
-    double mse;
-    double linearTerm;
+    scalar_difference mse;
+    scalar_difference linearTerm;
 };
 
 
-template <typename scalar>
-class MinParameter : public ScalarParameter<MinParameter<scalar> > {
+template <typename scalar, typename D>
+class MinParameter : public ScalarParameter<MinParameter<scalar, D> > {
 public:
-    MinParameter() : ScalarParameter<MinParameter<scalar> >() {}
-    MinParameter(scalar value) : ScalarParameter<MinParameter<scalar> >(value) {}
+    MinParameter() : ScalarParameter<MinParameter<scalar, D> >() {}
+    MinParameter(scalar value) : ScalarParameter<MinParameter<scalar, D> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return parameter < rparameter ? parameter : rparameter;
@@ -90,16 +94,17 @@ public:
 };
 
 
-template<typename T> struct ScalarParameterTraits<MinParameter<T> > {
+template<typename T, typename D> struct ScalarParameterTraits<MinParameter<T, D> > {
     typedef T scalar;
+    typedef D scalar_difference;
 };
 
 
-template <typename scalar>
-class MaxParameter : public ScalarParameter<MaxParameter<scalar> > {
+template <typename scalar, typename D>
+class MaxParameter : public ScalarParameter<MaxParameter<scalar, D> > {
 public:
-    MaxParameter() : ScalarParameter<MaxParameter<scalar> >() {}
-    MaxParameter(scalar value) : ScalarParameter<MaxParameter<scalar> >(value) {}
+    MaxParameter() : ScalarParameter<MaxParameter<scalar, D> >() {}
+    MaxParameter(scalar value) : ScalarParameter<MaxParameter<scalar, D> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return parameter > rparameter ? parameter : rparameter;
@@ -107,16 +112,17 @@ public:
 };
 
 
-template<typename T> struct ScalarParameterTraits<MaxParameter<T> > {
+template<typename T, typename D> struct ScalarParameterTraits<MaxParameter<T, D> > {
     typedef T scalar;
+    typedef D scalar_difference;
 };
 
 
-template <typename scalar>
-class MeanParameter : public ScalarParameter<MeanParameter<scalar> > {
+template <typename scalar, typename D>
+class MeanParameter : public ScalarParameter<MeanParameter<scalar, D> > {
 public:
-    MeanParameter() : ScalarParameter<MeanParameter<scalar> >() {}
-    MeanParameter(scalar value) : ScalarParameter<MeanParameter<scalar> >(value) {}
+    MeanParameter() : ScalarParameter<MeanParameter<scalar, D> >() {}
+    MeanParameter(scalar value) : ScalarParameter<MeanParameter<scalar, D> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return (parameter * count + rparameter * rcount) / (double)(count + rcount);
@@ -124,8 +130,9 @@ public:
 };
 
 
-template<typename T> struct ScalarParameterTraits<MeanParameter<T> > {
+template<typename T, typename D> struct ScalarParameterTraits<MeanParameter<T, D> > {
     typedef T scalar;
+    typedef D scalar_difference;
 };
 
 #endif /* SCALARPARAMETER_HPP_ */

@@ -10,8 +10,8 @@ if(SIMGRID_FOUND)
 
     # Sources
     set(starssim_sources
+        ../util/MemoryManager.cpp
         Distributions.cpp
-        MemoryManager.cpp
         StarsNode.cpp
         LibStarsStatistics.cpp
         PerformanceStatistics.cpp

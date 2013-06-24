@@ -23,17 +23,13 @@
 #include "AggregationTest.hpp"
 #include "MSPAvailabilityInformation.hpp"
 #include "MSPScheduler.hpp"
-#include "../sim/MemoryManager.hpp"
-
+#include "util/MemoryManager.hpp"
 using namespace stars;
 
 template<> struct Priv<MSPAvailabilityInformation> {
     LAFunction totalAvail;
     LAFunction maxAvail;
 };
-
-
-LAFunction dummy;
 
 
 void createRandomQueue(double power, boost::random::mt19937 & gen, FSPTaskList & proxys) {
@@ -57,7 +53,14 @@ void createRandomQueue(double power, boost::random::mt19937 & gen, FSPTaskList &
 }
 
 
-template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvailabilityInformation>::createInfo(const AggregationTest::Node & n) {
+template<> AggregationTestImpl<MSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("msp_mem_disk_slowness.stat", 2) {
+    stars::ClusteringList<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
+    LAFunction::setNumPieces(8);
+}
+
+
+template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTestImpl<MSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+    static LAFunction dummy;
     boost::shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
     FSPTaskList proxys;
     createRandomQueue(n.power, gen, proxys);
@@ -74,88 +77,46 @@ template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTest<MSPAvai
 }
 
 
-class Field {
-    ostringstream oss;
-    unsigned int width, written;
-public:
-    Field(unsigned int w) : width(w), written(0) {}
-    template<class T> Field & operator<<(const T & t) {
-        oss << t;
-        written = oss.tellp();
-        return *this;
+template<> void AggregationTestImpl<MSPAvailabilityInformation>::computeResults(const boost::shared_ptr<MSPAvailabilityInformation> & summary) {
+    static LAFunction dummy;
+    unsigned long int minMem = nodes.size() * min_mem;
+    unsigned long int minDisk = nodes.size() * min_disk;
+    LAFunction maxAvail, aggrAvail;
+    maxAvail.maxDiff(privateData.maxAvail, dummy, getNumNodes(), getNumNodes(), dummy, dummy);
+
+    unsigned long int aggrMem = 0, aggrDisk = 0;
+    double meanAccuracy = 0.0;
+    const stars::ClusteringList<MSPAvailabilityInformation::MDLCluster> & clusters = summary->getSummary();
+    for (auto & u : clusters) {
+        aggrMem += (unsigned long int)u.minM * u.value;
+        aggrDisk += (unsigned long int)u.minD * u.value;
+        aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);
     }
-    friend ostream & operator<<(ostream & os, const Field & f) {
-        os << f.oss.str();
-        if (f.written < f.width)
-            os << string(f.width - f.written, ' ');
-        return os;
+    // TODO: The accuracy is not linear...
+    double prevAccuracy = 100.0;
+    uint64_t prevA = LAFunction::minTaskLength;
+    double ah = privateData.totalAvail.getHorizon() * 1.2;
+    uint64_t astep = (ah - LAFunction::minTaskLength) / 100;
+    for (uint64_t a = LAFunction::minTaskLength; a < ah; a += astep) {
+        double maxAvailBeforeIt = maxAvail.getSlowness(a);
+        double totalAvailBeforeIt = maxAvailBeforeIt - privateData.totalAvail.getSlowness(a);
+        double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
+        double accuracy = totalAvailBeforeIt > 0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
+        if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
+            LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
+        meanAccuracy += (prevAccuracy + accuracy) * (a - prevA);
+        prevAccuracy = accuracy;
+        prevA = a;
     }
-};
+    meanAccuracy /= 2.0 * (ah - LAFunction::minTaskLength);
+
+    results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
+    results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));
+    results["Z"].value(0.0).value(0.0).value(0.0).value(meanAccuracy);
+}
 
 
-void performanceTest(const std::vector<int> & numClusters, int levels) {
-    stars::ClusteringList<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
-    unsigned int numpoints = 8;
-    LAFunction::setNumPieces(numpoints);
-    ofstream ofmd("msp_mem_disk_slowness.stat");
-    for (int j = 0; j < numClusters.size(); j++) {
-        MSPAvailabilityInformation::setNumClusters(numClusters[j]);
-        ofmd << "# " << numClusters[j] << " clusters" << endl;
-        LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
-        AggregationTest<MSPAvailabilityInformation> t;
-        MemoryManager::getInstance().setUpdateDuration(0.0);
-        unsigned long int initialMemory = MemoryManager::getInstance().getUsedMemory();
-        for (int i = 0; i < levels; i++) {
-            LogMsg("Progress", WARN) << i << " levels";
-            boost::shared_ptr<MSPAvailabilityInformation> result = t.test(i);
-            LogMsg("Progress", WARN) << i << " levels used " << MemoryManager::getInstance().getUsedMemory() << " bytes.";
-
-            unsigned long int minMem = t.getNumNodes() * t.min_mem;
-            unsigned long int minDisk = t.getNumNodes() * t.min_disk;
-            LAFunction maxAvail, aggrAvail;
-            LAFunction & totalAvail = const_cast<LAFunction &>(t.getPrivateData().totalAvail);
-            maxAvail.maxDiff(t.getPrivateData().maxAvail, dummy, t.getNumNodes(), t.getNumNodes(), dummy, dummy);
-
-            unsigned long int aggrMem = 0, aggrDisk = 0;
-            {
-                const stars::ClusteringList<MSPAvailabilityInformation::MDLCluster> & clusters = result->getSummary();
-                for (auto & u : clusters) {
-                    aggrMem += (unsigned long int)u.minM * u.value;
-                    aggrDisk += (unsigned long int)u.minD * u.value;
-                    aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);
-                }
-            }
-
-
-            ofmd << "# " << (i + 1) << " levels, " << t.getNumNodes() << " nodes" << endl;
-            ofmd << "M," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalMem() << ',' << minMem << ',' << aggrMem << ',' << ((aggrMem - minMem) * 100.0 / (t.getTotalMem() - minMem)) << endl;
-            ofmd << "D," << (i + 1) << ',' << numClusters[j] << ',' << t.getTotalDisk() << ',' << minDisk << ',' << aggrDisk << ',' << ((aggrDisk - minDisk) * 100.0 / (t.getTotalDisk() - minDisk)) << endl;
-            double meanAccuracy = 0.0;
-            {
-                // TODO: The accuracy is not linear...
-                double prevAccuracy = 100.0;
-                uint64_t prevA = LAFunction::minTaskLength;
-                double ah = totalAvail.getHorizon() * 1.2;
-                uint64_t astep = (ah - LAFunction::minTaskLength) / 100;
-                for (uint64_t a = LAFunction::minTaskLength; a < ah; a += astep) {
-                    double maxAvailBeforeIt = maxAvail.getSlowness(a);
-                    double totalAvailBeforeIt = maxAvailBeforeIt - totalAvail.getSlowness(a);
-                    double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
-                    double accuracy = totalAvailBeforeIt > 0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
-                    if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
-                        LogMsg("test", ERROR) << numClusters[j] << " clusters, total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
-                    meanAccuracy += (prevAccuracy + accuracy) * (a - prevA);
-                    prevAccuracy = accuracy;
-                    prevA = a;
-                }
-
-                meanAccuracy /= 2.0 * (ah - LAFunction::minTaskLength);
-            }
-            ofmd << "L," << (i + 1) << ',' << numClusters[j] << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << meanAccuracy << endl;
-            ofmd << "s," << (i + 1) << ',' << numClusters[j] << ',' << t.getMeanSize() << ',' << t.getMeanTime().total_microseconds() << endl;
-            ofmd << endl;
-        }
-        ofmd << endl;
-    }
-    ofmd.close();
+AggregationTest & AggregationTest::getInstance() {
+    static AggregationTestImpl<MSPAvailabilityInformation> instance;
+    return instance;
 }

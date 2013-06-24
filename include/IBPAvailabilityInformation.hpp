@@ -25,6 +25,7 @@
 #include "AvailabilityInformation.hpp"
 #include "ClusteringList.hpp"
 #include "TaskDescription.hpp"
+#include "ScalarParameter.hpp"
 
 
 /**
@@ -36,100 +37,84 @@ public:
     class MDCluster {
     public:
         MDCluster() : reference(NULL), value(0) {}
-        MDCluster(IBPAvailabilityInformation * r, uint32_t m, uint32_t d) : reference(r), value(1), minM(m), minD(d), accumMsq(0), accumDsq(0), accumMln(0), accumDln(0) {}
+        MDCluster(uint32_t m, uint32_t d) : reference(NULL), value(1), minM(m), minD(d) {}
 
         void setReference(IBPAvailabilityInformation * r) {
             reference = r;
         }
 
         bool operator==(const MDCluster & r) const {
-            return minM == r.minM && accumMsq == r.accumMsq && accumMln == r.accumMln
-                   && minD == r.minD && accumDsq == r.accumDsq && accumDln == r.accumDln
-                   && value == r.value;
+            return minM == r.minM && minD == r.minD && value == r.value;
         }
 
         double distance(const MDCluster & r, MDCluster & sum) const {
             sum = *this;
             sum.aggregate(r);
-            double result = 0.0;
-            if (reference) {
-                if (double memRange = reference->maxM - reference->minM) {
-                    double loss = sum.accumMsq / (sum.value * memRange * memRange);
-                    result += loss;
-                }
-                if (double diskRange = reference->maxD - reference->minD) {
-                    double loss = sum.accumDsq / (sum.value * diskRange * diskRange);
-                    result += loss;
-                }
-            }
-            return result;
+            return sum.minM.norm(reference->memoryRange, sum.value)
+                    + sum.minD.norm(reference->diskRange, sum.value);
         }
 
         bool far(const MDCluster & r) const {
-            if (unsigned int memRange = reference->maxM - reference->minM) {
-                if (((minM - reference->minM) * numIntervals / memRange) != ((r.minM - reference->minM) * numIntervals / memRange))
-                    return true;
-            }
-            if (unsigned int diskRange = reference->maxD - reference->minD) {
-                if (((minD - reference->minD) * numIntervals / diskRange) != ((r.minD - reference->minD) * numIntervals / diskRange))
-                    return true;
-            }
-            return false;
+            return minM.far(r.minM, reference->memoryRange, numIntervals) ||
+                    minD.far(r.minD, reference->diskRange, numIntervals);
         }
 
         void aggregate(const MDCluster & r) {
             // Update minimums/maximums and sum up values
-            uint32_t newMinD = minD, newMinM = minM;
-            switch (aggrMethod) {
-            case MEAN:
-                newMinM = (minM * value + r.minM * r.value) / (value + r.value);
-                newMinD = (minD * value + r.minD * r.value) / (value + r.value);
-                break;
-            default:
-                if (newMinM > r.minM) newMinM = r.minM;
-                if (newMinD > r.minD) newMinD = r.minD;
-                break;
-            }
-            int64_t dm = minM - newMinM, rdm = r.minM - newMinM;
-            accumMsq += value * dm * dm + 2 * dm * accumMln
-                        + r.accumMsq + r.value * rdm * rdm + 2 * rdm * r.accumMln;
-            accumMln += value * dm + r.accumMln + r.value * rdm;
-            int64_t dd = minD - newMinD, rdd = r.minD - newMinD;
-            accumDsq += value * dd * dd + 2 * dd * accumDln
-                        + r.accumDsq + r.value * rdd * rdd + 2 * rdd * r.accumDln;
-            accumDln += value * dd + r.accumDln + r.value * rdd;
-            minM = newMinM;
-            minD = newMinD;
+            minM.aggregate(value, r.minM, r.value);
+            minD.aggregate(value, r.minD, r.value);
             value += r.value;
         }
 
+        uint32_t getValue() const {
+            return value;
+        }
+
+        int32_t getTotalMemory() const {
+            return minM.getValue() * value;
+        }
+
+        int32_t getTotalDisk() const {
+            return minD.getValue() * value;
+        }
+
+        int32_t getRemainingMemory(int32_t m) const {
+            return minM.getValue() - m;
+        }
+
+        int32_t getRemainingDisk(int32_t d) const {
+            return minD.getValue() - d;
+        }
+
         bool fulfills(const TaskDescription & req) const {
-            return minM >= req.getMaxMemory() && minD >= req.getMaxDisk();
+            return minM.getValue() >= req.getMaxMemory() && minD.getValue() >= req.getMaxDisk();
+        }
+
+        uint32_t takeUpToNodes(uint32_t nodes) {
+            if (nodes > value) {
+                nodes -= value;
+                value = 0;
+            } else {
+                value -= nodes;
+                nodes = 0;
+            }
+            return nodes;
         }
 
         friend std::ostream & operator<<(std::ostream & os, const MDCluster & o) {
-            os << 'M' << o.minM << '+' << o.accumMsq << '+' << o.accumMln << ',';
-            os << 'D' << o.minD << '+' << o.accumDsq << '+' << o.accumDln << ',';
-            return os << o.value;
+            return os << 'M' << o.minM << ',' << 'D' << o.minD << ',' << o.value;
         }
 
-        MSGPACK_DEFINE(value, minM, minD, accumMsq, accumDsq, accumMln, accumDln);
+        MSGPACK_DEFINE(value, minM, minD);
+
+    private:
+        friend class stars::ClusteringList<MDCluster>;
 
         IBPAvailabilityInformation * reference;
 
         uint32_t value;
-        uint32_t minM, minD;
-        int64_t accumMsq, accumDsq, accumMln, accumDln;
+        MinParameter<int32_t, int64_t> minM, minD;
     };
-
-    enum {
-        MINIMUM = 0,
-        MEAN,
-    };
-
-    static void setMethod(int method) {
-        aggrMethod = method;
-    }
 
     static void setNumClusters(unsigned int c) {
         numClusters = c;
@@ -141,16 +126,11 @@ public:
     IBPAvailabilityInformation() {
         reset();
     }
-    IBPAvailabilityInformation(const IBPAvailabilityInformation & copy) : AvailabilityInformation(copy), summary(copy.summary),
-            minM(copy.minM), maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD) {
-//        unsigned int size = summary.getSize();
-//        for (unsigned int i = 0; i < size; i++)
-//            summary[i].setReference(this);
-    }
 
     void reset() {
         summary.clear();
-        minM = minD = maxM = maxD = 0;
+        memoryRange.setLimits(0);
+        diskRange.setLimits(0);
     }
 
     /**
@@ -161,15 +141,11 @@ public:
         if (!r.summary.empty()) {
             if (summary.empty()) {
                 // operator= forbidden
-                minM = r.minM;
-                maxM = r.maxM;
-                minD = r.minD;
-                maxD = r.maxD;
+                memoryRange = r.memoryRange;
+                diskRange = r.diskRange;
             } else {
-                if (minM > r.minM) minM = r.minM;
-                if (maxM < r.maxM) maxM = r.maxM;
-                if (minD > r.minD) minD = r.minD;
-                if (maxD < r.maxD) maxD = r.maxD;
+                memoryRange.extend(r.memoryRange);
+                diskRange.extend(r.diskRange);
             }
             summary.insert(summary.end(), r.summary.begin(), r.summary.end());
         }
@@ -179,6 +155,7 @@ public:
         for (auto & i : summary) {
             i.setReference(this);
         }
+        summary.cluster(numClusters);
     }
 
     // This is documented in AvailabilityInformation.h
@@ -188,7 +165,9 @@ public:
 
     void getAvailability(std::list<MDCluster *> & clusters, const TaskDescription & req) {
         for (auto & i : summary) {
-            if (i.fulfills(req)) clusters.push_back(&i);
+            if (i.fulfills(req)) {
+                clusters.push_back(&i);
+            }
         }
     }
 
@@ -198,17 +177,13 @@ public:
 
     void addNode(uint32_t mem, uint32_t disk) {
         if (summary.empty()) {
-            minM = mem;
-            maxM = mem;
-            minD = disk;
-            maxD = disk;
+            memoryRange.setLimits(mem);
+            diskRange.setLimits(disk);
         } else {
-            if (minM > mem) minM = mem;
-            if (maxM < mem) maxM = mem;
-            if (minD > disk) minD = disk;
-            if (maxD < disk) maxD = disk;
+            memoryRange.extend(mem);
+            diskRange.extend(disk);
         }
-        summary.push_back(MDCluster(this, mem, disk));
+        summary.push_back(MDCluster(mem, disk));
     }
 
     // This is documented in BasicMsg
@@ -216,15 +191,14 @@ public:
         os << summary;
     }
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD);
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, memoryRange, diskRange);
 
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    static int aggrMethod;
     stars::ClusteringList<MDCluster> summary;
-    uint32_t minM, maxM;
-    uint32_t minD, maxD;
+    Interval<int32_t, int64_t> memoryRange;
+    Interval<int32_t, int64_t> diskRange;
 };
 
 #endif /* IBPAVAILABILITYINFORMATION_H_ */

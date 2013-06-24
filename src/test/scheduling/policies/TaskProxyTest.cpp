@@ -23,7 +23,7 @@
 #include "TaskProxy.hpp"
 #include "FSPTaskList.hpp"
 #include "TestHost.hpp"
-#include "RandomQueueGenerator.hpp"
+#include "../RandomQueueGenerator.hpp"
 
 
 namespace stars {

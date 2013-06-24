@@ -36,8 +36,8 @@ struct ScalarParameterFixture {
         MAX_VALUE = 1000,
     };
 
-    MinParameter<int> min0, min1, min2;
-    Interval<int> range, unitary;
+    MinParameter<int, int> min0, min1, min2;
+    Interval<int, int> range, unitary;
 };
 
 #define sq(x) (x)*(x)
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(aggregateAndMSE) {
     for (int i = 0; i < 100; ++i) {
         int v1 = dist(gen), v2 = dist(gen), v3 = dist(gen), v4 = dist(gen), v5 = dist(gen);
         int minimum = min(v1, v2);
-        MinParameter<int> p1(v1), p2(v2), p3(v3), p4(v4), p5(v5);
+        MinParameter<int, int> p1(v1), p2(v2), p3(v3), p4(v4), p5(v5);
         p1.aggregate(1, p2, 1);
         BOOST_CHECK_EQUAL(p1.norm(unitary, 1), sq(p1.getValue() - v1) + sq(p1.getValue() - v2));
         BOOST_CHECK_EQUAL(p1.getValue(), minimum);

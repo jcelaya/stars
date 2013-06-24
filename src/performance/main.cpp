@@ -18,22 +18,24 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-
+#include <iostream>
 #include <vector>
 #include <sstream>
 #include <log4cpp/Category.hh>
 #include <log4cpp/OstreamAppender.hh>
 #include <log4cpp/PatternLayout.hh>
 #include "Logger.hpp"
+#include "AggregationTest.hpp"
+#include "util/MemoryManager.hpp"
 using namespace log4cpp;
-
-void performanceTest(const std::vector<int> & numClusters, int levels);
+using std::endl;
 
 int main(int argc, char * argv[]) {
     std::vector<int> numClusters;
     int levels = 0;
 
     if (argc < 2) {
+        std::cout << "Usage: " << argv[0] << " num_levels clusters [clusters...]" << std::endl;
         return 1;
     }
 
@@ -50,8 +52,10 @@ int main(int argc, char * argv[]) {
     l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");
     console->setLayout(l);
     Category::getRoot().addAppender(console);
+    MemoryManager::getInstance().setUpdateDuration(0.0);
 
-    performanceTest(numClusters, levels);
+    AggregationTest & t = AggregationTest::getInstance();
+    t.performanceTest(numClusters, levels);
 
     return 0;
 }

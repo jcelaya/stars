@@ -21,15 +21,31 @@
 #define INTERVAL_HPP_
 
 #include <msgpack.hpp>
+#include <cstdint>
 
-
-template <typename limitType>
+template <typename limitType, typename limitDifferenceType>
 class Interval {
 public:
     Interval() : min(0), max(0) {}
 
     void setLimits(limitType minAndMax) {
         min = max = minAndMax;
+    }
+
+    void setMinimum(limitType current) {
+        if (min < current) {
+            min = current;
+            if (max < current)
+                max = current;
+        }
+    }
+
+    void setMaximum(limitType current) {
+        if (max > current) {
+            max = current;
+            if (min > current)
+                min = current;
+        }
     }
 
     limitType getMin() const {
@@ -40,11 +56,15 @@ public:
         return max;
     }
 
-    limitType getExtent() const {
-        return max - min;
+    limitDifferenceType getExtent() const {
+        return difference(max, min);
     }
 
-    void extend(const Interval<limitType> & r) {
+    bool empty() const {
+        return min == max;
+    }
+
+    void extend(const Interval<limitType, limitDifferenceType> & r) {
         if (min > r.min) {
             min = r.min;
         }
@@ -63,6 +83,10 @@ public:
     }
 
     MSGPACK_DEFINE(min, max);
+
+    static limitDifferenceType difference(limitType M, limitType m) {
+        return M - m;
+    }
 
 private:
     limitType min, max;
