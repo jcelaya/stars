@@ -65,7 +65,7 @@ template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTestImpl<MSP
     FSPTaskList proxys;
     createRandomQueue(n.power, gen, proxys);
     s->setAvailability(n.mem, n.disk, proxys, n.power);
-    const LAFunction & maxL = s->getSummary().front().maxL;
+    const LAFunction & maxL = s->getSummary().front().getMaximumSlowness();
     if (privateData.maxAvail == LAFunction()) {
         privateData.maxAvail = maxL;
     } else {
@@ -88,9 +88,9 @@ template<> void AggregationTestImpl<MSPAvailabilityInformation>::computeResults(
     double meanAccuracy = 0.0;
     const stars::ClusteringList<MSPAvailabilityInformation::MDLCluster> & clusters = summary->getSummary();
     for (auto & u : clusters) {
-        aggrMem += (unsigned long int)u.minM * u.value;
-        aggrDisk += (unsigned long int)u.minD * u.value;
-        aggrAvail.maxDiff(u.maxL, dummy, u.value, u.value, aggrAvail, dummy);
+        aggrMem += u.getTotalMemory();
+        aggrDisk += u.getTotalDisk();
+        aggrAvail.maxDiff(u.getMaximumSlowness(), dummy, u.getValue(), u.getValue(), aggrAvail, dummy);
     }
     // TODO: The accuracy is not linear...
     double prevAccuracy = 100.0;

@@ -33,6 +33,7 @@
 #include "TaskDescription.hpp"
 #include "FSPTaskList.hpp"
 #include "LAFunction.hpp"
+#include "ScalarParameter.hpp"
 
 namespace stars {
 
@@ -55,14 +56,12 @@ public:
         MDLCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
         MDLCluster(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power)
-                : value(1), minM(m), minD(d), maxL(curTasks, power), accumMsq(0), accumDsq(0),
-                accumMln(0), accumDln(0), accumLsq(0.0), accumMaxL(maxL) {}
+                : reference(NULL), value(1), minM(m), minD(d), maxL(curTasks, power), accumLsq(0.0), accumMaxL(maxL) {}
 
         /// Comparison operator
         bool operator==(const MDLCluster & r) const {
             return value == r.value
-                   && minM == r.minM && accumMsq == r.accumMsq && accumMln == r.accumMln
-                   && minD == r.minD && accumDsq == r.accumDsq && accumDln == r.accumDln
+                   && minM == r.minM && minD == r.minD
                    && accumLsq == r.accumLsq && maxL == r.maxL && accumMaxL == r.accumMaxL;
         }
 
@@ -74,41 +73,57 @@ public:
         /// Aggregation operator for the clustering algorithm
         void aggregate(const MDLCluster & r);
 
-        /// Constructs a cluster from the aggregation of two. It is mainly useful for the distance operator.
-        void aggregate(const MDLCluster & l, const MDLCluster & r);
-
         /// Reduce the number of samples in the functions contained in this cluster
         void reduce();
 
         /// Check whether the functions of this cluster fulfill a certain request.
         bool fulfills(const TaskDescription & req) const {
-            return minM >= req.getMaxMemory() && minD >= req.getMaxDisk();
+            return minM.getValue() >= req.getMaxMemory() && minD.getValue() >= req.getMaxDisk();
+        }
+
+        uint32_t getValue() const {
+            return value;
+        }
+
+        int32_t getTotalMemory() const {
+            return minM.getValue() * value;
+        }
+
+        int32_t getTotalDisk() const {
+            return minD.getValue() * value;
+        }
+
+        const LAFunction & getMaximumSlowness() const {
+            return maxL;
         }
 
         /// Outputs a textual representation of the object.
         friend std::ostream & operator<<(std::ostream & os, const MDLCluster & o) {
-            os << 'M' << o.minM << '-' << o.accumMsq << '-' << o.accumMln << ',';
-            os << 'D' << o.minD << '-' << o.accumDsq << '-' << o.accumDln << ',';
+            os << 'M' << o.minM << ',';
+            os << 'D' << o.minD << ',';
             os << 'L' << o.maxL << '-' << o.accumLsq << '-' << o.accumMaxL << ',';
             return os << o.value;
         }
 
-        MSGPACK_DEFINE(value, minM, accumMsq, accumMln, minD, accumDsq, accumDln, maxL, accumLsq, accumMaxL);
+        MSGPACK_DEFINE(value, minM, minD, maxL, accumLsq, accumMaxL);
+
+    private:
+        friend class ClusteringList<MDLCluster>;
+        friend class MSPAvailabilityInformation;
 
         MSPAvailabilityInformation * reference;
 
         uint32_t value;
-        uint32_t minM, minD;
+        MinParameter<int32_t, int64_t> minM, minD;
         LAFunction maxL;
-        uint64_t accumMsq, accumDsq, accumMln, accumDln;
         double accumLsq;
         LAFunction accumMaxL;
     };
 
     MESSAGE_SUBCLASS(MSPAvailabilityInformation);
 
-    MSPAvailabilityInformation() : AvailabilityInformation(), minM(0), maxM(0), minD(0), maxD(0),
-            lengthHorizon(0.0), minimumSlowness(0.0), maximumSlowness(0.0) {}
+    MSPAvailabilityInformation() : AvailabilityInformation(), memoryRange(0), diskRange(0),
+            lengthHorizon(0.0), slownessRange(0.0) {}
 
     static void setNumClusters(unsigned int c) {
         numClusters = c;
@@ -120,7 +135,7 @@ public:
     }
 
     bool operator==(const MSPAvailabilityInformation & r) const {
-        return summary == r.summary && minimumSlowness == r.minimumSlowness && maximumSlowness == r.maximumSlowness;
+        return summary == r.summary && slownessRange == r.slownessRange;
     }
 
     /**
@@ -135,28 +150,28 @@ public:
      * Returns the current minimum stretch for this set of nodes
      */
     double getMinimumSlowness() const {
-        return minimumSlowness;
+        return slownessRange.getMin();
     }
 
     /**
      * Manually set the minimum and maximum stretch, at the routing nodes.
      */
     void setMinimumSlowness(double min) {
-        minimumSlowness = min;
+        slownessRange.setMinimum(min);
     }
 
     /**
      * Returns the current minimum stretch for this set of nodes
      */
     double getMaximumSlowness() const {
-        return maximumSlowness;
+        return slownessRange.getMax();
     }
 
     /**
      * Manually set the minimum and maximum stretch, at the routing nodes.
      */
     void setMaximumSlowness(double max) {
-        maximumSlowness = max;
+        slownessRange.setMaximum(max);
     }
 
     double getSlowestMachine() const;
@@ -173,28 +188,21 @@ public:
     // This is documented in BasicMsg
     virtual void output(std::ostream& os) const;
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, minM, maxM, minD, maxD, minL, maxL, lengthHorizon, minimumSlowness, maximumSlowness);
-private:
-    /// Copy constructor, sets the reference to the newly created object.
-    MSPAvailabilityInformation(const MSPAvailabilityInformation & copy) : AvailabilityInformation(copy), summary(copy.summary), minM(copy.minM),
-            maxM(copy.maxM), minD(copy.minD), maxD(copy.maxD), minL(copy.minL), maxL(copy.maxL), lengthHorizon(copy.lengthHorizon),
-            minimumSlowness(copy.minimumSlowness), maximumSlowness(copy.maximumSlowness) {}
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, memoryRange, diskRange, minL, maxL, lengthHorizon, slownessRange);
 
-    MSPAvailabilityInformation & operator=(const MSPAvailabilityInformation & copy) {}
+private:
+    MSPAvailabilityInformation & operator=(const MSPAvailabilityInformation & copy) { return *this; }
 
     static unsigned int numClusters;
     static unsigned int numIntervals;
 
     ClusteringList<MDLCluster> summary;   ///< List of clusters representing queues and their availability
-    uint32_t minM, maxM, minD, maxD;      ///< Minimum and maximum values of memory and disk availability
+    Interval<int32_t> memoryRange;
+    Interval<int32_t> diskRange;
     LAFunction minL, maxL;                ///< Minimum and maximum values of availability
     double lengthHorizon;                 ///< Last meaningful task length
-    double minimumSlowness;               ///< Minimum slowness among the nodes in this branch
-    double maximumSlowness;               ///< Minimum slowness among the nodes in this branch
-
-    // Aggregation values
-    unsigned int memRange, diskRange;
-    double slownessRange;
+    Interval<double> slownessRange;   /// Slowness among the nodes in this branch
+    double slownessSquareDiff;
 };
 
 } // namespace stars

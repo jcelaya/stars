@@ -71,7 +71,7 @@ void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
         for (auto & i : summary) {
             if (i.maxT.getValue() < current) {
                 // Adjust max and accum time
-                i.maxT = MaxParameter<Time, int64_t>(current);
+                i.maxT = stars::MaxParameter<Time, int64_t>(current);
             }
         }
         // The same with the cover
@@ -134,7 +134,7 @@ void MMPAvailabilityInformation::updateAvailability(const TaskDescription & req)
     list<MDPTCluster *> clusters;
     getAvailability(clusters, req);
     for (list<MDPTCluster *>::iterator it = clusters.begin(); it != clusters.end(); it++)
-        (*it)->maxT = MaxParameter<Time, int64_t>(req.getDeadline());
+        (*it)->maxT = stars::MaxParameter<Time, int64_t>(req.getDeadline());
     if (!clusters.empty() && queueRange.getMax() < req.getDeadline())
         queueRange.setMaximum(req.getDeadline());
 }

@@ -29,11 +29,6 @@
 #include "ScalarParameter.hpp"
 
 
-template <> inline int64_t Interval<Time, int64_t>::difference(Time M, Time m) {
-    return int64_t((M - m).seconds());
-}
-
-
 /**
  * \brief Availability information class with queue length information.
  *
@@ -134,7 +129,7 @@ public:
         }
 
         void updateMaximumQueue(Time m) {
-            maxT = MaxParameter<Time, int64_t>(m);
+            maxT = stars::MaxParameter<Time, int64_t>(m);
         }
 
         friend std::ostream & operator<<(std::ostream & os, const MDPTCluster & o) {
@@ -146,8 +141,8 @@ public:
 
         MMPAvailabilityInformation * reference;
         uint32_t value;
-        MinParameter<int32_t, int64_t> minM, minD, minP;
-        MaxParameter<Time, int64_t> maxT;
+        stars::MinParameter<int32_t, int64_t> minM, minD, minP;
+        stars::MaxParameter<Time, int64_t> maxT;
     };
 
     MESSAGE_SUBCLASS(MMPAvailabilityInformation);
@@ -230,10 +225,10 @@ private:
     static unsigned int numIntervals;
     Time maxQueue;
     stars::ClusteringList<MDPTCluster> summary;   ///< List clusters representing queues
-    Interval<int32_t, int64_t> memoryRange;
-    Interval<int32_t, int64_t> diskRange;
-    Interval<int32_t, int64_t> powerRange;
-    Interval<Time, int64_t> queueRange;
+    stars::Interval<int32_t> memoryRange;
+    stars::Interval<int32_t> diskRange;
+    stars::Interval<int32_t> powerRange;
+    stars::Interval<Time> queueRange;
 };
 
 #endif /* MMPAVAILABILITYINFORMATION_H_ */

@@ -22,11 +22,27 @@
 
 #include <msgpack.hpp>
 #include <cstdint>
+#include "Time.hpp"
 
-template <typename limitType, typename limitDifferenceType>
+namespace stars {
+
+template <typename limitType> struct LimitTypeTraits {
+    typedef limitType limitDifferenceType;
+};
+
+
+template <> struct LimitTypeTraits<Time> {
+    typedef int64_t limitDifferenceType;
+};
+
+
+template <typename limitType>
 class Interval {
 public:
+    typedef typename LimitTypeTraits<limitType>::limitDifferenceType limitDifferenceType;
+
     Interval() : min(0), max(0) {}
+    Interval(limitType i) : min(i), max(i) {}
 
     void setLimits(limitType minAndMax) {
         min = max = minAndMax;
@@ -48,6 +64,10 @@ public:
         }
     }
 
+    bool operator==(const Interval & r) const {
+        return min == r.min && max == r.max;
+    }
+
     limitType getMin() const {
         return min;
     }
@@ -64,7 +84,7 @@ public:
         return min == max;
     }
 
-    void extend(const Interval<limitType, limitDifferenceType> & r) {
+    void extend(const Interval<limitType> & r) {
         if (min > r.min) {
             min = r.min;
         }
@@ -92,5 +112,11 @@ private:
     limitType min, max;
 };
 
+
+template <> inline Interval<Time>::limitDifferenceType Interval<Time>::difference(Time M, Time m) {
+    return Interval<Time>::limitDifferenceType((M - m).seconds());
+}
+
+} // namespace stars
 
 #endif /* INTERVAL_HPP_ */

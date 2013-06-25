@@ -113,7 +113,7 @@ public:
         IBPAvailabilityInformation * reference;
 
         uint32_t value;
-        MinParameter<int32_t, int64_t> minM, minD;
+        stars::MinParameter<int32_t, int64_t> minM, minD;
     };
 
     static void setNumClusters(unsigned int c) {
@@ -197,8 +197,8 @@ private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
     stars::ClusteringList<MDCluster> summary;
-    Interval<int32_t, int64_t> memoryRange;
-    Interval<int32_t, int64_t> diskRange;
+    stars::Interval<int32_t> memoryRange;
+    stars::Interval<int32_t> diskRange;
 };
 
 #endif /* IBPAVAILABILITYINFORMATION_H_ */

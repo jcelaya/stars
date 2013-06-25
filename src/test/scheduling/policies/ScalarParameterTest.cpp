@@ -22,6 +22,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include "ScalarParameter.hpp"
+using namespace stars;
 
 
 struct ScalarParameterFixture {
@@ -37,7 +38,7 @@ struct ScalarParameterFixture {
     };
 
     MinParameter<int, int> min0, min1, min2;
-    Interval<int, int> range, unitary;
+    Interval<int> range, unitary;
 };
 
 #define sq(x) (x)*(x)

@@ -27,14 +27,16 @@
 #include <cstdint>
 
 
+namespace stars {
+
 template <class T> struct ScalarParameterTraits;
 
 template <class T>
 class ScalarParameter {
 public:
     typedef typename ScalarParameterTraits<T>::scalar scalar;
-    typedef typename ScalarParameterTraits<T>::scalar_difference scalar_difference;
-    typedef Interval<scalar, scalar_difference> interval;
+    typedef typename ScalarParameterTraits<T>::scalar_max scalar_max;
+    typedef Interval<scalar> interval;
 
     ScalarParameter() : parameter(0), mse(0), linearTerm(0) {}
     ScalarParameter(scalar p) : parameter(p), mse(0), linearTerm(0) {}
@@ -44,7 +46,7 @@ public:
     }
 
     double norm(const interval & range, unsigned int count) {
-        return mse / ((double)count * range.getExtent() * range.getExtent());
+        return range.empty() ? 0.0 : mse / ((double)count * range.getExtent() * range.getExtent());
     }
 
     bool far(const ScalarParameter<T> & r, const interval & range, unsigned int numIntervals) const {
@@ -61,7 +63,7 @@ public:
 
     void aggregate(unsigned long count, const ScalarParameter<T> & r, unsigned long rcount) {
         scalar newParameter = T::reduce(parameter, count, r.parameter, rcount);
-        scalar_difference difference = interval::difference(newParameter, parameter),
+        scalar_max difference = interval::difference(newParameter, parameter),
                 rdifference = interval::difference(newParameter, r.parameter);
         mse += count * difference * difference + 2 * difference * linearTerm
                + r.mse + rcount * rdifference * rdifference + 2 * rdifference * r.linearTerm;
@@ -77,16 +79,16 @@ public:
 
 private:
     scalar parameter;
-    scalar_difference mse;
-    scalar_difference linearTerm;
+    scalar_max mse;
+    scalar_max linearTerm;
 };
 
 
-template <typename scalar, typename D>
-class MinParameter : public ScalarParameter<MinParameter<scalar, D> > {
+template <typename scalar, typename scalar_max>
+class MinParameter : public ScalarParameter<MinParameter<scalar, scalar_max> > {
 public:
-    MinParameter() : ScalarParameter<MinParameter<scalar, D> >() {}
-    MinParameter(scalar value) : ScalarParameter<MinParameter<scalar, D> >(value) {}
+    MinParameter() : ScalarParameter<MinParameter<scalar, scalar_max> >() {}
+    MinParameter(scalar value) : ScalarParameter<MinParameter<scalar, scalar_max> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return parameter < rparameter ? parameter : rparameter;
@@ -96,15 +98,15 @@ public:
 
 template<typename T, typename D> struct ScalarParameterTraits<MinParameter<T, D> > {
     typedef T scalar;
-    typedef D scalar_difference;
+    typedef D scalar_max;
 };
 
 
-template <typename scalar, typename D>
-class MaxParameter : public ScalarParameter<MaxParameter<scalar, D> > {
+template <typename scalar, typename scalar_max>
+class MaxParameter : public ScalarParameter<MaxParameter<scalar, scalar_max> > {
 public:
-    MaxParameter() : ScalarParameter<MaxParameter<scalar, D> >() {}
-    MaxParameter(scalar value) : ScalarParameter<MaxParameter<scalar, D> >(value) {}
+    MaxParameter() : ScalarParameter<MaxParameter<scalar, scalar_max> >() {}
+    MaxParameter(scalar value) : ScalarParameter<MaxParameter<scalar, scalar_max> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return parameter > rparameter ? parameter : rparameter;
@@ -114,15 +116,15 @@ public:
 
 template<typename T, typename D> struct ScalarParameterTraits<MaxParameter<T, D> > {
     typedef T scalar;
-    typedef D scalar_difference;
+    typedef D scalar_max;
 };
 
 
-template <typename scalar, typename D>
-class MeanParameter : public ScalarParameter<MeanParameter<scalar, D> > {
+template <typename scalar, typename scalar_max>
+class MeanParameter : public ScalarParameter<MeanParameter<scalar, scalar_max> > {
 public:
-    MeanParameter() : ScalarParameter<MeanParameter<scalar, D> >() {}
-    MeanParameter(scalar value) : ScalarParameter<MeanParameter<scalar, D> >(value) {}
+    MeanParameter() : ScalarParameter<MeanParameter<scalar, scalar_max> >() {}
+    MeanParameter(scalar value) : ScalarParameter<MeanParameter<scalar, scalar_max> >(value) {}
 
     static scalar reduce(scalar parameter, unsigned long count, scalar rparameter, unsigned long rcount) {
         return (parameter * count + rparameter * rcount) / (double)(count + rcount);
@@ -132,7 +134,9 @@ public:
 
 template<typename T, typename D> struct ScalarParameterTraits<MeanParameter<T, D> > {
     typedef T scalar;
-    typedef D scalar_difference;
+    typedef D scalar_max;
 };
+
+}
 
 #endif /* SCALARPARAMETER_HPP_ */
