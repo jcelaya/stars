@@ -33,8 +33,10 @@
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/bind.hpp>
+#include <boost/filesystem.hpp>
 using namespace std;
 using namespace boost;
+namespace fs = boost::filesystem;
 
 
 unsigned long int getAvailableMemory() {
@@ -62,19 +64,29 @@ public:
     void getNewCases();
     void waitProcesses();
 
+    pid_t spawnProcess(const map<string, string> & properties);
+    unsigned long int getMemoryLimit(const map<string, string> & properties) const {
+        unsigned long int mem = 0;
+        auto it = properties.find("max_mem");
+        if (it != properties.end())
+            istringstream(it->second) >> mem;
+        return mem;
+    }
+    void reschedule();
+
 private:
     list<map<string, string> > caseInstances;
-    bool end;
+    bool end, waitOnPipe;
     unsigned int numProcesses;
     unsigned long int availableMemory;
     list<pair<pid_t, unsigned long int> > processes;
     string simExec, pipeName;
     thread pipeThread, waitThread;
     mutex m;            ///< Mutex to put and get queue messages.
-    condition reschedule;     ///< Barrier to wait for a message
+    condition newCasesOrProcesses;     ///< Barrier to wait for a message
     condition children;     ///< Barrier to wait for children
 
-    Simulations() : end(false), numProcesses(1), availableMemory(getAvailableMemory()), pipeName("sweeperpipe") {}
+    Simulations() : end(false), waitOnPipe(false), numProcesses(1), availableMemory(getAvailableMemory()), pipeName("sweeperpipe") {}
 };
 
 
@@ -116,7 +128,7 @@ void Simulations::getNewCases() {
             mutex::scoped_lock lock(m);
             caseInstances.splice(caseInstances.end(), newInstances);
         }
-        reschedule.notify_all();
+        newCasesOrProcesses.notify_all();
     }
 }
 
@@ -126,22 +138,27 @@ void Simulations::waitProcesses() {
         {
             mutex::scoped_lock lock(m);
             if (processes.empty()) {
+                if (end)
+                    return;
                 children.wait(lock);
+                if (end)
+                    return;
             }
         }
         pid_t pid = wait(NULL);
         if (pid != -1) {
             cout << "Process " << pid << " ended." << endl;
-            for (list<pair<pid_t, unsigned long int> >::iterator it = processes.begin(); it != processes.end(); it++)
-                if (it->first == pid) {
-                    {
-                        mutex::scoped_lock lock(m);
+            {
+                mutex::scoped_lock lock(m);
+                for (auto it = processes.begin(); it != processes.end(); ++it) {
+                    if (it->first == pid) {
                         availableMemory += it->second;
                         processes.erase(it);
+                        break;
                     }
-                    reschedule.notify_all();
-                    break;
                 }
+            }
+            newCasesOrProcesses.notify_all();
         }
     }
 }
@@ -156,71 +173,33 @@ int Simulations::run(int argc, char * argv[]) {
         cerr << "Usage: " << argv[0] << " -e sim_program [-f pipe_name] [-p num_processes] [-m max_memory]" << endl;
         return 1;
     }
-
-    mknod(pipeName.c_str(), S_IFIFO | 0600, 0);
     cout << "Using " << numProcesses << " processors and " << availableMemory << " megabytes of memory." << endl;
-    cout << "Listening on " << pipeName << endl;
 
-    pipeThread = thread(bind(&Simulations::getNewCases, this));
+    if (fs::exists(pipeName) && fs::is_regular_file(pipeName)) {
+        cout << "Reading configuration from " << pipeName << endl;
+        getPropertiesList(pipeName, caseInstances);
+        waitOnPipe = false;
+    } else {
+        mknod(pipeName.c_str(), S_IFIFO | 0600, 0);
+        cout << "Listening on " << pipeName << endl;
+        pipeThread = thread(bind(&Simulations::getNewCases, this));
+        waitOnPipe = true;
+    }
+
     waitThread = thread(bind(&Simulations::waitProcesses, this));
 
-    while (!end) {
-        // Wait for cases or processes
+    do {
         mutex::scoped_lock lock(m);
-
-        // Schedule as many cases as possible until memory is full
-        list<map<string, string> >::iterator instance = caseInstances.begin();
-        while (processes.size() < numProcesses && instance != caseInstances.end()) {
-            // Try to launch this case
-            unsigned long int mem = 0;
-            map<string, string>::iterator it = instance->find("max_mem");
-            if (it != instance->end())
-                istringstream(it->second) >> mem;
-            if (mem > availableMemory) {
-                // Not enough memory now, wait till later
-                if (processes.empty()) {
-                    cout << "Unable to run simulation, not enough memory." << endl;
-                    instance = caseInstances.erase(instance);
-                } else ++instance;
-                continue;
+        reschedule();
+        if (!waitOnPipe && caseInstances.empty()) {
+            end = true;
+        } else {
+            if (processes.empty() && waitOnPipe) {
+                cout << "Waiting for tests..." << endl;
             }
-            // Then spawn a new one, redirecting stdio
-            int fd[2];
-            pipe(fd);
-            pid_t pid;
-            if ((pid = fork())) {
-                // Close read end
-                close(fd[0]);
-                availableMemory -= mem;
-                processes.push_back(make_pair(pid, mem));
-                children.notify_all();
-                // Feed configuration through write end
-                ostringstream oss;
-                for (map<string, string>::const_iterator it = instance->begin(); it != instance->end(); it++) {
-                    oss << it->first << "=" << it->second << endl;
-                }
-                write(fd[1], oss.str().c_str(), oss.tellp());
-                close(fd[1]);
-            } else {
-                // Close write end
-                close(fd[1]);
-                // Set read end as standard input
-                dup2(fd[0], 0);
-                execl(simExec.c_str(), simExec.c_str(), "-", NULL);
-                // This function only returns on error
-                cout << "Error running simulation." << endl;
-                close(fd[0]);
-                return 1;
-            }
-            // Remove from list and continue with next instance
-            instance = caseInstances.erase(instance);
+            newCasesOrProcesses.wait(lock);
         }
-
-        // Wait until there are messages in the queue
-        if (processes.empty())
-            cout << "Waiting for tests..." << endl;
-        reschedule.wait(lock);
-    }
+    } while (!end);
 
     pipeThread.join();
     waitThread.join();
@@ -228,14 +207,68 @@ int Simulations::run(int argc, char * argv[]) {
 }
 
 
+void Simulations::reschedule() {
+    // Schedule as many cases as possible until memory is full
+    auto instance = caseInstances.begin();
+    while (processes.size() < numProcesses && instance != caseInstances.end()) {
+        // Try to launch this case
+        unsigned long int mem = getMemoryLimit(*instance);
+        if (mem <= availableMemory) {
+            pid_t pid = spawnProcess(*instance);
+            availableMemory -= mem;
+            processes.push_back(make_pair(pid, mem));
+            children.notify_all();
+            instance = caseInstances.erase(instance);
+        }
+        else {
+            if (processes.empty()) {
+                cout << "Unable to run simulation, not enough memory." << endl;
+                instance = caseInstances.erase(instance);
+            } else ++instance;
+        }
+    }
+}
+
+
+pid_t Simulations::spawnProcess(const map<string, string> & properties) {
+    // Redirect stdio
+    int fd[2];
+    pipe(fd);
+    pid_t pid;
+    if ((pid = fork())) {
+        // Close read end
+        close(fd[0]);
+        // Feed configuration through write end
+        ostringstream oss;
+        for (auto & i : properties) {
+            oss << i.first << "=" << i.second << endl;
+        }
+        write(fd[1], oss.str().c_str(), oss.tellp());
+        close(fd[1]);
+        return pid;
+    } else {
+        // Close write end
+        close(fd[1]);
+        // Set read end as standard input
+        dup2(fd[0], 0);
+        execl(simExec.c_str(), simExec.c_str(), "-", NULL);
+        // This function only returns on error
+        cout << "Error running simulation." << endl;
+        close(fd[0]);
+        exit(1);
+    }
+}
+
+
 void Simulations::stop() {
     end = true;
     pipeThread.interrupt();
-    waitThread.interrupt();
+    //waitThread.interrupt();
     cout << "Stopping current processes." << endl;
     for (list<pair<pid_t, unsigned long int> >::iterator it = processes.begin(); it != processes.end(); it++)
         kill(it->first, SIGTERM);
+    children.notify_all();
     // Signal end of file in the pipe
-    ofstream(pipeName.c_str()).close();
-    reschedule.notify_all();
+    ofstream(pipeName.c_str(), ios::out | ios::app).close();
+    newCasesOrProcesses.notify_all();
 }
