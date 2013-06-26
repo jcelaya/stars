@@ -18,8 +18,8 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MSPAVAILABILITYINFORMATION_H_
-#define MSPAVAILABILITYINFORMATION_H_
+#ifndef FSPAVAILABILITYINFORMATION_H_
+#define FSPAVAILABILITYINFORMATION_H_
 
 #include <cmath>
 #include <vector>
@@ -43,7 +43,7 @@ namespace stars {
  * This class provides information about how the stretch in a certain set of nodes changes
  * when tasks of a new application are assigned to them.
  */
-class MSPAvailabilityInformation : public AvailabilityInformation {
+class FSPAvailabilityInformation : public AvailabilityInformation {
 public:
     /**
      * \brief A cluster of availability function with fair allocation constraints
@@ -109,9 +109,9 @@ public:
 
     private:
         friend class ClusteringList<MDLCluster>;
-        friend class MSPAvailabilityInformation;
+        friend class FSPAvailabilityInformation;
 
-        MSPAvailabilityInformation * reference;
+        FSPAvailabilityInformation * reference;
 
         uint32_t value;
         MinParameter<int32_t, int64_t> minM, minD;
@@ -120,9 +120,9 @@ public:
         LAFunction accumMaxL;
     };
 
-    MESSAGE_SUBCLASS(MSPAvailabilityInformation);
+    MESSAGE_SUBCLASS(FSPAvailabilityInformation);
 
-    MSPAvailabilityInformation() : AvailabilityInformation(), memoryRange(0), diskRange(0),
+    FSPAvailabilityInformation() : AvailabilityInformation(), memoryRange(0), diskRange(0),
             lengthHorizon(0.0), slownessRange(0.0) {}
 
     static void setNumClusters(unsigned int c) {
@@ -134,7 +134,7 @@ public:
         return summary;
     }
 
-    bool operator==(const MSPAvailabilityInformation & r) const {
+    bool operator==(const FSPAvailabilityInformation & r) const {
         return summary == r.summary && slownessRange == r.slownessRange;
     }
 
@@ -180,7 +180,7 @@ public:
      * Aggregates an ExecutionNodeInfo to this object.
      * @param o The other instance to be aggregated.
      */
-    void join(const MSPAvailabilityInformation & r);
+    void join(const FSPAvailabilityInformation & r);
 
     // This is documented in AvailabilityInformation.
     virtual void reduce();
@@ -191,7 +191,7 @@ public:
     MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, memoryRange, diskRange, minL, maxL, lengthHorizon, slownessRange);
 
 private:
-    MSPAvailabilityInformation & operator=(const MSPAvailabilityInformation & copy) { return *this; }
+    FSPAvailabilityInformation & operator=(const FSPAvailabilityInformation & copy) { return *this; }
 
     static unsigned int numClusters;
     static unsigned int numIntervals;
@@ -207,5 +207,5 @@ private:
 
 } // namespace stars
 
-#endif /* MSPAVAILABILITYINFORMATION_H_ */
+#endif /* FSPAVAILABILITYINFORMATION_H_ */
 

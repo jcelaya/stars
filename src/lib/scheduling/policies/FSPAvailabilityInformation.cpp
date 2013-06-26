@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <sstream>
 #include "Logger.hpp"
-#include "MSPAvailabilityInformation.hpp"
+#include "FSPAvailabilityInformation.hpp"
 #include "Time.hpp"
 #include "TaskDescription.hpp"
 using std::vector;
@@ -35,14 +35,14 @@ using std::make_pair;
 
 namespace stars {
 
-REGISTER_MESSAGE(MSPAvailabilityInformation);
+REGISTER_MESSAGE(FSPAvailabilityInformation);
 
 
-unsigned int MSPAvailabilityInformation::numClusters = 125;
-unsigned int MSPAvailabilityInformation::numIntervals = 5;
+unsigned int FSPAvailabilityInformation::numClusters = 125;
+unsigned int FSPAvailabilityInformation::numIntervals = 5;
 
 
-double MSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MDLCluster & sum) const {
+double FSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MDLCluster & sum) const {
     sum = *this;
     sum.aggregate(r);
     return sum.minM.norm(reference->memoryRange, sum.value)
@@ -51,7 +51,7 @@ double MSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MD
 }
 
 
-bool MSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
+bool FSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
     return minM.far(r.minM, reference->memoryRange, numIntervals) ||
             minD.far(r.minD, reference->diskRange, numIntervals) ||
             (reference->slownessSquareDiff &&
@@ -60,7 +60,7 @@ bool MSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
 }
 
 
-void MSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & r) {
+void FSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & r) {
     LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating " << *this << " and " << r;
     LAFunction newMaxL;
     accumLsq += accumLsq + r.accumLsq
@@ -73,13 +73,13 @@ void MSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & r) {
 }
 
 
-void MSPAvailabilityInformation::MDLCluster::reduce() {
+void FSPAvailabilityInformation::MDLCluster::reduce() {
     accumLsq += value * maxL.reduceMax(reference->lengthHorizon);
     accumMaxL.reduceMax(reference->lengthHorizon);
 }
 
 
-void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power) {
+void FSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power) {
     memoryRange.setLimits(m);
     diskRange.setLimits(d);
     slownessRange.setLimits(curTasks.getSlowness());   // curTasks must be sorted!!
@@ -90,19 +90,19 @@ void MSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const F
 }
 
 
-void MSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f) {
+void FSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f) {
     for (auto & i : summary)
         if (i.fulfills(req))
             f.push_back(std::make_pair(&i.maxL, i.value));
 }
 
 
-double MSPAvailabilityInformation::getSlowestMachine() const {
+double FSPAvailabilityInformation::getSlowestMachine() const {
     return maxL.getSlowestMachine();
 }
 
 
-void MSPAvailabilityInformation::join(const MSPAvailabilityInformation & r) {
+void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
     if (!r.summary.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
 
@@ -128,7 +128,7 @@ void MSPAvailabilityInformation::join(const MSPAvailabilityInformation & r) {
 }
 
 
-void MSPAvailabilityInformation::reduce() {
+void FSPAvailabilityInformation::reduce() {
     // Set up clustering variables
     slownessSquareDiff = maxL.sqdiff(minL, lengthHorizon);
     for (auto & i : summary)
@@ -139,7 +139,7 @@ void MSPAvailabilityInformation::reduce() {
 }
 
 
-void MSPAvailabilityInformation::output(std::ostream & os) const {
+void FSPAvailabilityInformation::output(std::ostream & os) const {
     os << slownessRange.getMin() << "s/i, ";
     os << '(' << minL << ", " << maxL << ") (";
     for (auto & i : summary)

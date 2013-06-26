@@ -70,7 +70,7 @@ public:
             IBPolicy = 0,
             MMPolicy = 1,
             DPolicy = 2,
-            MSPolicy = 3,
+            FSPolicy = 3,
         };
 
         static Configuration & getInstance() {

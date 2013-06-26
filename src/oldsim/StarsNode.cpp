@@ -32,8 +32,8 @@
 #include "MMPDispatcher.hpp"
 #include "IBPScheduler.hpp"
 #include "IBPDispatcher.hpp"
-#include "MSPScheduler.hpp"
-#include "MSPDispatcher.hpp"
+#include "FSPScheduler.hpp"
+#include "FSPDispatcher.hpp"
 #include "Simulator.hpp"
 #include "Time.hpp"
 #include "SimTask.hpp"
@@ -140,7 +140,7 @@ void StarsNode::Configuration::setup(const Properties & property) {
     outFileName = property("out_file", string(""));
     string s = property("policy", string(""));
     if (s == "DP") policy = DPolicy;
-    else if (s == "MSP") policy = MSPolicy;
+    else if (s == "FSP") policy = FSPolicy;
     else if (s == "MMP") policy = MMPolicy;
     else policy = IBPolicy;
     if (inFileName != "") {
@@ -175,20 +175,20 @@ void StarsNode::libStarsConfigure(const Properties & property) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
         MMPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
         DPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
-        MSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+        FSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
     } else {
         unsigned int clusters = property("avail_clusters", 20U);
         if (clusters) {
             IBPAvailabilityInformation::setNumClusters(clusters);
             MMPAvailabilityInformation::setNumClusters(clusters);
             DPAvailabilityInformation::setNumClusters(clusters);
-            MSPAvailabilityInformation::setNumClusters(clusters);
+            FSPAvailabilityInformation::setNumClusters(clusters);
         }
     }
     DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
     stars::LAFunction::setNumPieces(property("si_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
-    MSPDispatcher::setBeta(property("msp_beta", 2.0));
+    FSPDispatcher::setBeta(property("fsp_beta", 2.0));
     SimAppDatabase::reset();
     StarsNode::Configuration::getInstance().setup(property);
 }
@@ -275,9 +275,9 @@ void StarsNode::fail() {
             services[Sch] = new DPScheduler(getLeaf());
             services[Disp] = new DPDispatcher(getBranch());
             break;
-        case Configuration::MSPolicy:
-            services[Sch] = new stars::MSPScheduler(getLeaf());
-            services[Disp] = new MSPDispatcher(getBranch());
+        case Configuration::FSPolicy:
+            services[Sch] = new stars::FSPScheduler(getLeaf());
+            services[Disp] = new FSPDispatcher(getBranch());
             break;
         default:
             services[Sch] = new IBPScheduler(getLeaf());
@@ -300,9 +300,9 @@ void StarsNode::createServices() {
             services.push_back(new DPScheduler(getLeaf()));
             services.push_back(new DPDispatcher(getBranch()));
             break;
-        case Configuration::MSPolicy:
-            services.push_back(new stars::MSPScheduler(getLeaf()));
-            services.push_back(new MSPDispatcher(getBranch()));
+        case Configuration::FSPolicy:
+            services.push_back(new stars::FSPScheduler(getLeaf()));
+            services.push_back(new FSPDispatcher(getBranch()));
             break;
         default:
             services.push_back(new IBPScheduler(getLeaf()));
@@ -362,8 +362,8 @@ void StarsNode::packState(std::streambuf & out) {
         case Configuration::DPolicy:
             static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case Configuration::MSPolicy:
-            static_cast<MSPDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::FSPolicy:
+            static_cast<FSPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -428,8 +428,8 @@ void StarsNode::unpackState(std::streambuf & in) {
         case Configuration::DPolicy:
             static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
-        case Configuration::MSPolicy:
-            static_cast<MSPDispatcher &>(*services[Disp]).serializeState(ar);
+        case Configuration::FSPolicy:
+            static_cast<FSPDispatcher &>(*services[Disp]).serializeState(ar);
             break;
         default:
             break;
@@ -609,8 +609,8 @@ void StarsNode::buildDispatcher() {
     case Configuration::DPolicy:
         buildDispatcherGen<DPDispatcher>();
         break;
-    case Configuration::MSPolicy:
-        buildDispatcherGen<MSPDispatcher>();
+    case Configuration::FSPolicy:
+        buildDispatcherGen<FSPDispatcher>();
         break;
     default:
         break;

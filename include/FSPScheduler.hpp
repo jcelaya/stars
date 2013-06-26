@@ -18,12 +18,12 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MSPSCHEDULER_H_
-#define MSPSCHEDULER_H_
+#ifndef FSPSCHEDULER_H_
+#define FSPSCHEDULER_H_
 
 #include "Scheduler.hpp"
 #include "FSPTaskList.hpp"
-#include "MSPAvailabilityInformation.hpp"
+#include "FSPAvailabilityInformation.hpp"
 
 namespace stars {
 
@@ -33,13 +33,13 @@ namespace stars {
  * This scheduler calculates the minimum stretch that can be assigned to all applications,
  * by calculating the deadlines so that they are all met.
  */
-class MSPScheduler: public Scheduler {
+class FSPScheduler: public Scheduler {
 public:
     /**
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.
      * @param resourceNode Resource node associated with this scheduler.
      */
-    MSPScheduler(OverlayLeaf & l) : Scheduler(l) {
+    FSPScheduler(OverlayLeaf & l) : Scheduler(l) {
         reschedule();
         notifySchedule();
     }
@@ -48,12 +48,12 @@ public:
     virtual unsigned int acceptable(const TaskBagMsg & msg);
 
     // This is documented in Scheduler
-    virtual const MSPAvailabilityInformation & getAvailability() const {
+    virtual const FSPAvailabilityInformation & getAvailability() const {
         return info;
     }
 
 private:
-    MSPAvailabilityInformation info;
+    FSPAvailabilityInformation info;
     stars::FSPTaskList proxys;
 
     // This is documented in Scheduler
@@ -72,4 +72,4 @@ private:
 
 } // namespace stars
 
-#endif /* MSPSCHEDULER_H_ */
+#endif /* FSPSCHEDULER_H_ */

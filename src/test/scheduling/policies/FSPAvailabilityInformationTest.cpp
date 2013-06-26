@@ -22,7 +22,7 @@
 #include <boost/test/unit_test.hpp>
 #include "CheckMsg.hpp"
 #include "TestHost.hpp"
-#include "MSPAvailabilityInformation.hpp"
+#include "FSPAvailabilityInformation.hpp"
 #include "../RandomQueueGenerator.hpp"
 using namespace std;
 
@@ -34,7 +34,7 @@ struct FSPAvailabilityInfoFixture {
         TestHost::getInstance().reset();
     }
 
-    MSPAvailabilityInformation s1;
+    FSPAvailabilityInformation s1;
 };
 
 BOOST_FIXTURE_TEST_SUITE(FSPAvailabilityInfoTest, FSPAvailabilityInfoFixture)
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
     s1.setAvailability(1024, 512, proxys, 1000.0);
     LogMsg("Test.RI", INFO) << s1;
 
-    boost::shared_ptr<MSPAvailabilityInformation> p;
+    boost::shared_ptr<FSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);
 }
 

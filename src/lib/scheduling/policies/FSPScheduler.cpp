@@ -19,12 +19,12 @@
  */
 
 #include "Logger.hpp"
-#include "MSPScheduler.hpp"
+#include "FSPScheduler.hpp"
 
 
 namespace stars {
 
-void MSPScheduler::reschedule() {
+void FSPScheduler::reschedule() {
     if (!proxys.empty()) {
         // Adjust the time of the first task
         proxys.front().t = proxys.front().origin->getEstimatedDuration().seconds();
@@ -53,7 +53,7 @@ void MSPScheduler::reschedule() {
 }
 
 
-unsigned int MSPScheduler::acceptable(const TaskBagMsg & msg) {
+unsigned int FSPScheduler::acceptable(const TaskBagMsg & msg) {
     // Always accept new tasks
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
     LogMsg("Ex.Sch.MS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();

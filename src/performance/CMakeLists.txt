@@ -16,6 +16,6 @@ target_link_libraries(mmp-aggrtest ${LIBS})
 add_executable(dp-aggrtest ${MAIN_SRCS} DPAvailabilityInfoTest.cpp)
 target_link_libraries(dp-aggrtest ${LIBS})
 
-add_executable(msp-aggrtest ${MAIN_SRCS} MSPAvailabilityInfoTest.cpp)
-target_link_libraries(msp-aggrtest ${LIBS})
+add_executable(fsp-aggrtest ${MAIN_SRCS} FSPAvailabilityInfoTest.cpp)
+target_link_libraries(fsp-aggrtest ${LIBS})
 

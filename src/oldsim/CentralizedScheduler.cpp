@@ -29,7 +29,7 @@
 #include "Time.hpp"
 #include "Logger.hpp"
 #include "Scheduler.hpp"
-#include "MSPScheduler.hpp"
+#include "FSPScheduler.hpp"
 #include "ResourceNode.hpp"
 #include "Simulator.hpp"
 using namespace std;
@@ -465,7 +465,7 @@ class CentralizedDP : public CentralizedScheduler {
 };
 
 
-class CentralizedMSP : public CentralizedScheduler {
+class CentralizedFSP : public CentralizedScheduler {
     struct SlownessTasks {
         double slowness;
         int numTasks;
@@ -617,7 +617,7 @@ class CentralizedMSP : public CentralizedScheduler {
 
 
 public:
-    CentralizedMSP() : CentralizedScheduler(), proxysN(queues.size()), firstTaskEndTimeN(queues.size()) {}
+    CentralizedFSP() : CentralizedScheduler(), proxysN(queues.size()), firstTaskEndTimeN(queues.size()) {}
 };
 
 
@@ -630,8 +630,8 @@ boost::shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(co
             return boost::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
         case StarsNode::Configuration::DPolicy:
             return boost::shared_ptr<CentralizedScheduler>(new CentralizedDP());
-        case StarsNode::Configuration::MSPolicy:
-            return boost::shared_ptr<CentralizedScheduler>(new CentralizedMSP());
+        case StarsNode::Configuration::FSPolicy:
+            return boost::shared_ptr<CentralizedScheduler>(new CentralizedFSP());
         default:
             return boost::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
         }

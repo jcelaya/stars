@@ -49,18 +49,16 @@ public:
     }
 
     void setMinimum(limitType current) {
-        if (min < current) {
-            min = current;
-            if (max < current)
-                max = current;
+        min = current;
+        if (max < current) {
+            max = current;
         }
     }
 
     void setMaximum(limitType current) {
-        if (max > current) {
-            max = current;
-            if (min > current)
-                min = current;
+        max = current;
+        if (min > current) {
+            min = current;
         }
     }
 

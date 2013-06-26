@@ -66,7 +66,6 @@ void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
         std::list<MDPTCluster> tmpList(r.summary.begin(), r.summary.end());
         summary.merge(tmpList);
 
-        // Create a vector of clusters with those clusters which min or max time is earlier than current time
         Time current = Time::getCurrentTime();
         for (auto & i : summary) {
             if (i.maxT.getValue() < current) {
@@ -75,7 +74,8 @@ void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
             }
         }
         // The same with the cover
-        queueRange.setMinimum(current);
+        if (queueRange.getMin() < current)
+            queueRange.setMinimum(current);
     }
 }
 

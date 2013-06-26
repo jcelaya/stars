@@ -21,12 +21,12 @@
 #include <fstream>
 #include <sstream>
 #include "AggregationTest.hpp"
-#include "MSPAvailabilityInformation.hpp"
-#include "MSPScheduler.hpp"
+#include "FSPAvailabilityInformation.hpp"
+#include "FSPScheduler.hpp"
 #include "util/MemoryManager.hpp"
 using namespace stars;
 
-template<> struct Priv<MSPAvailabilityInformation> {
+template<> struct Priv<FSPAvailabilityInformation> {
     LAFunction totalAvail;
     LAFunction maxAvail;
 };
@@ -53,15 +53,15 @@ void createRandomQueue(double power, boost::random::mt19937 & gen, FSPTaskList &
 }
 
 
-template<> AggregationTestImpl<MSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("msp_mem_disk_slowness.stat", 2) {
-    stars::ClusteringList<MSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
+template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("fsp_mem_disk_slowness.stat", 2) {
+    stars::ClusteringList<FSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
     LAFunction::setNumPieces(8);
 }
 
 
-template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTestImpl<MSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     static LAFunction dummy;
-    boost::shared_ptr<MSPAvailabilityInformation> s(new MSPAvailabilityInformation);
+    boost::shared_ptr<FSPAvailabilityInformation> s(new FSPAvailabilityInformation);
     FSPTaskList proxys;
     createRandomQueue(n.power, gen, proxys);
     s->setAvailability(n.mem, n.disk, proxys, n.power);
@@ -77,7 +77,7 @@ template<> boost::shared_ptr<MSPAvailabilityInformation> AggregationTestImpl<MSP
 }
 
 
-template<> void AggregationTestImpl<MSPAvailabilityInformation>::computeResults(const boost::shared_ptr<MSPAvailabilityInformation> & summary) {
+template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(const boost::shared_ptr<FSPAvailabilityInformation> & summary) {
     static LAFunction dummy;
     unsigned long int minMem = nodes.size() * min_mem;
     unsigned long int minDisk = nodes.size() * min_disk;
@@ -86,7 +86,7 @@ template<> void AggregationTestImpl<MSPAvailabilityInformation>::computeResults(
 
     unsigned long int aggrMem = 0, aggrDisk = 0;
     double meanAccuracy = 0.0;
-    const stars::ClusteringList<MSPAvailabilityInformation::MDLCluster> & clusters = summary->getSummary();
+    const stars::ClusteringList<FSPAvailabilityInformation::MDLCluster> & clusters = summary->getSummary();
     for (auto & u : clusters) {
         aggrMem += u.getTotalMemory();
         aggrDisk += u.getTotalDisk();
@@ -117,6 +117,6 @@ template<> void AggregationTestImpl<MSPAvailabilityInformation>::computeResults(
 
 
 AggregationTest & AggregationTest::getInstance() {
-    static AggregationTestImpl<MSPAvailabilityInformation> instance;
+    static AggregationTestImpl<FSPAvailabilityInformation> instance;
     return instance;
 }

@@ -20,18 +20,18 @@
 
 
 #include "Logger.hpp"
-#include "MSPDispatcher.hpp"
+#include "FSPDispatcher.hpp"
 #include "Time.hpp"
 #include "ConfigurationManager.hpp"
 using std::vector;
 
 using stars::LAFunction;
 
-double MSPDispatcher::beta = 2.0;
-//int MSPDispatcher::estimations = 0;
+double FSPDispatcher::beta = 2.0;
+//int FSPDispatcher::estimations = 0;
 
 
-void MSPDispatcher::recomputeInfo() {
+void FSPDispatcher::recomputeInfo() {
     LogMsg("Dsp.MS", DEBUG) << "Recomputing the branch information";
     // Recalculate info for the father
     if (leftChild.availInfo.get()) {
@@ -50,14 +50,14 @@ void MSPDispatcher::recomputeInfo() {
         // TODO: send full information, based on configuration switch
         if (father.availInfo.get()) {
             double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
-            leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            leftChild.waitingInfo.reset(new FSPAvailabilityInformation);
             if (rightChild.availInfo.get()) {
                 double rightMaxSlowness = rightChild.availInfo->getMaximumSlowness();
                 leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > rightMaxSlowness ? fatherMaxSlowness : rightMaxSlowness);
             } else
                 leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
         } else if (rightChild.availInfo.get()) {
-            leftChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            leftChild.waitingInfo.reset(new FSPAvailabilityInformation);
             leftChild.waitingInfo->setMaximumSlowness(rightChild.availInfo->getMaximumSlowness());
         } else
             leftChild.waitingInfo.reset();
@@ -68,14 +68,14 @@ void MSPDispatcher::recomputeInfo() {
         // TODO: send full information, based on configuration switch
         if (father.availInfo.get()) {
             double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
-            rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            rightChild.waitingInfo.reset(new FSPAvailabilityInformation);
             if (leftChild.availInfo.get()) {
                 double leftMaxSlowness = leftChild.availInfo->getMaximumSlowness();
                 rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > leftMaxSlowness ? fatherMaxSlowness : leftMaxSlowness);
             } else
                 rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
         } else if (leftChild.availInfo.get()) {
-            rightChild.waitingInfo.reset(new MSPAvailabilityInformation);
+            rightChild.waitingInfo.reset(new FSPAvailabilityInformation);
             rightChild.waitingInfo->setMaximumSlowness(leftChild.availInfo->getMaximumSlowness());
         } else
             rightChild.waitingInfo.reset();
@@ -92,7 +92,7 @@ struct SlownessTasks {
 };
 
 
-void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
+void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN()) return;
 
     const TaskDescription & req = msg.getMinRequirements();
@@ -109,7 +109,7 @@ void MSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
         return;
     }
-    boost::shared_ptr<MSPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+    boost::shared_ptr<FSPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
     if (!zoneInfo.get()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but no information!";
         return;

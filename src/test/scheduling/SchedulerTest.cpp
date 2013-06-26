@@ -25,7 +25,7 @@
 //#include "IBPScheduler.hpp"
 //#include "MMPScheduler.hpp"
 #include "DPScheduler.hpp"
-#include "MSPScheduler.hpp"
+#include "FSPScheduler.hpp"
 #include "TaskBagMsg.hpp"
 #include "DescriptionFile.hpp"
 #include "StructureNode.hpp"
@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     CommAddress addr = CommLayer::getInstance().getLocalAddress();
     ResourceNode * rn = new ResourceNode();
     CommLayer::getInstance().registerService(rn);
-    stars::MSPScheduler * sched = new stars::MSPScheduler(*rn);
+    stars::FSPScheduler * sched = new stars::FSPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
     list<boost::shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;

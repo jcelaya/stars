@@ -46,6 +46,25 @@ BOOST_FIXTURE_TEST_SUITE(IntervalTest, IntervalFixture)
 BOOST_AUTO_TEST_CASE(buildInterval) {
     BOOST_CHECK_EQUAL(interval0.getMin(), 0);
     BOOST_CHECK_EQUAL(interval0.getMax(), 0);
+    BOOST_CHECK(interval0.empty());
+}
+
+BOOST_AUTO_TEST_CASE(setMaximumMinimum) {
+    interval0.setMaximum(-1);
+    BOOST_CHECK_EQUAL(interval0.getMin(), -1);
+    BOOST_CHECK_EQUAL(interval0.getMax(), -1);
+    interval0.setMinimum(-3);
+    BOOST_CHECK_EQUAL(interval0.getMin(), -3);
+    BOOST_CHECK_EQUAL(interval0.getMax(), -1);
+}
+
+BOOST_AUTO_TEST_CASE(setMinimumMaximum) {
+    interval0.setMinimum(1);
+    BOOST_CHECK_EQUAL(interval0.getMin(), 1);
+    BOOST_CHECK_EQUAL(interval0.getMax(), 1);
+    interval0.setMaximum(3);
+    BOOST_CHECK_EQUAL(interval0.getMin(), 1);
+    BOOST_CHECK_EQUAL(interval0.getMax(), 3);
 }
 
 BOOST_AUTO_TEST_CASE(extentOneValue) {

@@ -18,14 +18,14 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MSPDISPATCHER_H_
-#define MSPDISPATCHER_H_
+#ifndef FSPDISPATCHER_H_
+#define FSPDISPATCHER_H_
 
 #include "Dispatcher.hpp"
-#include "MSPAvailabilityInformation.hpp"
+#include "FSPAvailabilityInformation.hpp"
 #include "Time.hpp"
 
-using stars::MSPAvailabilityInformation;
+using stars::FSPAvailabilityInformation;
 
 /**
  * \brief Resource request dispatcher for execution node requests.
@@ -33,13 +33,13 @@ using stars::MSPAvailabilityInformation;
  * This Dispatcher receives TaskBagMsg requests to assign tasks to execution nodes. It also
  * controls the aggregation of TimeConstraintInfo objects in this branch of the tree.
  */
-class MSPDispatcher : public Dispatcher<MSPAvailabilityInformation> {
+class FSPDispatcher : public Dispatcher<FSPAvailabilityInformation> {
 public:
     /**
      * Constructs a QueueBalancingDispatcher and associates it with the corresponding StructureNode.
      * @param sn The StructureNode of this branch.
      */
-    MSPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
+    FSPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
     // This is documented in Dispatcher.
     virtual void recomputeInfo();
@@ -56,4 +56,4 @@ private:
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 };
 
-#endif /* MSPDISPATCHER_H_ */
+#endif /* FSPDISPATCHER_H_ */
