@@ -36,6 +36,7 @@ public:
         void setHandler();
 
         void printStackTrace();
+        const char * getStackTraceString();
 
     private:
         Handler() : stackSize(0), cause(0) {}
@@ -47,10 +48,12 @@ public:
         int stackSize;
         int cause;
         std::string gdbservercmd;
+        std::string message;
     };
 
     virtual const char* what() const throw () {
-        return "Process interrupted by signal.";
+        //return "Process interrupted by signal.";
+        return Handler::getInstance().getStackTraceString();
     }
 };
 

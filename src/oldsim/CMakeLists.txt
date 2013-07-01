@@ -7,10 +7,11 @@ add_subdirectory(cases)
 
 # Sources
 set(oldsim_sources
+    ../util/MemoryManager.cpp
+    ../util/SignalException.cpp
     AvailabilityStatistics.cpp
     Distributions.cpp
     FailureGenerator.cpp
-    MemoryManager.cpp
     StarsNode.cpp
     LibStarsStatistics.cpp
     CentralizedScheduler.cpp
@@ -21,7 +22,6 @@ set(oldsim_sources
     SimulationCase.cpp
     Simulator.cpp
     TrafficStatistics.cpp
-    SignalException.cpp
     SimOverlayBranch.cpp
     SimOverlayLeaf.cpp
     ${cases_sources})

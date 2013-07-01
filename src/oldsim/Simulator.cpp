@@ -31,12 +31,12 @@
 #include "Simulator.hpp"
 #include "SimulationCase.hpp"
 #include "SimTask.hpp"
-#include "MemoryManager.hpp"
+#include "util/MemoryManager.hpp"
 #include "TrafficStatistics.hpp"
 #include "AvailabilityStatistics.hpp"
 #include "CentralizedScheduler.hpp"
 #include "FailureGenerator.hpp"
-#include "SignalException.hpp"
+#include "util/SignalException.hpp"
 using namespace log4cpp;
 using namespace std;
 using namespace boost::posix_time;

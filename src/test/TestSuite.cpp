@@ -35,7 +35,7 @@
 #include "TestHost.hpp"
 #include "Scheduler.hpp"
 #include "Logger.hpp"
-#include "../oldsim/SignalException.hpp"
+#include "util/SignalException.hpp"
 using log4cpp::Category;
 using log4cpp::Priority;
 using boost::shared_ptr;

@@ -4,7 +4,7 @@ include_directories(../../include)
 include_directories(.)
 
 set(LIBS ${STARS_LIBRARIES} ${STARS_DB_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} tcmalloc)
-set(MAIN_SRCS main.cpp ../util/MemoryManager.cpp)
+set(MAIN_SRCS main.cpp ../util/MemoryManager.cpp ../util/SignalException.cpp)
 
 # add the executables
 add_executable(ibp-aggrtest ${MAIN_SRCS} IBPAvailabilityInfoTest.cpp)

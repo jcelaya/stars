@@ -52,11 +52,36 @@ public:
      */
     class MDLCluster {
     public:
-        /// Default constructor, for serialization purposes mainly
+        /// Default constructor, do nothing for fast empty array creation
         MDLCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
         MDLCluster(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power)
                 : reference(NULL), value(1), minM(m), minD(d), maxL(curTasks, power), accumLsq(0.0), accumMaxL(maxL) {}
+        MDLCluster(const MDLCluster & copy) {
+            *this = copy;
+        }
+
+        MDLCluster & operator=(const MDLCluster & r) {
+            reference = r.reference;
+            value = r.value;
+            minM = r.minM;
+            minD = r.minD;
+            maxL = r.maxL;
+            accumLsq = r.accumLsq;
+            accumMaxL = r.accumMaxL;
+            return *this;
+        }
+
+        MDLCluster & operator=(MDLCluster && r) {
+            reference = r.reference;
+            value = r.value;
+            minM = r.minM;
+            minD = r.minD;
+            maxL = std::move(r.maxL);
+            accumLsq = r.accumLsq;
+            accumMaxL = std::move(r.accumMaxL);
+            return *this;
+        }
 
         /// Comparison operator
         bool operator==(const MDLCluster & r) const {

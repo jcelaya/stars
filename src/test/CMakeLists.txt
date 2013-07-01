@@ -13,7 +13,7 @@ add_subdirectory(StructureManager)
 #add_subdirectory(SubmissionManager)
 
 # add the executable
-add_executable(stars-test${BIN_SUFFIX} TestSuite.cpp ${starstest_sources} ../oldsim/SignalException.cpp)
+add_executable(stars-test${BIN_SUFFIX} TestSuite.cpp ${starstest_sources} ../util/SignalException.cpp)
 target_link_libraries(stars-test${BIN_SUFFIX}
     ${STARS_LIBRARIES}
     ${STARS_DB_LIBRARIES}

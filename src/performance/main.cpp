@@ -27,6 +27,7 @@
 #include "Logger.hpp"
 #include "AggregationTest.hpp"
 #include "util/MemoryManager.hpp"
+#include "util/SignalException.hpp"
 using namespace log4cpp;
 using std::endl;
 
@@ -53,9 +54,15 @@ int main(int argc, char * argv[]) {
     console->setLayout(l);
     Category::getRoot().addAppender(console);
     MemoryManager::getInstance().setUpdateDuration(0.0);
+    SignalException::Handler::getInstance().setHandler();
 
-    AggregationTest & t = AggregationTest::getInstance();
-    t.performanceTest(numClusters, levels);
+    try {
+        AggregationTest & t = AggregationTest::getInstance();
+        t.performanceTest(numClusters, levels);
+    } catch (SignalException & e) {
+        std::cout << "foo";
+        SignalException::Handler::getInstance().printStackTrace();
+    }
 
     return 0;
 }

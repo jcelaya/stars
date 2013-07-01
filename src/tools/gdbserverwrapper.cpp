@@ -57,7 +57,8 @@ int main(int argc, char * argv[]) {
         ostringstream portNumber, pidNumber;
         portNumber << "host:" << port;
         pidNumber << getppid();
-        execl("/usr/bin/gdbserver", "/usr/bin/gdbserver", portNumber.str().c_str(), "--attach", pidNumber.str().c_str(), NULL);
+        execl("/usr/bin/gdbserver", "/usr/bin/gdbserver", portNumber.str().c_str(),
+                "--attach", (argc > 1 ? argv[1] : pidNumber.str().c_str()), NULL);
     }
     return 1;
 }
