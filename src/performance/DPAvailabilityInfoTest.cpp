@@ -64,20 +64,16 @@ template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(c
         aggrDisk += (unsigned long int)u.minD * u.value;
         aggrAvail.lc(aggrAvail, u.minA, 1.0, u.value);
     }
-    list<Time> p;
-    for (auto & i: aggrAvail.getPoints())
-        p.push_back(i.first);
-    for (auto & i: privateData.totalAvail.getPoints())
-        p.push_back(i.first);
-    for (auto & i: minAvail.getPoints())
-        p.push_back(i.first);
-    p.sort();
-    p.erase(std::unique(p.begin(), p.end()), p.end());
-    // TODO: The accuracy is not linear...
+    Time max = aggrAvail.getHorizon();
+    if (max < privateData.totalAvail.getHorizon())
+        max = privateData.totalAvail.getHorizon();
+    if (max < minAvail.getHorizon())
+        max = minAvail.getHorizon();
+    max += (max - refTime) * 1.2;
     double prevAccuracy = 0.0;
     Time prevTime = refTime;
-    // Approximate the accuracy to linear...
-    for (auto & i: p) {
+    Duration step = (max - refTime) * 0.001;
+    for (Time i = refTime; i < max; i += step) {
         double minAvailBeforeIt = minAvail.getAvailabilityBefore(i);
         double totalAvailBeforeIt = privateData.totalAvail.getAvailabilityBefore(i) - minAvailBeforeIt;
         double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(i) - minAvailBeforeIt;
@@ -88,7 +84,7 @@ template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(c
         prevAccuracy = accuracy;
         prevTime = i;
     }
-    meanAccuracy /= 2.0 * (p.back() - refTime).seconds();
+    meanAccuracy /= 2.0 * (max - refTime).seconds();
 
     results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
     results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));

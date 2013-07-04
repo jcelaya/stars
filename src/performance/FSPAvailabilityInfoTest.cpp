@@ -74,12 +74,12 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
     double prevAccuracy = 100.0;
     uint64_t prevA = LAFunction::minTaskLength;
     double ah = privateData.totalAvail.getHorizon() * 1.2;
-    uint64_t astep = (ah - LAFunction::minTaskLength) / 100;
+    uint64_t astep = (ah - LAFunction::minTaskLength) / 1000;
     for (uint64_t a = LAFunction::minTaskLength; a < ah; a += astep) {
         double maxAvailBeforeIt = maxAvail.getSlowness(a);
         double totalAvailBeforeIt = maxAvailBeforeIt - privateData.totalAvail.getSlowness(a);
         double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
-        double accuracy = totalAvailBeforeIt > 0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
+        double accuracy = totalAvailBeforeIt > 0.0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 100.0;
         if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
             LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
         meanAccuracy += (prevAccuracy + accuracy) * (a - prevA);
