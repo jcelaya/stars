@@ -66,3 +66,8 @@ int main(int argc, char * argv[]) {
 
     return 0;
 }
+
+
+Time Time::getCurrentTime() {
+    return Time();
+}

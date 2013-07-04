@@ -41,7 +41,6 @@ void FSPTaskList::addTasks(const TaskProxy & task, unsigned int n) {
         boundaries.push_back((firstTaskEndTime - task.rabs).seconds() / task.a);
     }
     insert(end(), n, task);
-    //dirty = true;
 }
 
 

@@ -77,34 +77,9 @@ void DPScheduler::reschedule() {
 
 
 void DPScheduler::calculateAvailability() {
-    list<Time> points;
-    Time now = Time::getCurrentTime();
-
-    if (tasks.size() == 1) {
-        points.push_back(now + tasks.front()->getEstimatedDuration());
-    } else if (tasks.size() > 1) {
-        Time nextStart = tasks.back()->getDescription().getDeadline();
-        points.push_back(nextStart);
-        // Calculate the estimated ending time for each scheduled task
-        list<boost::shared_ptr<Task> >::reverse_iterator firstTask = --tasks.rend();
-        for (list<boost::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != firstTask; ++i) {
-            // If there is time between tasks, add a new hole
-            if ((*i)->getDescription().getDeadline() < nextStart) {
-                points.push_front(nextStart);
-                points.push_front((*i)->getDescription().getDeadline());
-                nextStart = (*i)->getDescription().getDeadline() - (*i)->getEstimatedDuration();
-            } else {
-                nextStart = nextStart - (*i)->getEstimatedDuration();
-            }
-        }
-        // First task is special, as it is not preemptible
-        points.push_front(nextStart);
-        points.push_front(now + tasks.front()->getEstimatedDuration());
-    }
-
     info.reset();
     info.addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
-                 backend.impl->getAveragePower(), points);
+                 backend.impl->getAveragePower(), tasks);
     LogMsg("Ex.Sch.EDF", DEBUG) << "Function is " << info;
 }
 

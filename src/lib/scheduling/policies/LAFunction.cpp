@@ -27,7 +27,7 @@ using std::make_pair;
 
 namespace stars {
 
-unsigned int LAFunction::numPieces = 64;
+unsigned int LAFunction::numPieces = 10;
 
 
 LAFunction::LAFunction(FSPTaskList curTasks, double power) {

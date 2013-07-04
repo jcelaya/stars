@@ -27,11 +27,11 @@
 #include <fstream>
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 #include "util/MemoryManager.hpp"
+#include "../test/scheduling/RandomQueueGenerator.hpp"
 using namespace std;
 using namespace boost::posix_time;
 
@@ -86,7 +86,7 @@ protected:
     unsigned int fanout;
 
     unsigned long int totalPower, totalMem, totalDisk;
-    boost::random::mt19937 gen;
+    stars::RandomQueueGenerator gen;
     boost::random::uniform_int_distribution<> unifPower, unifMemory, unifDisk;
     unsigned long int bytes;
     unsigned long int messages;
@@ -200,9 +200,9 @@ private:
         } else {
             nodes.push_back(Node());
             Node & n = nodes.back();
-            n.power = unifPower(gen); //floor(unifPower(gen) / step_power) * step_power;
-            n.mem = unifMemory(gen); //floor(unifMemory(gen) / step_mem) * step_mem;
-            n.disk = unifDisk(gen); //floor(unifDisk(gen) / step_disk) * step_disk;
+            n.power = unifPower(gen.getGenerator()); //floor(unifPower(gen) / step_power) * step_power;
+            n.mem = unifMemory(gen.getGenerator()); //floor(unifMemory(gen) / step_mem) * step_mem;
+            n.disk = unifDisk(gen.getGenerator()); //floor(unifDisk(gen) / step_disk) * step_disk;
             totalPower += n.power;
             totalMem += n.mem;
             totalDisk += n.disk;

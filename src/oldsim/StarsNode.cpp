@@ -185,8 +185,8 @@ void StarsNode::libStarsConfigure(const Properties & property) {
             FSPAvailabilityInformation::setNumClusters(clusters);
         }
     }
-    DPAvailabilityInformation::setNumRefPoints(property("tci_ref_points", 8U));
-    stars::LAFunction::setNumPieces(property("si_pieces", 64U));
+    stars::LDeltaFunction::setNumPieces(property("dp_pieces", 8U));
+    stars::LAFunction::setNumPieces(property("fsp_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     FSPDispatcher::setBeta(property("fsp_beta", 2.0));
     SimAppDatabase::reset();

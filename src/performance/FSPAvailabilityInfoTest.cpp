@@ -32,27 +32,6 @@ template<> struct Priv<FSPAvailabilityInformation> {
 };
 
 
-void createRandomQueue(double power, boost::random::mt19937 & gen, FSPTaskList & proxys) {
-    Time now = Time::getCurrentTime();
-    proxys.clear();
-
-    // Add a random number of applications, with random length and number of tasks
-    for(int appid = 0; boost::random::uniform_int_distribution<>(1, 3)(gen) != 1; ++appid) {
-        double r = boost::random::uniform_int_distribution<>(-1000, 0)(gen);
-        unsigned int numTasks = boost::random::uniform_int_distribution<>(1, 10)(gen);
-        // Applications between 1-4h on a 1000 MIPS computer
-        int a = boost::random::uniform_int_distribution<>(600000, 14400000)(gen) / numTasks;
-        proxys.addTasks(TaskProxy(a, power, now + Duration(r)), numTasks);
-    }
-
-    unsigned int id = 0;
-    for (auto & i: proxys)
-        i.id = ++id;
-
-    proxys.sortMinSlowness();
-}
-
-
 template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("fsp_mem_disk_slowness.stat", 2) {
     stars::ClusteringList<FSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
     LAFunction::setNumPieces(8);
@@ -62,8 +41,7 @@ template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl(
 template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     static LAFunction dummy;
     boost::shared_ptr<FSPAvailabilityInformation> s(new FSPAvailabilityInformation);
-    FSPTaskList proxys;
-    createRandomQueue(n.power, gen, proxys);
+    FSPTaskList proxys(gen.createRandomQueue(n.power));
     s->setAvailability(n.mem, n.disk, proxys, n.power);
     const LAFunction & maxL = s->getSummary().front().getMaximumSlowness();
     if (privateData.maxAvail == LAFunction()) {

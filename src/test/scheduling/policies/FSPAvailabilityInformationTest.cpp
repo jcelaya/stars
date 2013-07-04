@@ -42,7 +42,7 @@ BOOST_FIXTURE_TEST_SUITE(FSPAvailabilityInfoTest, FSPAvailabilityInfoFixture)
 
 /// SlownessInformation
 BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
-    FSPTaskList proxys(std::move(RandomQueueGenerator().createRandomQueue(1000.0)));
+    FSPTaskList proxys(RandomQueueGenerator().createRandomQueue(1000.0));
     proxys.sortMinSlowness();
     s1.setAvailability(1024, 512, proxys, 1000.0);
     LogMsg("Test.RI", INFO) << s1;

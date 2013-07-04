@@ -64,12 +64,12 @@ public:
     QueueFunctionPair(RandomQueueGenerator & r) : rqg(r), power(r.getRandomPower()), horizon(0.0) {}
 
     void createNTaskFunction(unsigned int numTasks) {
-        proxys = FSPTaskList(std::move(rqg.createNLengthQueue(numTasks, power)));
+        proxys = FSPTaskList(rqg.createNLengthQueue(numTasks, power));
         recompute();
     }
 
     void createRandomFunction() {
-        proxys = FSPTaskList(std::move(rqg.createRandomQueue(power)));
+        proxys = FSPTaskList(rqg.createRandomQueue(power));
         recompute();
     }
 

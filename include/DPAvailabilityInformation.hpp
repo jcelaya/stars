@@ -28,6 +28,7 @@
 #include "AvailabilityInformation.hpp"
 #include "TaskDescription.hpp"
 #include "ClusteringList.hpp"
+#include "LDeltaFunction.hpp"
 
 
 /**
@@ -38,151 +39,6 @@
  */
 class DPAvailabilityInformation : public AvailabilityInformation {
 public:
-
-    /**
-     * \brief A cluster of functions a(t).
-     *
-     * This class describes a cluster of functions a(t), as a conservative approximation defined by linear segments.
-     * The approximation must be non-decreasing, but it is not checked.
-     * Segments are defined by start and end points, being the end of a segment the start of the next one.
-     * The first point must have a value of zero, and functions are constant after the last point, called horizon.
-     * The area under the function between the first point and the horizon is also precalculated and stored.
-     *
-     * Each instance contains a vector of points, with time and availability; a start time, when the value of the function
-     * is zero, and thus not needed to record; and the precalculated area under the function between the start time and the
-     * last recorded time. If the vector of points is empty, then the interpretation is different. The precalculated area
-     * is that of one second after the current time.
-     */
-    class ATFunction {
-    public:
-        /// Default constructor
-        ATFunction() : slope(0.0) {}
-
-        /**
-         * Creates an ATFunction from a slope value and a set of points. The curve is supposed to be a continuous
-         * piecewise linear function, alternating a growing linear function with slope power and a function of
-         * constant value. The list of points define the limits of each piece of the function. After the last point,
-         * the function remains constant forever. There MUST be an even number of points.
-         */
-        ATFunction(double power, const std::list<Time> & p);
-
-        /**
-         * Returns the last slope of this function
-         */
-        double getSlope() const {
-            return slope;
-        }
-
-        /**
-         * Creates a function from the aggregation of two other. The result is a conservative approximation of the
-         * sum of functions.
-         * @param l The left function.
-         * @param r The right function.
-         */
-        void min(const ATFunction & l, const ATFunction & r);
-
-        /**
-         * Creates a function from the aggregation of two other. The result is an optimistic approximation of the
-         * sum of functions.
-         * @param l The left function.
-         * @param r The right function.
-         */
-        void max(const ATFunction & l, const ATFunction & r);
-
-        /**
-         * Calculates the squared difference with another function
-         * @param r The other function
-         * @param ref the initial time
-         * @param h The horizon of measurement
-         */
-        double sqdiff(const ATFunction & r, const Time & ref, const Time & h) const;
-
-        /**
-         * Calculates the loss of the approximation to another function, with the least squares method, and the minimum
-         * of two functions at the same time
-         */
-        double minAndLoss(const ATFunction & l, const ATFunction & r, unsigned int lv, unsigned int rv, const ATFunction & lc, const ATFunction & rc,
-                          const Time & ref, const Time & h);
-
-        /**
-         * Calculates the linear combination of two functions
-         * @param f Array of functions
-         * @param c Array of function coefficients
-         */
-        void lc(const ATFunction & l, const ATFunction & r, double lc, double rc);
-
-        /**
-         * Reduces the number of points of the function to a specific number, resulting in a function
-         * with lower or equal value to the original.
-         * @param v Number of nodes it represents
-         * @param c Maximum function among the clustered ones.
-         * @param ref the initial time
-         * @param h The horizon of measurement
-         */
-        double reduceMin(unsigned int v, ATFunction & c, const Time & ref, const Time & h, unsigned int quality = 10);
-
-        /**
-         * Reduces the number of points of the function to a specific number, resulting in a function
-         * with greater or equal value to the original.
-         * Unlike the previous method, this one assumes that v = 1 and c is the null function.
-         * @param ref the initial time
-         * @param h The horizon of measurement
-         */
-        double reduceMax(const Time & ref, const Time & h, unsigned int quality = 10);
-
-        /// Comparison operator
-        bool operator==(const ATFunction & r) const {
-            return slope == r.slope && points == r.points;
-        }
-
-        /// Transfers the values of f to this function, actually destroying f
-        void transfer(ATFunction & f) {
-            points.swap(f.points);
-            slope = f.slope;
-        }
-
-        /// Return whether this is a free function
-        bool isFree() const {
-            return points.empty();
-        }
-
-        /**
-         * Returns the time of the last point.
-         */
-        Time getHorizon() const {
-            return points.empty() ? Time::getCurrentTime() + Duration(1.0) : points.back().first;
-        }
-
-        /**
-         * Returns the available computation before a certain deadline.
-         */
-        double getAvailabilityBefore(Time d) const;
-
-        /**
-         * Reduces the availability when assigning a task with certain length and deadline
-         */
-        void update(uint64_t length, Time deadline, Time horizon);
-
-        const std::vector<std::pair<Time, double> > & getPoints() const {
-            return points;
-        }
-
-        friend std::ostream & operator<<(std::ostream & os, const ATFunction & o) {
-            for (std::vector<std::pair<Time, double> >::const_iterator i = o.points.begin(); i != o.points.end(); i++)
-                os << '(' << i->first << ',' << i->second << "),";
-            return os << o.slope;
-        }
-
-        MSGPACK_DEFINE(points, slope);
-    private:
-        /// Function points defining segments
-        std::vector<std::pair<Time, double> > points;
-        double slope;   ///< Slope at the end of the function
-
-        // Steps through a vector of functions, with all their slope-change points, and the points where the two first functions cross
-        template<int numF, class S> static void stepper(const ATFunction * (&f)[numF],
-                                                        const Time & ref, const Time & h, S & step);
-    };
 
     /**
      * \brief A cluster of availability function with time constraints
@@ -197,17 +53,17 @@ public:
 
         uint32_t value;
         uint32_t minM, minD;
-        ATFunction minA;
+        stars::LDeltaFunction minA;
         double accumMsq, accumDsq, accumMln, accumDln;
         double accumAsq;
-        ATFunction accumMaxA;
+        stars::LDeltaFunction accumMaxA;
 
         /// Default constructor, for serialization purposes mainly
         MDFCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDFCluster(DPAvailabilityInformation * r, uint32_t m, uint32_t d, double power, const std::list<Time> & p)
-                : reference(r), value(1), minM(m), minD(d), minA(power, p), accumMsq(0.0), accumDsq(0.0),
-                accumMln(0.0), accumDln(0.0), accumAsq(0.0), accumMaxA(power, p) {}
+        MDFCluster(uint32_t m, uint32_t d, double power, const std::list<boost::shared_ptr<Task> > & queue)
+                : reference(NULL), value(1), minM(m), minD(d), minA(power, queue), accumMsq(0.0), accumDsq(0.0),
+                accumMln(0.0), accumDln(0.0), accumAsq(0.0), accumMaxA(minA) {}
 
         /// Sets the information this cluster makes reference to.
         void setReference(DPAvailabilityInformation * r) {
@@ -283,26 +139,15 @@ public:
         numIntervals = (unsigned int)floor(cbrt(c));
     }
 
-    static void setNumRefPoints(unsigned int n) {
-        numRefPoints = n;
-    }
-
     /// Clears the instance properties
     void reset() {
         summary.clear();
         minM = minD = maxM = maxD = 0;
-        minA = maxA = ATFunction();
+        minA = maxA = stars::LDeltaFunction();
         horizon = Time::getCurrentTime();
     }
 
-    /**
-     * Initialize the cluster lists with one node
-     * @param mem Available memory.
-     * @param disk Available disk space.
-     * @param power Computing power of the node
-     * @param p List of points defining the curve of availability. See ATFunction.
-     */
-    void addNode(uint32_t mem, uint32_t disk, double power, const std::list<Time> & p);
+    void addNode(uint32_t mem, uint32_t disk, double power, const std::list<boost::shared_ptr<Task> > & queue);
 
     /**
      * Aggregates an TimeConstraintInfo to this object.
@@ -342,11 +187,10 @@ public:
 private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
-    static unsigned int numRefPoints;
 
     stars::ClusteringList<MDFCluster> summary;   ///< List of clusters representing queues and their availability
     uint32_t minM, maxM, minD, maxD;        ///< Minimum and maximum values of memory and disk availability
-    ATFunction minA, maxA;                  ///< Minimum and maximum values of availability
+    stars::LDeltaFunction minA, maxA;                  ///< Minimum and maximum values of availability
     Time horizon;             ///< Last meaningful time
 
     // Aggregation variables

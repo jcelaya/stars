@@ -22,7 +22,7 @@
 #define CLUSTERINGLIST_HPP_
 
 #include <list>
-#include <boost/scoped_array.hpp>
+#include <memory>
 #include "Logger.hpp"
 
 namespace stars {
@@ -114,7 +114,7 @@ public:
         }
 
         T * src;
-        boost::scoped_array<DistanceTo> dsts;
+        std::unique_ptr<DistanceTo[]> dsts;
         unsigned int dsts_size;
         DistanceTo * dst;
         bool dirty;
@@ -167,9 +167,9 @@ public:
     private:
         ClusteringList & source;
         bool useFarClusters;
-        boost::scoped_array<DistanceList> lists;
-        boost::scoped_array<DistanceList *> heap;
-        boost::scoped_array<T> sumPool;
+        std::unique_ptr<DistanceList[]> lists;
+        std::unique_ptr<DistanceList *[]> heap;
+        std::unique_ptr<T[]> sumPool;
 
         void checkNumAdditions() {
             if (!useFarClusters) {

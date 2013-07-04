@@ -82,7 +82,6 @@ public:
 
     enum { minTaskLength = 1000 };
 
-    /// Sets the number of reference points in each function.
     static void setNumPieces(unsigned int n) {
         numPieces = n;
     }

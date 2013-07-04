@@ -18,42 +18,32 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TESTTASK_HPP_
-#define TESTTASK_HPP_
+#include <list>
+#include <boost/test/unit_test.hpp>
+#include <fstream>
+#include "CheckMsg.hpp"
+#include "DPAvailabilityInformation.hpp"
+#include "TestHost.hpp"
+using namespace std;
 
-#include "Task.hpp"
 
+BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite
 
-class TestTask : public Task {
-    int status;
-    Duration duration;
+BOOST_AUTO_TEST_SUITE(DPAvailabilityInformationTest)
 
-public:
-    TestTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d, double power) :
-            Task(o, reqId, ctid, d), status(Prepared), duration(description.getLength() / power) {}
+/// TaskEventMsg
+BOOST_AUTO_TEST_CASE(DPAvailabilityInformationTest_checkMsg) {
+    TestHost::getInstance().reset();
 
-    int getStatus() const {
-        return status;
-    }
+    // Ctor
+    DPAvailabilityInformation e;
+    boost::shared_ptr<DPAvailabilityInformation> p;
 
-    void run() {
-        status = Running;
-        // Send a finished message to the backend
-    }
+    // TODO: Check other things
 
-    void abort() {}
+    CheckMsgMethod::check(e, p);
+}
 
-    Duration getEstimatedDuration() const {
-        return duration;
-    }
+BOOST_AUTO_TEST_SUITE_END()   // aiTS
 
-    void setCreationTime(Time r) {
-        creationTime = r;
-    }
-
-    void execute(Duration d) {
-        duration -= d;
-    }
-};
-
-#endif /*TESTTASK_HPP_*/
+BOOST_AUTO_TEST_SUITE_END()   // Cor

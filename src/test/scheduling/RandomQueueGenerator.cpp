@@ -22,8 +22,8 @@
 #include <ctime>
 #include <boost/random/uniform_int_distribution.hpp>
 #include "RandomQueueGenerator.hpp"
-#include "TestHost.hpp"
 #include "Logger.hpp"
+#include "TestTask.hpp"
 
 namespace stars {
 
@@ -34,9 +34,16 @@ void RandomQueueGenerator::seed(unsigned int s) {
 }
 
 
-std::list<TaskProxy> & RandomQueueGenerator::createRandomQueue(double power) {
+void RandomQueueGenerator::reset(double power) {
     currentPower = power;
     currentTasks.clear();
+    appId = 0;
+    tsum = 0;
+}
+
+
+std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(double power) {
+    reset(power);
 
     // Add a random number of applications, with random length and number of tasks
     while(boost::random::uniform_int_distribution<>(1, 3)(gen) != 1) {
@@ -47,9 +54,8 @@ std::list<TaskProxy> & RandomQueueGenerator::createRandomQueue(double power) {
 }
 
 
-std::list<TaskProxy> & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
-    currentPower = power;
-    currentTasks.clear();
+std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
+    reset(power);
 
     // Add n tasks with random length
     for(unsigned int appid = 0; appid < numTasks; ++appid) {
@@ -61,22 +67,36 @@ std::list<TaskProxy> & RandomQueueGenerator::createNLengthQueue(unsigned int num
 
 
 void RandomQueueGenerator::createRandomApp(unsigned int numTasks) {
-    Time now = TestHost::getInstance().getCurrentTime();
+    Time now = Time::getCurrentTime();
     int a = getRandomAppLength() / numTasks;
-    double alreadyExecuted = 0.0;
+    Duration alreadyExecuted(0.0);
     double r;
+    Time endtime = now;
+    TaskDescription description;
+    description.setNumTasks(numTasks);
+    description.setLength(a);
+    // TODO: memory and disk
     if (currentTasks.empty()) {
         // Get a release date so that the first task is still executing
         currentrfirst = -a / currentPower;
-        currentrfirst = alreadyExecuted = r = getRandomReleaseDelta();
+        currentrfirst = tsum = r = getRandomReleaseDelta();
+        alreadyExecuted -= Duration(r);
     } else {
         r = getRandomReleaseDelta();
+        endtime = currentTasks.back()->getDescription().getDeadline();
     }
+    Time creationTime = now + Duration(r);
+    tsum += a * numTasks / currentPower;
+    if (endtime < now + Duration(tsum))
+        endtime = now + Duration(tsum);
+    description.setDeadline(endtime + Duration(getRandomAppLength() / numTasks / currentPower));
     for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-        currentTasks.push_back(TaskProxy(a, currentPower, now + Duration(r)));
-        currentTasks.back().id = id++;
+        boost::shared_ptr<TestTask> newTask(new TestTask(CommAddress(), appId, taskid, description, currentPower));
+        newTask->setCreationTime(creationTime);
+        currentTasks.push_back(newTask);
     }
-    currentTasks.front().t += alreadyExecuted;
+    ++appId;
+    boost::static_pointer_cast<TestTask>(currentTasks.front())->execute(alreadyExecuted);
 }
 
 
@@ -101,7 +121,7 @@ double RandomQueueGenerator::getRandomReleaseDelta() {
 }
 
 
-RandomQueueGenerator::RandomQueueGenerator() : id(0) {
+RandomQueueGenerator::RandomQueueGenerator() {
     seed(std::time(NULL));
 }
 

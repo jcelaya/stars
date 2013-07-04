@@ -21,52 +21,24 @@
 #include <fstream>
 #include "AggregationTest.hpp"
 #include "DPAvailabilityInformation.hpp"
-//using namespace boost;
 
 
 template<> struct Priv<DPAvailabilityInformation> {
-    DPAvailabilityInformation::ATFunction totalAvail;
-    DPAvailabilityInformation::ATFunction minAvail;
+    stars::LDeltaFunction totalAvail;
+    stars::LDeltaFunction minAvail;
 };
-
-
-namespace {
-    Time refTime;
-
-    void createRandomLAF(double power, boost::random::mt19937 & gen, list<Time> & result) {
-        Time next = refTime, h = refTime + Duration(100000.0);
-
-        // Add a random number of tasks, with random length
-        while(boost::random::uniform_int_distribution<>(1, 3)(gen) != 1) {
-            // Tasks of 5-60 minutes on a 1000 MIPS computer
-            unsigned long int length = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
-            next += Duration(length / power);
-            result.push_back(next);
-            // Similar time for holes
-            unsigned long int nextHole = boost::random::uniform_int_distribution<>(300000, 3600000)(gen);
-            next += Duration(nextHole / power);
-            result.push_back(next);
-        }
-        if (!result.empty()) {
-            // set a good horizon
-            if (next < h) result.back() = h;
-        }
-    }
-}
 
 
 template<> AggregationTestImpl<DPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("dp_mem_disk_avail.stat", 2) {
     stars::ClusteringList<DPAvailabilityInformation::MDFCluster>::setDistVectorSize(20);
-    DPAvailabilityInformation::setNumRefPoints(10);
+    stars::LDeltaFunction::setNumPieces(10);
 }
 
 
 template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     boost::shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
-    list<Time> q;
-    createRandomLAF(n.power, gen, q);
-    result->addNode(n.mem, n.disk, n.power, q);
-    const DPAvailabilityInformation::ATFunction & minA = result->getSummary().front().minA;
+    result->addNode(n.mem, n.disk, n.power, gen.createRandomQueue(n.power));
+    const stars::LDeltaFunction & minA = result->getSummary().front().minA;
     if (privateData.minAvail.getSlope() == 0.0)
         privateData.minAvail = minA;
     else
@@ -77,10 +49,11 @@ template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAv
 
 
 template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(const boost::shared_ptr<DPAvailabilityInformation> & summary) {
-    static DPAvailabilityInformation::ATFunction dummy;
+    static Time refTime = Time::getCurrentTime();
+    static stars::LDeltaFunction dummy;
     unsigned long int minMem = nodes.size() * min_mem;
     unsigned long int minDisk = nodes.size() * min_disk;
-    DPAvailabilityInformation::ATFunction minAvail, aggrAvail;
+    stars::LDeltaFunction minAvail, aggrAvail;
     minAvail.lc(privateData.minAvail, dummy, nodes.size(), 1.0);
 
     unsigned long int aggrMem = 0, aggrDisk = 0;
@@ -106,9 +79,9 @@ template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(c
     // Approximate the accuracy to linear...
     for (auto & i: p) {
         double minAvailBeforeIt = minAvail.getAvailabilityBefore(i);
-        double totalAvailBeforeIt = privateData.totalAvail.getAvailabilityBefore(i)- minAvailBeforeIt;
-        double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(i)- minAvailBeforeIt;
-        double accuracy = totalAvailBeforeIt > minAvailBeforeIt ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 0.0;
+        double totalAvailBeforeIt = privateData.totalAvail.getAvailabilityBefore(i) - minAvailBeforeIt;
+        double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(i) - minAvailBeforeIt;
+        double accuracy = totalAvailBeforeIt > 0.0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 100.0;
         if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
             LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
         meanAccuracy += (prevAccuracy + accuracy) * (i - prevTime).seconds();

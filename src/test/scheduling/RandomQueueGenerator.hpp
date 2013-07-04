@@ -24,7 +24,8 @@
 
 #include <list>
 #include <boost/random/mersenne_twister.hpp>
-#include "TaskProxy.hpp"
+#include <boost/shared_ptr.hpp>
+#include "Task.hpp"
 
 namespace stars {
 
@@ -32,7 +33,7 @@ class RandomQueueGenerator {
 public:
     RandomQueueGenerator();
 
-    RandomQueueGenerator(unsigned int s) : id(0) {
+    RandomQueueGenerator(unsigned int s) {
         seed(s);
     }
 
@@ -40,32 +41,36 @@ public:
 
     unsigned int getSeed() const { return theSeed; }
 
-    std::list<TaskProxy> & createRandomQueue() {
+    std::list<boost::shared_ptr<Task> > & createRandomQueue() {
         return createRandomQueue(getRandomPower());
     }
 
-    std::list<TaskProxy> & createRandomQueue(double power);
+    std::list<boost::shared_ptr<Task> > & createRandomQueue(double power);
 
-    std::list<TaskProxy> & createNLengthQueue(unsigned int numTasks) {
+    std::list<boost::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks) {
         return createNLengthQueue(numTasks, getRandomPower());
     }
 
-    std::list<TaskProxy> & createNLengthQueue(unsigned int numTasks, double power);
+    std::list<boost::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks, double power);
 
     double getRandomPower();
+
+    boost::random::mt19937 & getGenerator() { return gen; }
 
 private:
     int getRandomAppLength();
     unsigned int getRandomNumTasks();
     double getRandomReleaseDelta();
     void createRandomApp(unsigned int numTasks);
+    void reset(double power);
 
     unsigned int theSeed;
     boost::random::mt19937 gen;
-    unsigned int id;
+    unsigned int appId;
     double currentPower;
     double currentrfirst;
-    std::list<TaskProxy> currentTasks;
+    double tsum;
+    std::list<boost::shared_ptr<Task> > currentTasks;
 };
 
 } // namespace stars

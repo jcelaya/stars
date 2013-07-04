@@ -1,10 +1,14 @@
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${LOG4CPP_INCLUDE_DIR})
 include_directories(../../include)
+include_directories(../test/scheduling)
 include_directories(.)
 
 set(LIBS ${STARS_LIBRARIES} ${STARS_DB_LIBRARIES} ${Boost_LIBRARIES} ${SQLITE3_LIBRARIES} ${LOG4CPP_LIBRARIES} ${MSGPACK_LIBRARIES} tcmalloc)
-set(MAIN_SRCS main.cpp ../util/MemoryManager.cpp ../util/SignalException.cpp)
+set(MAIN_SRCS main.cpp
+    ../util/MemoryManager.cpp
+    ../util/SignalException.cpp
+    ../test/scheduling/RandomQueueGenerator.cpp)
 
 # add the executables
 add_executable(ibp-aggrtest ${MAIN_SRCS} IBPAvailabilityInfoTest.cpp)

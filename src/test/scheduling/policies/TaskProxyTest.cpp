@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(sortFSPTaskList) {
     Time now = TestHost::getInstance().getCurrentTime();
     RandomQueueGenerator rqg;
     for (int i = 0; i < 10; ++i) {
-        FSPTaskList l(std::move(rqg.createRandomQueue()));
+        FSPTaskList l(rqg.createRandomQueue());
         l.sortBySlowness(0.2);
         Time d = l.front().rabs;
         for (FSPTaskList::const_iterator it = l.begin(); it != l.end(); ++it) {
