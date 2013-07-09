@@ -293,28 +293,6 @@ using namespace boost::posix_time;
 //REGISTER_SIMULATION_CASE(concurrentNodeInsertion);
 
 
-/// Scenario 8: Check network
-class networkCheck : public SimulationCase {
-public:
-    networkCheck(const Properties & p) : SimulationCase(p) {
-        // Prepare the properties
-    }
-
-    static const string getName() { return string("networkCheck"); }
-
-    void preStart() {
-        // Prevent any timer from running the simulation
-        Simulator::getInstance().stop();
-    }
-
-    void postEnd() {
-        StarsNode::showTree(log4cpp::Priority::INFO);
-        StarsNode::checkTree();
-    }
-};
-REGISTER_SIMULATION_CASE(networkCheck);
-
-
 /// Scenario 9: Create random tree at zero
 class createSimTree : public SimulationCase {
 
@@ -409,14 +387,14 @@ public:
         }
         for (list<StarsNode *>::reverse_iterator i = sortedNodes.rbegin(); i != sortedNodes.rend(); ++i)
             (**i).buildDispatcher();
+        for (auto i = sortedNodes.begin(); i != sortedNodes.end(); ++i)
+            (**i).buildDispatcherDown();
 
         // Prevent any timer from running the simulation
         sim.stop();
     }
 
     void postEnd() {
-        StarsNode::showTree(log4cpp::Priority::INFO);
-        StarsNode::checkTree();
     }
 };
 REGISTER_SIMULATION_CASE(createSimTree);

@@ -40,9 +40,6 @@ public:
      */
     DPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
-
 private:
     struct DecissionInfo;
     struct RecentRequest {

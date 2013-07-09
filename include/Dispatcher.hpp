@@ -160,7 +160,11 @@ public:
     /**
      * Calculates the availability information of this branch.
      */
-    virtual void recomputeInfo() = 0;
+    virtual void recomputeInfo() {
+        LogMsg("Dsp", DEBUG) << "Recomputing the branch information";
+        // Default: Only recalculate info for the father
+        recomputeFatherInfo();
+    }
 
 protected:
     OverlayBranch & branch;
@@ -273,25 +277,17 @@ protected:
         unsigned int nextTask = msg.getFirstTask();
         if (leftTasks > 0) {
             LogMsg("Dsp", INFO) << "Sending " << leftTasks << " tasks to the left child";
-            // Create the message
-            TaskBagMsg * tbm = msg.clone();
+            TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + leftTasks - 1);
             tbm->setForEN(branch.isLeftLeaf());
-            tbm->setFromEN(false);
-            tbm->setFirstTask(nextTask);
             nextTask += leftTasks;
-            tbm->setLastTask(nextTask - 1);
             CommLayer::getInstance().sendMessage(leftChild.addr, tbm);
         }
 
         if (rightTasks > 0) {
             LogMsg("Dsp", INFO) << "Sending " << rightTasks << " tasks to the right child";
-            // Create the message
-            TaskBagMsg * tbm = msg.clone();
+            TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + rightTasks - 1);
             tbm->setForEN(branch.isRightLeaf());
-            tbm->setFromEN(false);
-            tbm->setFirstTask(nextTask);
             nextTask += rightTasks;
-            tbm->setLastTask(nextTask - 1);
             CommLayer::getInstance().sendMessage(rightChild.addr, tbm);
         }
 
@@ -300,19 +296,40 @@ protected:
             LogMsg("Dsp", DEBUG) << "There are " << (msg.getLastTask() - (nextTask - 1)) << " remaining tasks";
             if (branch.getFatherAddress() != CommAddress()) {
                 if (dontSendToFather) {
-                    // Just ignore them
                     LogMsg("Dsp", DEBUG) << "But came from the father.";
                 } else {
-                    TaskBagMsg * tbm = msg.clone();
-                    tbm->setFirstTask(nextTask);
-                    tbm->setLastTask(msg.getLastTask());
-                    tbm->setFromEN(false);
+                    TaskBagMsg * tbm = msg.getSubRequest(nextTask, msg.getLastTask());
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {
                 LogMsg("Dsp", DEBUG) << "But we are the root";
             }
         }
+    }
+
+    bool checkState() const {
+        if (!branch.inNetwork()) {
+            LogMsg("Dsp", WARN) << "Not in network.";
+            return false;
+        }
+        if (!father.waitingInfo.get() && !father.notifiedInfo.get()) {
+            LogMsg("Dsp", WARN) << "No availability information.";
+            return false;
+        }
+        return true;
+    }
+
+    void recomputeFatherInfo() {
+        if (leftChild.availInfo.get()) {
+            father.waitingInfo.reset(leftChild.availInfo->clone());
+            if (rightChild.availInfo.get())
+                father.waitingInfo->join(*rightChild.availInfo);
+            LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+        } else if (rightChild.availInfo.get()) {
+            father.waitingInfo.reset(rightChild.availInfo->clone());
+            LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+        } else
+            father.waitingInfo.reset();
     }
 
 private:

@@ -42,9 +42,6 @@ public:
      * @param sn The StructureNode of this branch.
      */
     IBPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
-
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
 };
 
 #endif /* IBPDISPATCHER_H_ */

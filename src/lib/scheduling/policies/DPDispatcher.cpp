@@ -29,22 +29,6 @@ const Duration DPDispatcher::REQUEST_CACHE_TIME(10.0);
 const unsigned int DPDispatcher::REQUEST_CACHE_SIZE = 100;
 
 
-void DPDispatcher::recomputeInfo() {
-    LogMsg("Dsp.Dl", DEBUG) << "Recomputing the branch information";
-    // Only recalculate info for the father
-    if (leftChild.availInfo.get()) {
-        father.waitingInfo.reset(leftChild.availInfo->clone());
-        if (rightChild.availInfo.get())
-            father.waitingInfo->join(*rightChild.availInfo);
-        LogMsg("Dsp.Dl", DEBUG) << "The result is " << *father.waitingInfo;
-    } else if (rightChild.availInfo.get()) {
-        father.waitingInfo.reset(rightChild.availInfo->clone());
-        LogMsg("Dsp.Dl", DEBUG) << "The result is " << *father.waitingInfo;
-    } else
-        father.waitingInfo.reset();
-}
-
-
 /*
  * A block of info associated with a NodeGroup used in the decission algorithm.
  */

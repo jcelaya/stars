@@ -28,54 +28,36 @@ using boost::shared_ptr;
 double MMPDispatcher::beta = 0.5;
 
 
+boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(const Link & other) {
+    boost::shared_ptr<MMPAvailabilityInformation> result;
+    // TODO: send full information, based on configuration switch
+    if (father.availInfo.get()) {
+        Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
+        result.reset(new MMPAvailabilityInformation);
+        if (other.availInfo.get()) {
+            Time otherMaxQueue = other.availInfo->getMaxQueueLength();
+            result->setMaxQueueLength(fatherMaxQueue > otherMaxQueue ? fatherMaxQueue : otherMaxQueue);
+        } else
+            result->setMaxQueueLength(fatherMaxQueue);
+    } else if (other.availInfo.get()) {
+        result.reset(new MMPAvailabilityInformation);
+        result->setMaxQueueLength(other.availInfo->getMaxQueueLength());
+    }
+    return result;
+}
+
+
 void MMPDispatcher::recomputeInfo() {
-    LogMsg("Dsp.QB", DEBUG) << "Recomputing the branch information";
+    LogMsg("Dsp.MMP", DEBUG) << "Recomputing the branch information";
     // Recalculate info for the father
-    if (leftChild.availInfo.get()) {
-        father.waitingInfo.reset(leftChild.availInfo->clone());
-        if (rightChild.availInfo.get())
-            father.waitingInfo->join(*rightChild.availInfo);
-        LogMsg("Dsp.QB", DEBUG) << "The result is " << *father.waitingInfo;
-    } else if (rightChild.availInfo.get()) {
-        father.waitingInfo.reset(rightChild.availInfo->clone());
-        LogMsg("Dsp.QB", DEBUG) << "The result is " << *father.waitingInfo;
-    } else
-        father.waitingInfo.reset();
+    recomputeFatherInfo();
 
     if(!branch.isLeftLeaf()) {
-        LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for left child.";
-        // TODO: send full information, based on configuration switch
-        if (father.availInfo.get()) {
-            Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
-            leftChild.waitingInfo.reset(new MMPAvailabilityInformation);
-            if (rightChild.availInfo.get()) {
-                Time rightMaxQueue = rightChild.availInfo->getMaxQueueLength();
-                leftChild.waitingInfo->setMaxQueueLength(fatherMaxQueue > rightMaxQueue ? fatherMaxQueue : rightMaxQueue);
-            } else
-                leftChild.waitingInfo->setMaxQueueLength(fatherMaxQueue);
-        } else if (rightChild.availInfo.get()) {
-            leftChild.waitingInfo.reset(new MMPAvailabilityInformation);
-            leftChild.waitingInfo->setMaxQueueLength(rightChild.availInfo->getMaxQueueLength());
-        } else
-            leftChild.waitingInfo.reset();
+        leftChild.waitingInfo = getChildInfo(rightChild);
     }
 
     if(!branch.isRightLeaf()) {
-        LogMsg("Dsp.QB", DEBUG) << "Recomputing the information from the rest of the tree for right child.";
-        // TODO: send full information, based on configuration switch
-        if (father.availInfo.get()) {
-            Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
-            rightChild.waitingInfo.reset(new MMPAvailabilityInformation);
-            if (leftChild.availInfo.get()) {
-                Time leftMaxQueue = leftChild.availInfo->getMaxQueueLength();
-                rightChild.waitingInfo->setMaxQueueLength(fatherMaxQueue > leftMaxQueue ? fatherMaxQueue : leftMaxQueue);
-            } else
-                rightChild.waitingInfo->setMaxQueueLength(fatherMaxQueue);
-        } else if (leftChild.availInfo.get()) {
-            rightChild.waitingInfo.reset(new MMPAvailabilityInformation);
-            rightChild.waitingInfo->setMaxQueueLength(leftChild.availInfo->getMaxQueueLength());
-        } else
-            rightChild.waitingInfo.reset();
+        rightChild.waitingInfo = getChildInfo(leftChild);
     }
 }
 
@@ -110,24 +92,16 @@ struct MMPDispatcher::DecissionInfo {
 
 
 void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
-    if (msg.isForEN()) return;
-    LogMsg("Dsp.QB", INFO) << "Received a TaskBagMsg from " << src;
-    if (!branch.inNetwork()) {
-        LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but not in network";
-        return;
-    }
+    if (msg.isForEN() || !checkState()) return;
+    LogMsg("Dsp.MMP", INFO) << "Received a TaskBagMsg from " << src;
     boost::shared_ptr<MMPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
-    if (!zoneInfo.get()) {
-        LogMsg("Dsp.QB", WARN) << "TaskBagMsg received but no information!";
-        return;
-    }
 
     TaskDescription req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
     unsigned int nextTask = msg.getFirstTask();
-    LogMsg("Dsp.QB", INFO) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
-    LogMsg("Dsp.QB", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
-    LogMsg("Dsp.QB", INFO) << "Length: " << req.getLength();
+    LogMsg("Dsp.MMP", INFO) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
+    LogMsg("Dsp.MMP", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
+    LogMsg("Dsp.MMP", INFO) << "Length: " << req.getLength();
 
     std::list<MMPAvailabilityInformation::MDPTCluster *> nodeGroups;
     if (father.addr != CommAddress()) {
@@ -141,14 +115,14 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         fatherInfo = now + Duration(fatherInfo - now) * beta;
         req.setDeadline(fatherInfo);
         unsigned int tasks = zoneInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.QB", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
+        LogMsg("Dsp.MMP", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
 
         if (tasks < remainingTasks && (src != father.addr || msg.isFromEN())) {
             // Send it up if there are not enough nodes, we are not the root and the sender is not our father or it is a child with the same address
             TaskBagMsg * tbm = msg.clone();
             tbm->setFromEN(false);
             CommLayer::getInstance().sendMessage(father.addr, tbm);
-            LogMsg("Dsp.QB", INFO) << "Not enough nodes, send to the father";
+            LogMsg("Dsp.MMP", INFO) << "Not enough nodes, send to the father";
             return;
         }
     }
@@ -156,13 +130,13 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // If there are enough tasks, distribute it downwards
     Time balancedQueue = zoneInfo->getAvailability(nodeGroups, remainingTasks, req);
     if (balancedQueue == Time()) {
-        LogMsg("Dsp.QB", WARN) << "No node fulfills requirements, dropping!";
+        LogMsg("Dsp.MMP", WARN) << "No node fulfills requirements, dropping!";
         return;
     }
     req.setDeadline(balancedQueue);
     father.waitingInfo.reset(zoneInfo->clone());
     father.waitingInfo->updateAvailability(req);
-    LogMsg("Dsp.QB", DEBUG) << "The calculated queue length is " << balancedQueue;
+    LogMsg("Dsp.MMP", DEBUG) << "The calculated queue length is " << balancedQueue;
 
     // Calculate distances
     const CommAddress & requester = msg.getRequester();
@@ -174,28 +148,28 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (leftChild.availInfo.get()) {
         nodeGroups.clear();
         leftChild.availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
+        LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
         for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.QB", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
+            LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
             groups.push_back(DecissionInfo(*git, req, true, leftDistance));
         }
     }
     if (rightChild.availInfo.get()) {
         nodeGroups.clear();
         rightChild.availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.QB", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from right child.";
+        LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from right child.";
         for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.QB", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
+            LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
             groups.push_back(DecissionInfo(*git, req, true, leftDistance));
         }
     }
-    LogMsg("Dsp.QB", DEBUG) << groups.size() << " groups found";
+    LogMsg("Dsp.MMP", DEBUG) << groups.size() << " groups found";
     groups.sort();
 
     // Now divide the request between the zones
     unsigned int leftTasks = 0, rightTasks = 0;
     for (std::list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.QB", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->numTasks << " tasks";
+        LogMsg("Dsp.MMP", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->numTasks << " tasks";
         unsigned int tasksInGroup = it->numTasks;
         if (remainingTasks > tasksInGroup) {
             (it->leftBranch ? leftTasks : rightTasks) += tasksInGroup;

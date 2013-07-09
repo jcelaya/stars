@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 add_subdirectory(cmake)
 
 # STaRS, Scalable Task Routing approach to distributed Scheduling

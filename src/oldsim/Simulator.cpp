@@ -371,16 +371,18 @@ void Simulator::stepForward() {
 
 void Simulator::run() {
     start = microsec_clock::local_time();
-    ptime realStart = start;
+    ptime realStart = start, nextShow = start;
+    unsigned long int lastNumEvents = 0;
     time_facet * f = new time_facet();
     f->time_duration_format("%O:%M:%S");
     stringstream realTimeText;
     realTimeText.imbue(locale(locale::classic(), f));
     while (!events.empty() && !doStop && simCase->doContinue()) {
+        ptime currentTime = microsec_clock::local_time();
         if (maxEvents && numEvents >= maxEvents) {
             LogMsg("Sim.Progress", 0) << "Maximum number of events limit reached: " << maxEvents;
             break;
-        } else if (maxRealTime > seconds(0) && microsec_clock::local_time() - realStart >= maxRealTime) {
+        } else if (maxRealTime > seconds(0) && currentTime - realStart >= maxRealTime) {
             LogMsg("Sim.Progress", 0) << "Maximum real time limit reached: " << maxRealTime;
             break;
         } else if (maxSimTime > Duration(0.0) && time - Time() >= maxSimTime) {
@@ -391,16 +393,18 @@ void Simulator::run() {
             break;
         }
         stepForward();
-        if (numEvents % showStep == 0) {
-            end = microsec_clock::local_time();
+        if (currentTime >= nextShow) {
+            nextShow += milliseconds(showStep);
+            end = currentTime;
             real_time += end - start;
             realTimeText.str("");
             realTimeText << real_time;
-            double real_duration = (end - start).total_microseconds() / 1000000.0;
+            double speed = (numEvents - lastNumEvents) / ((end - start).total_microseconds() / 1000000.0);
+            lastNumEvents = numEvents;
             start = end;
             // Show statistics
             LogMsg("Sim.Progress", 0) << realTimeText.str() << " (" << time << ")   "
-                << numEvents << " ev (" << (showStep / real_duration) << " ev/s)   "
+                << numEvents << " ev (" << speed << " ev/s)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
                 << simCase->getCompletedPercent() << "%   "
                 << sstats.getExistingTasks() << " tasks";

@@ -25,22 +25,6 @@
 #include "ConfigurationManager.hpp"
 
 
-void IBPDispatcher::recomputeInfo() {
-    LogMsg("Dsp.Simple", DEBUG) << "Recomputing the branch information";
-    // Only recalculate info for the father
-    if (leftChild.availInfo.get()) {
-        father.waitingInfo.reset(leftChild.availInfo->clone());
-        if (rightChild.availInfo.get())
-            father.waitingInfo->join(*rightChild.availInfo);
-        LogMsg("Dsp.Simple", DEBUG) << "The result is " << *father.waitingInfo;
-    } else if (rightChild.availInfo.get()) {
-        father.waitingInfo.reset(rightChild.availInfo->clone());
-        LogMsg("Dsp.Simple", DEBUG) << "The result is " << *father.waitingInfo;
-    } else
-        father.waitingInfo.reset();
-}
-
-
 /*
  * A block of info associated with a NodeGroup used in the decision algorithm.
  */

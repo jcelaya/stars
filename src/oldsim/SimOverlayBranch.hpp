@@ -61,7 +61,7 @@ public:
 
     friend std::ostream & operator<<(std::ostream& os, const SimOverlayBranch & b) {
         if (b.inNetwork()) {
-            os << "f=" << b.father << " l=" << b.left << " r=" << b.right << " z=" << ZoneDescription(b.leftZone, b.rightZone);
+            os << "f=" << b.father.getIPNum() << " l=" << b.left.getIPNum() << " r=" << b.right.getIPNum() << " z=" << ZoneDescription(b.leftZone, b.rightZone);
         } else os << "OFFLINE";
         return os;
     }

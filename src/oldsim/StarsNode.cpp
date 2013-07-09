@@ -446,135 +446,54 @@ unsigned int StarsNode::getBranchLevel() const {
 }
 
 
-void StarsNode::showRecursive(log4cpp::Priority::Value prio, unsigned int level, const string & prefix) {
-    boost::shared_ptr<AvailabilityInformation> info = getDisp().getBranchInfo();
-    SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(getBranch());
-    if (info.get())
-        LogMsg("Sim.Tree", prio) << prefix << "B@" << localAddress << ": " << branch << ' ' << *info;
-    else
-        LogMsg("Sim.Tree", prio) << prefix << "B@" << localAddress << ": " << branch << " ?";
-    if (level) {
-        stringstream leftPrefix, rightPrefix;
-        // Right child
-        rightPrefix << prefix << "  |  ";
-        StarsNode & leftChild = Simulator::getInstance().getNode(branch.getRightAddress().getIPNum());
-        info = getDisp().getRightChildInfo();
-        if (info.get())
-            LogMsg("Sim.Tree", prio) << prefix << "  |- " << branch.getRightZone() << ' ' << *info;
-        else
-            LogMsg("Sim.Tree", prio) << prefix << "  |- " << branch.getRightZone() << " ?";
-
-        if (!branch.isRightLeaf()) {
-            leftChild.showRecursive(prio, level - 1, rightPrefix.str());
-        } else {
-            LogMsg("Sim.Tree", prio) << rightPrefix.str() << "L@" << branch.getRightAddress() << ": "
-                    << static_cast<SimOverlayLeaf &>(leftChild.getLeaf()) << " "
-                    << leftChild << ' ' << leftChild.getSch().getAvailability();
-        }
-
-        // Left child
-        leftPrefix << prefix << "     ";
-        StarsNode & rightChild = Simulator::getInstance().getNode(branch.getLeftAddress().getIPNum());
-        info = getDisp().getLeftChildInfo();
-        if (info.get())
-            LogMsg("Sim.Tree", prio) << prefix << "  \\- " << branch.getLeftZone() << ' ' << *info;
-        else
-            LogMsg("Sim.Tree", prio) << prefix << "  \\- " << branch.getLeftZone() << " ?";
-
-        if (!branch.isLeftLeaf()) {
-            rightChild.showRecursive(prio, level - 1, leftPrefix.str());
-        } else {
-            LogMsg("Sim.Tree", prio) << leftPrefix.str() << "L@" << branch.getLeftAddress() << ": "
-                    << static_cast<SimOverlayLeaf &>(rightChild.getLeaf()) << " "
-                    << rightChild << ' ' << rightChild.getSch().getAvailability();
-        }
-    }
-}
-
-
-void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
-    if (log4cpp::Category::getInstance("Sim.Tree").isPriorityEnabled(prio)) {
-        SimOverlayBranch * father = NULL;
-        uint32_t fatherIP = 0;
-        if (isBranch) {
-            if (getBranch().getFatherAddress() != CommAddress()) {
-                fatherIP = getBranch().getFatherAddress().getIPNum();
-                father = &static_cast<SimOverlayBranch &>(Simulator::getInstance().getNode(fatherIP).getBranch());
-            }
-        }
-        else {
-            if (getLeaf().getFatherAddress() != CommAddress()) {
-                fatherIP = getBranch().getFatherAddress().getIPNum();
-                father = &static_cast<SimOverlayBranch &>(Simulator::getInstance().getNode(fatherIP).getBranch());
-            } else {
-                // This may be an error...
-                LogMsg("Sim.Tree", WARN) << "Leaf node without father???: L@" << localAddress;
-                return;
-            }
-        }
-
-        if (father != NULL) {
-            LogMsg("Sim.Tree", prio) << "B@" << Simulator::getInstance().getNode(fatherIP).getLocalAddress() << ": " << *father;
-            // Right child
-            LogMsg("Sim.Tree", prio) << "  |- " << father->getRightZone();
-            CommAddress childAddr = father->getRightAddress();
-            StarsNode & rightChild = Simulator::getInstance().getNode(childAddr.getIPNum());
-            if (!father->isRightLeaf()) {
-                rightChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "  |  ");
-            } else {
-                LogMsg("Sim.Tree", prio) << "  |  " << "L@" << rightChild.localAddress << ": "
-                        << static_cast<SimOverlayLeaf &>(rightChild.getLeaf());
-            }
-
-            // Left child
-            LogMsg("Sim.Tree", prio) << "  \\- " << father->getLeftZone();
-            childAddr = father->getLeftAddress();
-            StarsNode & leftChild = Simulator::getInstance().getNode(childAddr.getIPNum());
-            if (!father->isLeftLeaf()) {
-                leftChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "     ");
-            } else {
-                LogMsg("Sim.Tree", prio) << "     " << "L@" << leftChild.localAddress << ": "
-                        << static_cast<SimOverlayLeaf &>(leftChild.getLeaf());
-            }
-        }
-        else showRecursive(prio, 1);
-    }
-}
-
-
-unsigned int StarsNode::getRoot() const {
-    const CommAddress & father = getBranch().inNetwork() ? getBranch().getFatherAddress() : getLeaf().getFatherAddress();
-    if (father != CommAddress()) return Simulator::getInstance().getNode(father.getIPNum()).getRoot();
-    else return localAddress.getIPNum();
-}
-
-
-void StarsNode::showTree(log4cpp::Priority::Value prio) {
-    if (log4cpp::Category::getInstance("Sim.Tree").isPriorityEnabled(prio)) {
-        LogMsg("Sim.Tree", prio) << "Final tree:";
-        for (unsigned int i = 0; i < Simulator::getInstance().getNumNodes(); i++) {
-            unsigned int rootIP = Simulator::getInstance().getNode(i).getRoot();
-            StarsNode & root = Simulator::getInstance().getNode(rootIP);
-            if (root.getBranch().inNetwork()) {
-                root.showRecursive(prio, -1);
-                LogMsg("Sim.Tree", prio) << "";
-                LogMsg("Sim.Tree", prio) << "";
-                break;
-            }
-        }
-    }
-}
-
-
-void StarsNode::checkTree() {
-    unsigned int root0 = Simulator::getInstance().getNode(0).getRoot();
-    for (unsigned int i = 1; i < Simulator::getInstance().getNumNodes(); i++ ) {
-        unsigned int root = Simulator::getInstance().getNode(i).getRoot();
-        if (root != root0) {
-            LogMsg("Sim.Tree", ERROR) << "Node " << CommAddress(i, ConfigurationManager::getInstance().getPort()) << " outside main tree";
-        }
-    }
-}
+//void StarsNode::showPartialTree(bool isBranch, log4cpp::Priority::Value prio) {
+//    if (log4cpp::Category::getInstance("Sim.Tree").isPriorityEnabled(prio)) {
+//        SimOverlayBranch * father = NULL;
+//        uint32_t fatherIP = 0;
+//        if (isBranch) {
+//            if (getBranch().getFatherAddress() != CommAddress()) {
+//                fatherIP = getBranch().getFatherAddress().getIPNum();
+//                father = &static_cast<SimOverlayBranch &>(Simulator::getInstance().getNode(fatherIP).getBranch());
+//            }
+//        }
+//        else {
+//            if (getLeaf().getFatherAddress() != CommAddress()) {
+//                fatherIP = getBranch().getFatherAddress().getIPNum();
+//                father = &static_cast<SimOverlayBranch &>(Simulator::getInstance().getNode(fatherIP).getBranch());
+//            } else {
+//                // This may be an error...
+//                LogMsg("Sim.Tree", WARN) << "Leaf node without father???: L@" << localAddress;
+//                return;
+//            }
+//        }
+//
+//        if (father != NULL) {
+//            LogMsg("Sim.Tree", prio) << "B@" << Simulator::getInstance().getNode(fatherIP).getLocalAddress() << ": " << *father;
+//            // Right child
+//            LogMsg("Sim.Tree", prio) << "  |- " << father->getRightZone();
+//            CommAddress childAddr = father->getRightAddress();
+//            StarsNode & rightChild = Simulator::getInstance().getNode(childAddr.getIPNum());
+//            if (!father->isRightLeaf()) {
+//                rightChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "  |  ");
+//            } else {
+//                LogMsg("Sim.Tree", prio) << "  |  " << "L@" << rightChild.localAddress << ": "
+//                        << static_cast<SimOverlayLeaf &>(rightChild.getLeaf());
+//            }
+//
+//            // Left child
+//            LogMsg("Sim.Tree", prio) << "  \\- " << father->getLeftZone();
+//            childAddr = father->getLeftAddress();
+//            StarsNode & leftChild = Simulator::getInstance().getNode(childAddr.getIPNum());
+//            if (!father->isLeftLeaf()) {
+//                leftChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "     ");
+//            } else {
+//                LogMsg("Sim.Tree", prio) << "     " << "L@" << leftChild.localAddress << ": "
+//                        << static_cast<SimOverlayLeaf &>(leftChild.getLeaf());
+//            }
+//        }
+//        else showRecursive(prio, 1);
+//    }
+//}
 
 
 class MemoryOutArchive {
@@ -641,6 +560,40 @@ template <class T> void StarsNode::buildDispatcherGen() {
     rightLink.serializeState(oaa);
     MemoryInArchive iaa(vv.begin());
     static_cast<T &>(getDisp()).serializeState(iaa);
+    static_cast<T &>(getDisp()).recomputeInfo();
+}
+
+
+void StarsNode::buildDispatcherDown() {
+    // Generate Dispatcher state
+    switch (Configuration::getInstance().getPolicy()) {
+    case Configuration::MMPolicy:
+        buildDispatcherDownGen<MMPDispatcher>();
+        break;
+    case Configuration::FSPolicy:
+        buildDispatcherDownGen<FSPDispatcher>();
+        break;
+    default:
+        break;
+    }
+}
+
+
+template <class T> void StarsNode::buildDispatcherDownGen() {
+    Simulator & sim = Simulator::getInstance();
+    vector<void *> vv(200);
+    MemoryOutArchive oaa(vv.begin());
+    static_cast<T &>(getDisp()).serializeState(oaa);
+    CommAddress fatherAddr = *static_cast<CommAddress *>(vv[0]);
+    boost::shared_ptr<typename T::availInfoType> & fatherInfo = *static_cast<boost::shared_ptr<typename T::availInfoType> *>(vv[1]);
+    if (fatherAddr != CommAddress()) {
+        StarsNode & father = sim.getNode(fatherAddr.getIPNum());
+        if (father.getBranch().getLeftAddress() == localAddress) {
+            fatherInfo.reset(static_cast<T &>(father.getDisp()).getLeftChildWaitingInfo()->clone());
+        } else {
+            fatherInfo.reset(static_cast<T &>(father.getDisp()).getRightChildWaitingInfo()->clone());
+        }
+    }
     static_cast<T &>(getDisp()).recomputeInfo();
 }
 

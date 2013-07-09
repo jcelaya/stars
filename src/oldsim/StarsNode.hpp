@@ -114,13 +114,8 @@ public:
 
     unsigned int getBranchLevel() const;
 
-    void showRecursive(log4cpp::Priority::Value prio, unsigned int level, const std::string & prefix = "");
-    void showPartialTree(bool isBranch, log4cpp::Priority::Value prio = log4cpp::Priority::DEBUG);
-    unsigned int getRoot() const;
-    static void showTree(log4cpp::Priority::Value p = log4cpp::Priority::DEBUG);
-    static void checkTree();
-
     void buildDispatcher();
+    void buildDispatcherDown();
 
     friend std::ostream & operator<<(std::ostream & os, const StarsNode & n) {
         return os << n.power << " MIPS " << n.mem << " MB " << n.disk << " MB";
@@ -138,6 +133,7 @@ private:
     friend class CommLayer;
     void createServices();
     template <class T> void buildDispatcherGen();
+    template <class T> void buildDispatcherDownGen();
 
     SimAppDatabase db;
     double power;

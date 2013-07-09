@@ -72,7 +72,7 @@ public:
     }
 
     friend std::ostream & operator<<(std::ostream & os, const ScalarParameter<T> & o) {
-        return os << o.parameter << 'r' << o.mse << '+' << o.linearTerm;
+        return os << o.parameter;// << 'r' << o.mse << '+' << o.linearTerm;
     }
 
     MSGPACK_DEFINE(parameter, mse, linearTerm);

@@ -34,16 +34,7 @@ double FSPDispatcher::beta = 2.0;
 void FSPDispatcher::recomputeInfo() {
     LogMsg("Dsp.MS", DEBUG) << "Recomputing the branch information";
     // Recalculate info for the father
-    if (leftChild.availInfo.get()) {
-        father.waitingInfo.reset(leftChild.availInfo->clone());
-        if (rightChild.availInfo.get())
-            father.waitingInfo->join(*rightChild.availInfo);
-        LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
-    } else if (rightChild.availInfo.get()) {
-        father.waitingInfo.reset(rightChild.availInfo->clone());
-        LogMsg("Dsp.MS", DEBUG) << "The result is " << *father.waitingInfo;
-    } else
-        father.waitingInfo.reset();
+    recomputeFatherInfo();
 
     if(!branch.isLeftLeaf()) {
         LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for left child.";

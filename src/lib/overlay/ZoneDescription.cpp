@@ -78,8 +78,6 @@ void ZoneDescription::aggregate(const ZoneDescription & r) {
 
 
 std::ostream& operator<<(std::ostream& os, const ZoneDescription & s) {
-#ifdef _DEBUG_
-    os << "{" << s.minAddr << "-" << s.maxAddr << "} a=" << s.availableStrNodes;
-#endif // _DEBUG_
+    os << "{" << s.minAddr.getIPNum() << "-" << s.maxAddr.getIPNum() << "}";
     return os;
 }

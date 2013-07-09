@@ -324,20 +324,6 @@ class siteLevel : public SimulationCase {
             int daysDelta = wake < nowDelta ? 1 : 0;
             int today = (now.to_posix_time().date() + days(daysDelta)).day_of_week().as_number();
             daysDelta += weekdays ? weekDaysDelta[today] : weekendDaysDelta[today];
-//            if (weekdays) {
-//                switch (today) {
-//                case Saturday: daysDelta++;
-//                case Sunday: daysDelta++;
-//                }
-//            } else {
-//                switch (today) {
-//                case Monday: daysDelta++;
-//                case Tuesday: daysDelta++;
-//                case Wednesday: daysDelta++;
-//                case Thursday: daysDelta++;
-//                case Friday: daysDelta++;
-//                }
-//            }
 
             return wake + Duration(daysDelta * 86400.0) - nowDelta;
         }

@@ -37,8 +37,6 @@ class TaskBagMsg : public BasicMsg {
 public:
     MESSAGE_SUBCLASS(TaskBagMsg);
 
-    //TaskBagMsg() : slowness(0.0) {}
-
     // Getters and Setters
 
     /**
@@ -151,10 +149,16 @@ public:
         // os << *minRequirements;
     }
 
-    MSGPACK_DEFINE(/*slowness, seq,*/ requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+    TaskBagMsg * getSubRequest(uint32_t first, uint32_t last) const {
+        TaskBagMsg * result = clone();
+        result->firstTask = first;
+        result->lastTask = last;
+        result->fromEN = false; // Only routing nodes create subrequests.
+        return result;
+    }
 
-//    double slowness;
-//    uint32_t seq;
+    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+
 private:
     CommAddress requester;             ///< Requester's address
     int64_t requestId;                 ///< Request ID relative to the requester
