@@ -53,6 +53,10 @@ public:
 private:
     static double beta;
 
+    double getSlownessLimit(const CommAddress & src, const TaskBagMsg & msg) const;
+
+    void updateBranchSlowness(const double branchSlowness[2]);
+
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 };

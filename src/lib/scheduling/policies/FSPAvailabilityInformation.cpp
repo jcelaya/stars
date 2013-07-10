@@ -90,10 +90,12 @@ void FSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const F
 }
 
 
-void FSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<ZAFunction *, unsigned int> > & f) {
+std::list<FSPAvailabilityInformation::MDLCluster *> FSPAvailabilityInformation::getFunctions(const TaskDescription & req) {
+    std::list<MDLCluster *> f;
     for (auto & i : summary)
         if (i.fulfills(req))
-            f.push_back(std::make_pair(&i.maxL, i.value));
+            f.push_back(&i);
+    return f;
 }
 
 

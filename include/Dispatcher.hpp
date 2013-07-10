@@ -302,6 +302,19 @@ protected:
         return true;
     }
 
+    void showMsgSource(const CommAddress & src, const TaskBagMsg & msg) const {
+        if (!msg.isFromEN() && src == father.addr) {
+            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (father)";
+        } else {
+            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (" << (src == child[0].addr ? "left child)" : "right child)");
+        }
+        const TaskDescription & req = msg.getMinRequirements();
+        unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
+        uint64_t a = req.getLength();
+        LogMsg("Dsp.FSP", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasksReq << " tasks with requirements:";
+        LogMsg("Dsp.FSP", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
+    }
+
     void recomputeFatherInfo() {
         if (child[0].availInfo.get()) {
             father.waitingInfo.reset(child[0].availInfo->clone());

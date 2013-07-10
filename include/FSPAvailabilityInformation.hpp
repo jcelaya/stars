@@ -167,7 +167,7 @@ public:
      * Obtain the maximum slowness reached when allocating a set of tasks of a certain application.
      * @param req Application requirements.
      */
-    void getFunctions(const TaskDescription & req, std::vector<std::pair<ZAFunction *, unsigned int> > & f);
+    std::list<MDLCluster *> getFunctions(const TaskDescription & req);
 
     void setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power);
 
