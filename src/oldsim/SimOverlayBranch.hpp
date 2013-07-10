@@ -21,6 +21,7 @@
 #ifndef SIMOVERLAYBRANCH_H_
 #define SIMOVERLAYBRANCH_H_
 
+#include <initializer_list>
 #include "OverlayBranch.hpp"
 #include "ZoneDescription.hpp"
 
@@ -29,31 +30,21 @@ class SimOverlayBranch : public OverlayBranch {
 public:
     virtual bool receiveMessage(const CommAddress & src, const BasicMsg & msg) { return false; }
 
-    virtual bool inNetwork() const { return left != CommAddress(); }
+    virtual bool inNetwork() const { return child[left] != CommAddress(); }
 
     virtual const CommAddress & getFatherAddress() const { return father; }
 
-    virtual const CommAddress & getLeftAddress() const { return left; }
+    virtual const CommAddress & getChildAddress(int c) const { return child[c]; }
 
-    virtual double getLeftDistance(const CommAddress & src) const { return leftZone.distance(src); }
+    virtual double getChildDistance(int c, const CommAddress & src) const { return zone[c].distance(src); }
 
-    virtual bool isLeftLeaf() const {
-        return leftZone.getMinAddress() == leftZone.getMaxAddress();
+    virtual bool isLeaf(int c) const {
+        return zone[c].getMinAddress() == zone[c].getMaxAddress();
     }
 
-    virtual const CommAddress & getRightAddress() const { return right; }
+    const ZoneDescription & getChildZone(int c) const { return zone[c]; }
 
-    virtual double getRightDistance(const CommAddress & src) const { return rightZone.distance(src); }
-
-    virtual bool isRightLeaf() const {
-        return rightZone.getMinAddress() == rightZone.getMaxAddress();
-    }
-
-    const ZoneDescription & getLeftZone() const { return leftZone; }
-
-    const ZoneDescription & getRightZone() const { return rightZone; }
-
-    ZoneDescription getZone() const { return ZoneDescription(leftZone, rightZone); }
+    ZoneDescription getZone() const { return ZoneDescription(zone[left], zone[right]); }
 
     void setFatherAddress(const CommAddress & a) { father = a; }
 
@@ -61,16 +52,19 @@ public:
 
     friend std::ostream & operator<<(std::ostream& os, const SimOverlayBranch & b) {
         if (b.inNetwork()) {
-            os << "f=" << b.father.getIPNum() << " l=" << b.left.getIPNum() << " r=" << b.right.getIPNum() << " z=" << ZoneDescription(b.leftZone, b.rightZone);
+            os << "f=" << b.father.getIPNum()
+                << " l=" << b.child[left].getIPNum()
+                << " r=" << b.child[right].getIPNum()
+                << " z=" << ZoneDescription(b.zone[left], b.zone[right]);
         } else os << "OFFLINE";
         return os;
     }
 
-    MSGPACK_DEFINE(father, left, right, leftZone, rightZone);
+    MSGPACK_DEFINE(father, child[left], child[right], zone[left], zone[right]);
 
 private:
-    CommAddress father, left, right;
-    ZoneDescription leftZone, rightZone;
+    CommAddress father, child[2];
+    ZoneDescription zone[2];
 };
 
 #endif /* SIMOVERLAYBRANCH_H_ */

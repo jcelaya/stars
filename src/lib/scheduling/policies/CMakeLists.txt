@@ -13,5 +13,5 @@ set(stars_sources ${stars_sources}
     scheduling/policies/FSPDispatcher.cpp
     scheduling/policies/FSPScheduler.cpp
     scheduling/policies/FSPTaskList.cpp
-    scheduling/policies/LAFunction.cpp
+    scheduling/policies/ZAFunction.cpp
     PARENT_SCOPE)

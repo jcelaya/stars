@@ -46,12 +46,8 @@ public:
 
     static void setBeta(double b) { beta = b; }
 
-    boost::shared_ptr<FSPAvailabilityInformation> getLeftChildWaitingInfo() const {
-        return leftChild.waitingInfo;
-    }
-
-    boost::shared_ptr<FSPAvailabilityInformation> getRightChildWaitingInfo() const {
-        return rightChild.waitingInfo;
+    boost::shared_ptr<FSPAvailabilityInformation> getChildWaitingInfo(int c) const {
+        return child[c].waitingInfo;
     }
 
 private:

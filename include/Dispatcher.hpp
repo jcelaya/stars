@@ -41,9 +41,7 @@ public:
      */
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const = 0;
 
-    virtual boost::shared_ptr<AvailabilityInformation> getLeftChildInfo() const = 0;
-
-    virtual boost::shared_ptr<AvailabilityInformation> getRightChildInfo() const = 0;
+    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int child) const = 0;
 
     virtual bool changed() = 0;
 };
@@ -64,8 +62,8 @@ public:
         branch.registerObserver(this);
         if (branch.inNetwork()) {
             father.addr = branch.getFatherAddress();
-            leftChild.addr = branch.getLeftAddress();
-            rightChild.addr = branch.getRightAddress();
+            child[0].addr = branch.getChildAddress(0);
+            child[1].addr = branch.getChildAddress(1);
         }
     }
 
@@ -95,12 +93,8 @@ public:
      * @param child The child address.
      * @return Pointer to the information of that child.
      */
-    virtual boost::shared_ptr<AvailabilityInformation> getLeftChildInfo() const {
-        return leftChild.availInfo;
-    }
-
-    virtual boost::shared_ptr<AvailabilityInformation> getRightChildInfo() const {
-        return rightChild.availInfo;
+    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int c) const {
+        return child[c].availInfo;
     }
 
     /**
@@ -109,8 +103,8 @@ public:
     template<class Archive> void serializeState(Archive & ar) {
         // Serialization only works if not in a transaction
         father.serializeState(ar);
-        leftChild.serializeState(ar);
-        rightChild.serializeState(ar);
+        child[0].serializeState(ar);
+        child[1].serializeState(ar);
     }
 
     struct Link {
@@ -171,8 +165,7 @@ protected:
     /// Info about the rest of the tree
     Link father;
     /// Info about this branch
-    Link leftChild;
-    Link rightChild;
+    Link child[2];
     bool infoChanged;
 
     typedef std::pair<CommAddress, boost::shared_ptr<T> > AddrMsg;
@@ -199,7 +192,7 @@ protected:
             return;
         }
 
-        if ((!msg.isFromSch() && father.update(src, msg)) || leftChild.update(src, msg) || rightChild.update(src, msg)) {
+        if ((!msg.isFromSch() && father.update(src, msg)) || child[0].update(src, msg) || child[1].update(src, msg)) {
             // Check if the resulting zone changes
             if (!delayed) {
                 recomputeInfo();
@@ -246,17 +239,13 @@ protected:
                     sentSize += s;
                 }
                 // Notify the children
-                if (!branch.isLeftLeaf()) {
-                    unsigned int s = leftChild.sendUpdate();
-                    if (s > 0)
-                        LogMsg("Dsp", DEBUG) << "There were changes for the left children, sending update";
-                    sentSize += s;
-                }
-                if (!branch.isRightLeaf()) {
-                    unsigned int s = rightChild.sendUpdate();
-                    if (s > 0)
-                        LogMsg("Dsp", DEBUG) << "There were changes for the right children, sending update";
-                    sentSize += s;
+                for (int c : {0, 1}) {
+                    if (!branch.isLeaf(c)) {
+                        unsigned int s = child[c].sendUpdate();
+                        if (s > 0)
+                            LogMsg("Dsp", DEBUG) << "There were changes for the " << c << " children, sending update";
+                        sentSize += s;
+                    }
                 }
             }
             double t = (double)sentSize / ConfigurationManager::getInstance().getUpdateBandwidth();
@@ -272,23 +261,17 @@ protected:
      */
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg) = 0;
 
-    void sendTasks(const TaskBagMsg & msg, unsigned int leftTasks, unsigned int rightTasks, bool dontSendToFather) {
+    void sendTasks(const TaskBagMsg & msg, unsigned int numTasks[2], bool dontSendToFather) {
         // Now create and send the messages
         unsigned int nextTask = msg.getFirstTask();
-        if (leftTasks > 0) {
-            LogMsg("Dsp", INFO) << "Sending " << leftTasks << " tasks to the left child";
-            TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + leftTasks - 1);
-            tbm->setForEN(branch.isLeftLeaf());
-            nextTask += leftTasks;
-            CommLayer::getInstance().sendMessage(leftChild.addr, tbm);
-        }
-
-        if (rightTasks > 0) {
-            LogMsg("Dsp", INFO) << "Sending " << rightTasks << " tasks to the right child";
-            TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + rightTasks - 1);
-            tbm->setForEN(branch.isRightLeaf());
-            nextTask += rightTasks;
-            CommLayer::getInstance().sendMessage(rightChild.addr, tbm);
+        for (int c : {0, 1}) {
+            if (numTasks[c] > 0) {
+                LogMsg("Dsp", INFO) << "Sending " << numTasks[c] << " tasks to the " << c << " child";
+                TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + numTasks[c] - 1);
+                tbm->setForEN(branch.isLeaf(c));
+                nextTask += numTasks[c];
+                CommLayer::getInstance().sendMessage(child[c].addr, tbm);
+            }
         }
 
         // If this branch cannot execute all the tasks, send the request to the father
@@ -320,36 +303,33 @@ protected:
     }
 
     void recomputeFatherInfo() {
-        if (leftChild.availInfo.get()) {
-            father.waitingInfo.reset(leftChild.availInfo->clone());
-            if (rightChild.availInfo.get())
-                father.waitingInfo->join(*rightChild.availInfo);
+        if (child[0].availInfo.get()) {
+            father.waitingInfo.reset(child[0].availInfo->clone());
+            if (child[1].availInfo.get())
+                father.waitingInfo->join(*child[1].availInfo);
             LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
-        } else if (rightChild.availInfo.get()) {
-            father.waitingInfo.reset(rightChild.availInfo->clone());
+        } else if (child[1].availInfo.get()) {
+            father.waitingInfo.reset(child[1].availInfo->clone());
             LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
         } else
             father.waitingInfo.reset();
     }
 
 private:
-    // This is documented in StructureNodeObserver
-    virtual void availabilityChanged(bool available) {}
-
-    // This is documented in StructureNodeObserver
+    // This is documented in OverlayBranchObserver
     virtual void startChanges() {
         inChange = true;
     }
 
-    // This is documented in StructureNodeObserver
+    // This is documented in OverlayBranchObserver
     virtual void commitChanges(bool fatherChanged, bool leftChanged, bool rightChanged) {
         inChange = false;
         if (fatherChanged)
             father = Link(branch.getFatherAddress());
         if (leftChanged)
-            leftChild = Link(branch.getLeftAddress());
+            child[0] = Link(branch.getChildAddress(0));
         if (rightChanged)
-            rightChild = Link(branch.getRightAddress());
+            child[1] = Link(branch.getChildAddress(1));
         // Check delayed updates
         for (typename std::vector<AddrMsg>::iterator it = delayedUpdates.begin();
                 it != delayedUpdates.end(); it++)

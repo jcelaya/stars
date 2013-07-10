@@ -25,17 +25,10 @@
 
 void SimOverlayBranch::build(const CommAddress & l, bool lb, const CommAddress & r, bool rb) {
     Simulator & sim = Simulator::getInstance();
-    left = l;
-    right = r;
+    child[left] = l;
+    child[right] = r;
     StarsNode & leftNode = sim.getNode(l.getIPNum());
-    if (lb)
-        leftZone = static_cast<SimOverlayBranch &>(leftNode.getBranch()).getZone();
-    else
-        leftZone = ZoneDescription(l);
+    zone[left] = lb ? static_cast<SimOverlayBranch &>(leftNode.getBranch()).getZone() : ZoneDescription(l);
     StarsNode & rightNode = sim.getNode(r.getIPNum());
-    if (rb)
-        rightZone = static_cast<SimOverlayBranch &>(rightNode.getBranch()).getZone();
-    else
-        rightZone = ZoneDescription(r);
+    zone[right] = rb ? static_cast<SimOverlayBranch &>(rightNode.getBranch()).getZone() : ZoneDescription(r);
 }
-

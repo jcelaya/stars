@@ -92,14 +92,12 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
             if (node.getBranch().inNetwork()) {
                 if (node.getBranch().getFatherAddress() != CommAddress())
                     sneighbours[node.getBranch().getFatherAddress().getIPNum()].second.push_back(node.getLocalAddress());
-                if (node.getBranch().isLeftLeaf())
-                    rneighbours[node.getBranch().getLeftAddress().getIPNum()] = true;
-                else
-                    sneighbours[node.getBranch().getLeftAddress().getIPNum()].first = true;
-                if (node.getBranch().isRightLeaf())
-                    rneighbours[node.getBranch().getRightAddress().getIPNum()] = true;
-                else
-                    sneighbours[node.getBranch().getRightAddress().getIPNum()].first = true;
+                for (int i : {0, 1}) {
+                    if (node.getBranch().isLeaf(i))
+                        rneighbours[node.getBranch().getChildAddress(i).getIPNum()] = true;
+                    else
+                        sneighbours[node.getBranch().getChildAddress(i).getIPNum()].first = true;
+                }
             }
             node.fail();
         }

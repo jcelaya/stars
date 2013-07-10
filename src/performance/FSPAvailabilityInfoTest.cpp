@@ -27,24 +27,24 @@
 using namespace stars;
 
 template<> struct Priv<FSPAvailabilityInformation> {
-    LAFunction totalAvail;
-    LAFunction maxAvail;
+    ZAFunction totalAvail;
+    ZAFunction maxAvail;
 };
 
 
 template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("fsp_mem_disk_slowness.stat", 2) {
     stars::ClusteringList<FSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
-    LAFunction::setNumPieces(8);
+    ZAFunction::setNumPieces(8);
 }
 
 
 template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
-    static LAFunction dummy;
+    static ZAFunction dummy;
     boost::shared_ptr<FSPAvailabilityInformation> s(new FSPAvailabilityInformation);
     FSPTaskList proxys(gen.createRandomQueue(n.power));
     s->setAvailability(n.mem, n.disk, proxys, n.power);
-    const LAFunction & maxL = s->getSummary().front().getMaximumSlowness();
-    if (privateData.maxAvail == LAFunction()) {
+    const ZAFunction & maxL = s->getSummary().front().getMaximumSlowness();
+    if (privateData.maxAvail == ZAFunction()) {
         privateData.maxAvail = maxL;
     } else {
         privateData.maxAvail.max(privateData.maxAvail, maxL);
@@ -56,10 +56,10 @@ template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSP
 
 
 template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(const boost::shared_ptr<FSPAvailabilityInformation> & summary) {
-    static LAFunction dummy;
+    static ZAFunction dummy;
     unsigned long int minMem = nodes.size() * min_mem;
     unsigned long int minDisk = nodes.size() * min_disk;
-    LAFunction maxAvail, aggrAvail;
+    ZAFunction maxAvail, aggrAvail;
     maxAvail.maxDiff(privateData.maxAvail, dummy, getNumNodes(), getNumNodes(), dummy, dummy);
 
     unsigned long int aggrMem = 0, aggrDisk = 0;
@@ -72,10 +72,10 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
     }
     // TODO: The accuracy is not linear...
     double prevAccuracy = 100.0;
-    uint64_t prevA = LAFunction::minTaskLength;
+    uint64_t prevA = ZAFunction::minTaskLength;
     double ah = privateData.totalAvail.getHorizon() * 1.2;
-    uint64_t astep = (ah - LAFunction::minTaskLength) / 1000;
-    for (uint64_t a = LAFunction::minTaskLength; a < ah; a += astep) {
+    uint64_t astep = (ah - ZAFunction::minTaskLength) / 1000;
+    for (uint64_t a = ZAFunction::minTaskLength; a < ah; a += astep) {
         double maxAvailBeforeIt = maxAvail.getSlowness(a);
         double totalAvailBeforeIt = maxAvailBeforeIt - privateData.totalAvail.getSlowness(a);
         double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
@@ -86,7 +86,7 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
         prevAccuracy = accuracy;
         prevA = a;
     }
-    meanAccuracy /= 2.0 * (ah - LAFunction::minTaskLength);
+    meanAccuracy /= 2.0 * (ah - ZAFunction::minTaskLength);
 
     results["M"].value(totalMem).value(minMem).value(aggrMem).value((aggrMem - minMem) * 100.0 / (totalMem - minMem));
     results["D"].value(totalDisk).value(minDisk).value(aggrDisk).value((aggrDisk - minDisk) * 100.0 / (totalDisk - minDisk));

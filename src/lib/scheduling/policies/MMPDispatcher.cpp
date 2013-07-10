@@ -28,7 +28,8 @@ using boost::shared_ptr;
 double MMPDispatcher::beta = 0.5;
 
 
-boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(const Link & other) {
+boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(int c) {
+    const Link & other = child[c^1];
     boost::shared_ptr<MMPAvailabilityInformation> result;
     // TODO: send full information, based on configuration switch
     if (father.availInfo.get()) {
@@ -52,12 +53,10 @@ void MMPDispatcher::recomputeInfo() {
     // Recalculate info for the father
     recomputeFatherInfo();
 
-    if(!branch.isLeftLeaf()) {
-        leftChild.waitingInfo = getChildInfo(rightChild);
-    }
-
-    if(!branch.isRightLeaf()) {
-        rightChild.waitingInfo = getChildInfo(leftChild);
+    for (int c : {0, 1}) {
+        if(!branch.isLeaf(c)) {
+            child[c].waitingInfo = getChildInfo(c);
+        }
     }
 }
 
@@ -67,7 +66,7 @@ void MMPDispatcher::recomputeInfo() {
  */
 struct MMPDispatcher::DecissionInfo {
     MMPAvailabilityInformation::MDPTCluster * cluster;
-    bool leftBranch;
+    int branch;
     double distance;
     double availability;
     unsigned int numTasks;
@@ -76,8 +75,8 @@ struct MMPDispatcher::DecissionInfo {
     static const uint32_t ALPHA_DISK = 1;
     static const uint32_t ALPHA_TIME = 100;
 
-    DecissionInfo(MMPAvailabilityInformation::MDPTCluster * c, const TaskDescription & req, bool b, double d)
-            : cluster(c), leftBranch(b), distance(d) {
+    DecissionInfo(MMPAvailabilityInformation::MDPTCluster * c, const TaskDescription & req, int b, double d)
+            : cluster(c), branch(b), distance(d) {
         double oneTaskTime = req.getLength() / (double)c->getMinimumPower();
         availability = ALPHA_MEM * c->getLostMemory(req)
                 + ALPHA_DISK * c->getLostDisk(req)
@@ -140,52 +139,42 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // Calculate distances
     const CommAddress & requester = msg.getRequester();
-    double leftDistance = branch.getLeftDistance(requester),
-            rightDistance = branch.getRightDistance(requester);
 
     // First create a list of node groups which can potentially manage the request
     std::list<DecissionInfo> groups;
-    if (leftChild.availInfo.get()) {
-        nodeGroups.clear();
-        leftChild.availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
-        for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
-            groups.push_back(DecissionInfo(*git, req, true, leftDistance));
-        }
-    }
-    if (rightChild.availInfo.get()) {
-        nodeGroups.clear();
-        rightChild.availInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from right child.";
-        for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-            LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
-            groups.push_back(DecissionInfo(*git, req, true, leftDistance));
+    for (int c : {0, 1}) {
+        if (child[c].availInfo.get()) {
+            nodeGroups.clear();
+            child[c].availInfo->getAvailability(nodeGroups, req);
+            LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from " << c << " child.";
+            for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
+                LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
+                groups.push_back(DecissionInfo(*git, req, c, branch.getChildDistance(c, requester)));
+            }
         }
     }
     LogMsg("Dsp.MMP", DEBUG) << groups.size() << " groups found";
     groups.sort();
 
     // Now divide the request between the zones
-    unsigned int leftTasks = 0, rightTasks = 0;
+    unsigned int numTasks[2] = { 0, 0 };
     for (std::list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.MMP", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->numTasks << " tasks";
+        LogMsg("Dsp.MMP", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->numTasks << " tasks";
         unsigned int tasksInGroup = it->numTasks;
         if (remainingTasks > tasksInGroup) {
-            (it->leftBranch ? leftTasks : rightTasks) += tasksInGroup;
+            numTasks[it->branch] += tasksInGroup;
             remainingTasks -= tasksInGroup;
         } else {
-            (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
+            numTasks[it->branch] += remainingTasks;
             remainingTasks = 0;
         }
         it->cluster->updateMaximumQueue(balancedQueue);
     }
 
-    if (leftTasks > 0)
-        leftChild.availInfo->updateMaxT(balancedQueue);
-    if (rightTasks > 0)
-        rightChild.availInfo->updateMaxT(balancedQueue);
+    for (int c : {0, 1})
+        if (numTasks[c] > 0)
+            child[c].availInfo->updateMaxT(balancedQueue);
 
     // Now create and send the messages, do not send up remaining tasks
-    sendTasks(msg, leftTasks, rightTasks, true);
+    sendTasks(msg, numTasks, true);
 }

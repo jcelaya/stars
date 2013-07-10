@@ -25,7 +25,7 @@
 #include "ConfigurationManager.hpp"
 using std::vector;
 
-using stars::LAFunction;
+using stars::ZAFunction;
 
 double FSPDispatcher::beta = 2.0;
 //int FSPDispatcher::estimations = 0;
@@ -36,40 +36,24 @@ void FSPDispatcher::recomputeInfo() {
     // Recalculate info for the father
     recomputeFatherInfo();
 
-    if(!branch.isLeftLeaf()) {
-        LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for left child.";
-        // TODO: send full information, based on configuration switch
-        if (father.availInfo.get()) {
-            double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
-            leftChild.waitingInfo.reset(new FSPAvailabilityInformation);
-            if (rightChild.availInfo.get()) {
-                double rightMaxSlowness = rightChild.availInfo->getMaximumSlowness();
-                leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > rightMaxSlowness ? fatherMaxSlowness : rightMaxSlowness);
+    for (int c : {0, 1}) {
+        if(!branch.isLeaf(c)) {
+            LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for " << c << " child.";
+            // TODO: send full information, based on configuration switch
+            if (father.availInfo.get()) {
+                double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
+                child[c].waitingInfo.reset(new FSPAvailabilityInformation);
+                if (child[c^1].availInfo.get()) {
+                    double rightMaxSlowness = child[c^1].availInfo->getMaximumSlowness();
+                    child[c].waitingInfo->setMaximumSlowness(fatherMaxSlowness > rightMaxSlowness ? fatherMaxSlowness : rightMaxSlowness);
+                } else
+                    child[c].waitingInfo->setMaximumSlowness(fatherMaxSlowness);
+            } else if (child[c^1].availInfo.get()) {
+                child[c].waitingInfo.reset(new FSPAvailabilityInformation);
+                child[c].waitingInfo->setMaximumSlowness(child[c^1].availInfo->getMaximumSlowness());
             } else
-                leftChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
-        } else if (rightChild.availInfo.get()) {
-            leftChild.waitingInfo.reset(new FSPAvailabilityInformation);
-            leftChild.waitingInfo->setMaximumSlowness(rightChild.availInfo->getMaximumSlowness());
-        } else
-            leftChild.waitingInfo.reset();
-    }
-
-    if(!branch.isRightLeaf()) {
-        LogMsg("Dsp.MS", DEBUG) << "Recomputing the information from the rest of the tree for right child.";
-        // TODO: send full information, based on configuration switch
-        if (father.availInfo.get()) {
-            double fatherMaxSlowness = father.availInfo->getMaximumSlowness();
-            rightChild.waitingInfo.reset(new FSPAvailabilityInformation);
-            if (leftChild.availInfo.get()) {
-                double leftMaxSlowness = leftChild.availInfo->getMaximumSlowness();
-                rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness > leftMaxSlowness ? fatherMaxSlowness : leftMaxSlowness);
-            } else
-                rightChild.waitingInfo->setMaximumSlowness(fatherMaxSlowness);
-        } else if (leftChild.availInfo.get()) {
-            rightChild.waitingInfo.reset(new FSPAvailabilityInformation);
-            rightChild.waitingInfo->setMaximumSlowness(leftChild.availInfo->getMaximumSlowness());
-        } else
-            rightChild.waitingInfo.reset();
+                child[c].waitingInfo.reset();
+        }
     }
 }
 
@@ -87,14 +71,14 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN()) return;
 
     const TaskDescription & req = msg.getMinRequirements();
-    unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
+    unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
 
     // TODO: Check that we are not in a change
     if (!msg.isFromEN() && src == father.addr) {
         LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src << " (father)";
     } else {
-        LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src << " (" << (src == leftChild.addr ? "left child)" : "right child)");
+        LogMsg("Dsp.MS", INFO) << "Received a TaskBagMsg from " << src << " (" << (src == child[0].addr ? "left child)" : "right child)");
     }
     if (!branch.inNetwork()) {
         LogMsg("Dsp.MS", WARN) << "TaskBagMsg received but not in network";
@@ -106,7 +90,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         return;
     }
 
-    LogMsg("Dsp.MS", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasks << " tasks with requirements:";
+    LogMsg("Dsp.MS", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasksReq << " tasks with requirements:";
     LogMsg("Dsp.MS", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
 
     // If it is comming from the father, update its notified information
@@ -114,19 +98,15 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 //		father.availInfo->update(numTasks, req.getLength());
 //	}
 
-    unsigned int rfStart;
-    double minSlowness = INFINITY;
-    Time now = Time::getCurrentTime();
+    unsigned int numFunctions[2];
     // Get the slowness functions of each branch that fulfills memory and disk requirements
-    std::vector<std::pair<LAFunction *, unsigned int> > functions;
-    if (leftChild.availInfo.get()) {
-        LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << leftChild.addr << "): " << *leftChild.availInfo;
-        leftChild.availInfo->getFunctions(req, functions);
-    }
-    rfStart = functions.size();
-    if (rightChild.availInfo.get()) {
-        LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << rightChild.addr << "): " << *rightChild.availInfo;
-        rightChild.availInfo->getFunctions(req, functions);
+    std::vector<std::pair<ZAFunction *, unsigned int> > functions;
+    for (int c : {0, 1}) {
+        if (child[c].availInfo.get()) {
+            LogMsg("Dsp.MS", DEBUG) << "Getting functions of left children (" << child[c].addr << "): " << *child[c].availInfo;
+            child[c].availInfo->getFunctions(req, functions);
+        }
+        numFunctions[c] = functions.size();
     }
 
     unsigned int totalTasks = 0;
@@ -135,6 +115,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // Heap of slowness values
     vector<std::pair<double, size_t> > slownessHeap;
 
+    double minSlowness = INFINITY;
     if (!functions.empty()) {
         bool tryOneMoreTask = true;
         for (int currentTpn = 1; tryOneMoreTask; ++currentTpn) {
@@ -148,19 +129,19 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
                             functions[f].first->getSlowness(a)
                             : functions[f].first->estimateSlowness(a, currentTpn);
                     // Check that it is not under the minimum of its branch
-                    double branchSlowness = (f < rfStart ? leftChild.availInfo : rightChild.availInfo)->getMinimumSlowness();
+                    double branchSlowness = (f < numFunctions[0] ? child[0].availInfo : child[1].availInfo)->getMinimumSlowness();
                     if (slowness < branchSlowness) {
                         slowness = branchSlowness;
                     }
                     // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
-                    if (totalTasks < numTasks || slowness < slownessHeap.front().first) {
+                    if (totalTasks < numTasksReq || slowness < slownessHeap.front().first) {
                         slownessHeap.push_back(std::make_pair(slowness, f));
                         std::push_heap(slownessHeap.begin(), slownessHeap.end());
                         // Add one task per node to that function
                         ++tpn[f];
                         totalTasks += functions[f].second;
                         // Remove the highest slowness values as long as there are enough tasks
-                        while (totalTasks - functions[slownessHeap.front().second].second >= numTasks) {
+                        while (totalTasks - functions[slownessHeap.front().second].second >= numTasksReq) {
                             totalTasks -= functions[slownessHeap.front().second].second;
                             --tpn[slownessHeap.front().second];
                             std::pop_heap(slownessHeap.begin(), slownessHeap.end());
@@ -208,92 +189,43 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     }
 
     // Count tasks per branch and update minimum branch slowness
-    unsigned int leftTasks = 0, rightTasks = 0;
-    double leftSlowness = leftChild.availInfo.get() ? leftChild.availInfo->getMinimumSlowness() : 0,
-            rightSlowness = rightChild.availInfo.get() ? rightChild.availInfo->getMinimumSlowness() : 0;
-    for (size_t i = 0; i < rfStart; ++i) {
-        if (tpn[i]) {
-            double slowness = tpn[i] == 1 ?
-                    functions[i].first->getSlowness(a)
-                    : functions[i].first->estimateSlowness(a, tpn[i]);
-            if (leftSlowness < slowness) {
-                leftSlowness = slowness;
+    unsigned int numTasks[2] = {0, 0};
+    double branchSlowness[2];
+    size_t i = 0;
+    for (int c : {0, 1}) {
+        branchSlowness[c] = child[c].availInfo.get() ? child[c].availInfo->getMinimumSlowness() : 0.0;
+
+        for (; i < numFunctions[c]; ++i) {
+            if (tpn[i]) {
+                double slowness = tpn[i] == 1 ?
+                        functions[i].first->getSlowness(a)
+                        : functions[i].first->estimateSlowness(a, tpn[i]);
+                if (branchSlowness[c] < slowness) {
+                    branchSlowness[c] = slowness;
+                }
+                unsigned int tasksToCluster = tpn[i] * functions[i].second;
+                if (i == slownessHeap.front().second) {
+                    tasksToCluster -= totalTasks - numTasksReq;
+                }
+                numTasks[c] += tasksToCluster;
+                functions[i].first->update(a, tpn[i]);
             }
-            unsigned int tasksToCluster = tpn[i] * functions[i].second;
-            if (i == slownessHeap.front().second) {
-                tasksToCluster -= totalTasks - numTasks;
+        }
+
+        if (child[c].availInfo.get()) {
+            child[c].availInfo->setMinimumSlowness(branchSlowness[c]);
+            if (child[c].availInfo->getMaximumSlowness() < branchSlowness[c]) {
+                child[c].availInfo->setMaximumSlowness(branchSlowness[c]);
             }
-            leftTasks += tasksToCluster;
-            functions[i].first->update(a, tpn[i]);
         }
     }
 
-    for (size_t i = rfStart; i < tpn.size(); ++i) {
-        if (tpn[i]) {
-            double slowness = tpn[i] == 1 ?
-                    functions[i].first->getSlowness(a)
-                    : functions[i].first->estimateSlowness(a, tpn[i]);
-            if (rightSlowness < slowness) {
-                rightSlowness = slowness;
-            }
-            unsigned int tasksToCluster = tpn[i] * functions[i].second;
-            if (i == slownessHeap.front().second)
-                tasksToCluster -= totalTasks - numTasks;
-            rightTasks += tasksToCluster;
-            functions[i].first->update(a, tpn[i]);
-        }
-    }
-
-    if (leftChild.availInfo.get()) {
-        leftChild.availInfo->setMinimumSlowness(leftSlowness);
-        if (leftChild.availInfo->getMaximumSlowness() < leftSlowness) {
-            leftChild.availInfo->setMaximumSlowness(leftSlowness);
-        }
-    }
-    if (rightChild.availInfo.get()) {
-        rightChild.availInfo->setMinimumSlowness(rightSlowness);
-        if (rightChild.availInfo->getMaximumSlowness() < rightSlowness) {
-            rightChild.availInfo->setMaximumSlowness(rightSlowness);
-        }
-    }
-
-    LogMsg("Dsp.MS", DEBUG) << "Sending " << leftTasks << " tasks to left child (" << leftChild.addr << ")"
-            " and " << rightTasks << " tasks to right child (" << rightChild.addr << ")";
+    LogMsg("Dsp.MS", DEBUG) << "Sending " << numTasks[0] << " tasks to left child (" << child[0].addr << ")"
+            " and " << numTasks[1] << " tasks to right child (" << child[1].addr << ")";
 
     // We are going down!
     // Each branch is sent its accounted number of tasks
-    sendTasks(msg, leftTasks, rightTasks, false);
-
-//    // DEBUG
-//    // Now create and send the messages
-//    unsigned int nextTask = msg.getFirstTask();
-//    if (leftTasks > 0) {
-//        LogMsg("Dsp", INFO) << "Sending " << leftTasks << " tasks to the left child";
-//        // Create the message
-//        TaskBagMsg * tbm = msg.clone();
-//        tbm->setForEN(branch.isLeftLeaf());
-//        tbm->setFromEN(false);
-//        tbm->setFirstTask(nextTask);
-//        nextTask += leftTasks;
-//        tbm->setLastTask(nextTask - 1);
-//        tbm->slowness = leftSlowness;
-//        tbm->seq = leftChild.availInfo->getSeq();
-//        CommLayer::getInstance().sendMessage(leftChild.addr, tbm);
-//    }
-//
-//    if (rightTasks > 0) {
-//        LogMsg("Dsp", INFO) << "Sending " << rightTasks << " tasks to the right child";
-//        // Create the message
-//        TaskBagMsg * tbm = msg.clone();
-//        tbm->setForEN(branch.isRightLeaf());
-//        tbm->setFromEN(false);
-//        tbm->setFirstTask(nextTask);
-//        nextTask += rightTasks;
-//        tbm->setLastTask(nextTask - 1);
-//        tbm->slowness = rightSlowness;
-//        tbm->seq = rightChild.availInfo->getSeq();
-//        CommLayer::getInstance().sendMessage(rightChild.addr, tbm);
-//    }
+    sendTasks(msg, numTasks, false);
 
     recomputeInfo();
     // Only notify the father if the message does not come from it

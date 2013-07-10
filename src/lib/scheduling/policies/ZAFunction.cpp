@@ -20,17 +20,17 @@
 
 #include <utility>
 #include <list>
-#include "LAFunction.hpp"
+#include "ZAFunction.hpp"
 #include "Logger.hpp"
 using std::vector;
 using std::make_pair;
 
 namespace stars {
 
-unsigned int LAFunction::numPieces = 10;
+unsigned int ZAFunction::numPieces = 10;
 
 
-LAFunction::LAFunction(FSPTaskList curTasks, double power) {
+ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
     // Trivial case
     if (curTasks.empty()) {
         LogMsg("Ex.RI.Aggr", DEBUG) << "Creating availability info for empty queue and power " << power;
@@ -231,11 +231,11 @@ LAFunction::LAFunction(FSPTaskList curTasks, double power) {
 
 struct StepInformation {
     double * edges;
-    LAFunction::PieceVector::const_iterator * f;
+    ZAFunction::PieceVector::const_iterator * f;
     int max;
 };
 
-template<int numF, typename Func> void LAFunction::stepper(const LAFunction * (&f)[numF], Func step) {
+template<int numF, typename Func> void ZAFunction::stepper(const ZAFunction * (&f)[numF], Func step) {
     // PRE: f size is numF, and numF >= 2, all functions have at least one piece
     double edges[4] = { minTaskLength, 0.0, 0.0, 0.0 };
     double & s = edges[0], e;
@@ -310,8 +310,8 @@ template<int numF, typename Func> void LAFunction::stepper(const LAFunction * (&
 }
 
 
-void LAFunction::min(const LAFunction & l, const LAFunction & r) {
-    const LAFunction * functions[] = {&l, &r};
+void ZAFunction::min(const ZAFunction & l, const ZAFunction & r) {
+    const ZAFunction * functions[] = {&l, &r};
     PieceVector somePieces;
     stepper(functions, [&] (const StepInformation & si) {
         if (somePieces.empty() || !si.f[si.max ^ 1]->extends(somePieces.back()))
@@ -321,8 +321,8 @@ void LAFunction::min(const LAFunction & l, const LAFunction & r) {
 }
 
 
-void LAFunction::max(const LAFunction & l, const LAFunction & r) {
-    const LAFunction * functions[] = {&l, &r};
+void ZAFunction::max(const ZAFunction & l, const ZAFunction & r) {
+    const ZAFunction * functions[] = {&l, &r};
     PieceVector somePieces;
     stepper(functions, [&] (const StepInformation & si) {
         if (somePieces.empty() || !si.f[si.max]->extends(somePieces.back()))
@@ -332,10 +332,10 @@ void LAFunction::max(const LAFunction & l, const LAFunction & r) {
 }
 
 
-void LAFunction::maxDiff(const LAFunction & l, const LAFunction & r,
-        unsigned int lv, unsigned int rv, const LAFunction & maxL, const LAFunction & maxR) {
+void ZAFunction::maxDiff(const ZAFunction & l, const ZAFunction & r,
+        unsigned int lv, unsigned int rv, const ZAFunction & maxL, const ZAFunction & maxR) {
     unsigned int val[2] = { lv, rv };
-    const LAFunction * functions[] = {&l, &r, &maxL, &maxR};
+    const ZAFunction * functions[] = {&l, &r, &maxL, &maxR};
     PieceVector somePieces;
     stepper(functions, [&] (const StepInformation & si) {
         SubFunction sf(si.edges[0], si.f[2]->x + si.f[3]->x + val[si.max^1] * (si.f[si.max]->x - si.f[si.max ^1]->x),
@@ -375,9 +375,9 @@ struct sqdiffStep {
 };
 
 
-double LAFunction::sqdiff(const LAFunction & r, double ah) const {
+double ZAFunction::sqdiff(const ZAFunction & r, double ah) const {
     sqdiffStep step(1, 1, ah);
-    const LAFunction * functions[] = {this, &r};
+    const ZAFunction * functions[] = {this, &r};
     stepper(functions, [&] (const StepInformation & si) {
         step(si);
     } );
@@ -385,10 +385,10 @@ double LAFunction::sqdiff(const LAFunction & r, double ah) const {
 }
 
 
-double LAFunction::maxAndLoss(const LAFunction & l, const LAFunction & r, unsigned int lv, unsigned int rv,
-        const LAFunction & maxL, const LAFunction & maxR, double ah) {
+double ZAFunction::maxAndLoss(const ZAFunction & l, const ZAFunction & r, unsigned int lv, unsigned int rv,
+        const ZAFunction & maxL, const ZAFunction & maxR, double ah) {
     sqdiffStep ss(lv, rv, ah);
-    const LAFunction * functions[] = {&l, &r, &maxL, &maxR};
+    const ZAFunction * functions[] = {&l, &r, &maxL, &maxR};
     PieceVector somePieces;
     stepper(functions, [&] (const StepInformation & si) {
         if (somePieces.empty() || !si.f[si.max]->extends(somePieces.back()))
@@ -416,15 +416,15 @@ double LAFunction::maxAndLoss(const LAFunction & l, const LAFunction & r, unsign
 }
 
 
-double LAFunction::reduceMax(double horizon, unsigned int quality) {
+double ZAFunction::reduceMax(double horizon, unsigned int quality) {
     if (pieces.size() > numPieces) {
-        const LAFunction * functions[] = {NULL, this};
-        std::multimap<double, LAFunction> candidates;
+        const ZAFunction * functions[] = {NULL, this};
+        std::multimap<double, ZAFunction> candidates;
         candidates.insert(std::make_pair(0.0, *this));
         while (candidates.begin()->second.pieces.size() > numPieces) {
             // Take next candidate and compute possibilities
             auto best = candidates.begin();
-            vector<LAFunction> options(best->second.getReductionOptions(horizon));
+            vector<ZAFunction> options(best->second.getReductionOptions(horizon));
             candidates.erase(best);
             for (auto & func: options) {
                 functions[0] = &func;
@@ -449,8 +449,8 @@ double LAFunction::reduceMax(double horizon, unsigned int quality) {
 }
 
 
-vector<LAFunction> LAFunction::getReductionOptions(double horizon) const {
-    vector<LAFunction> result(pieces.size() - 1);
+vector<ZAFunction> ZAFunction::getReductionOptions(double horizon) const {
+    vector<ZAFunction> result(pieces.size() - 1);
     PieceVector::const_iterator next = ++pieces.begin(), cur = next++, prev = pieces.begin();
     for (auto & func: result) {
         // Maintain subfunctions from begin to prev - 1
@@ -466,7 +466,7 @@ vector<LAFunction> LAFunction::getReductionOptions(double horizon) const {
 }
 
 
-LAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & r, double rightEndpoint) {
+ZAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & r, double rightEndpoint) {
     double a[] = { l.leftEndpoint, r.leftEndpoint, rightEndpoint };
     double b[] = { l.value(l.leftEndpoint), l.value(r.leftEndpoint), r.value(rightEndpoint) };
     if (b[1] < r.value(r.leftEndpoint)) {
@@ -493,7 +493,7 @@ LAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & 
 }
 
 
-void LAFunction::SubFunction::fromThreePoints(double a[3], double b[3]) {
+void ZAFunction::SubFunction::fromThreePoints(double a[3], double b[3]) {
     leftEndpoint = a[0];
     x = (b[2] - b[0] - (b[1] - b[0])*(a[2] - a[0])/(a[1] - a[0])) * a[0]*a[1]*a[2] / ((a[1] - a[2]) * (a[0] - a[2]));
     y = (b[1] - b[0]) / (a[1] - a[0]) + x / (a[0]*a[1]);
@@ -502,7 +502,7 @@ void LAFunction::SubFunction::fromThreePoints(double a[3], double b[3]) {
 }
 
 
-void LAFunction::SubFunction::fromTwoPointsAndSlope(double a[3], double b[3]) {
+void ZAFunction::SubFunction::fromTwoPointsAndSlope(double a[3], double b[3]) {
     double bprima = b[1];
     bool leftTangent = a[0] == a[1];
     leftEndpoint = a[0];
@@ -513,7 +513,7 @@ void LAFunction::SubFunction::fromTwoPointsAndSlope(double a[3], double b[3]) {
 }
 
 
-bool LAFunction::SubFunction::isBiggerThan(const SubFunction & l, const SubFunction & r, double rightEndpoint) const {
+bool ZAFunction::SubFunction::isBiggerThan(const SubFunction & l, const SubFunction & r, double rightEndpoint) const {
     // Pre: this function touches l at l.leftEndpoint and r at rightEndpoint
     double b2 = value(r.leftEndpoint) * 1.00001;  // Some margin...
     bool midPoint = b2 >= l.value(r.leftEndpoint) && b2 >= r.value(r.leftEndpoint);
@@ -528,21 +528,21 @@ bool LAFunction::SubFunction::isBiggerThan(const SubFunction & l, const SubFunct
 }
 
 
-double LAFunction::getSlowness(uint64_t a) const {
+double ZAFunction::getSlowness(uint64_t a) const {
     PieceVector::const_iterator next = pieces.begin(), it = next++;
     while (next != pieces.end() && next->covers(a)) it = next++;
     return it->value(a);
 }
 
 
-double LAFunction::estimateSlowness(uint64_t a, unsigned int n) const {
+double ZAFunction::estimateSlowness(uint64_t a, unsigned int n) const {
     PieceVector::const_iterator next = pieces.begin(), it = next++;
     while (next != pieces.end() && next->covers(a)) it = next++;
     return it->value(a, n);
 }
 
 
-void LAFunction::update(uint64_t length, unsigned int n) {
+void ZAFunction::update(uint64_t length, unsigned int n) {
     // FIXME: Invalidate?
     pieces.clear();
     pieces.push_back(SubFunction(minTaskLength, 0.0, INFINITY, 0.0, 0.0));
@@ -552,7 +552,7 @@ void LAFunction::update(uint64_t length, unsigned int n) {
 }
 
 
-double LAFunction::getSlowestMachine() const {
+double ZAFunction::getSlowestMachine() const {
     double result = 0.0;
     for (auto & i: pieces)
         if (i.z1 > result)

@@ -94,23 +94,16 @@ public:
             StarsNode & node = Simulator::getInstance().getNode(i);
             OverlayBranch & branch = node.getBranch();
             if (branch.inNetwork()) {
-                unsigned int rightAddr = branch.getRightAddress().getIPNum();
-                StarsNode & rightNode = Simulator::getInstance().getNode(rightAddr);
-                unsigned int targetAddr = (branch.isRightLeaf() ?
-                        rightNode.getLeaf().getFatherAddress()
-                        : rightNode.getBranch().getFatherAddress()).getIPNum();
-                if (targetAddr != i) {
-                    LogMsg("Sim.Tree", ERROR) << "Link mismatch: father of " << rightAddr << " is " << targetAddr
-                            << " and should be " << i;
-                }
-                unsigned int leftAddr = branch.getRightAddress().getIPNum();
-                StarsNode & leftNode = Simulator::getInstance().getNode(leftAddr);
-                targetAddr = (branch.isRightLeaf() ?
-                        leftNode.getLeaf().getFatherAddress()
-                        : leftNode.getBranch().getFatherAddress()).getIPNum();
-                if (targetAddr != i) {
-                    LogMsg("Sim.Tree", ERROR) << "Link mismatch: father of " << leftAddr << " is " << targetAddr
-                            << " and should be " << i;
+                for (int child : {0, 1}) {
+                    unsigned int childAddr = branch.getChildAddress(child).getIPNum();
+                    StarsNode & childNode = Simulator::getInstance().getNode(childAddr);
+                    unsigned int targetAddr = (branch.isLeaf(child) ?
+                            childNode.getLeaf().getFatherAddress()
+                            : childNode.getBranch().getFatherAddress()).getIPNum();
+                    if (targetAddr != i) {
+                        LogMsg("Sim.Tree", ERROR) << "Link mismatch: father of " << childAddr << " is " << targetAddr
+                                << " and should be " << i;
+                    }
                 }
             }
         }
@@ -144,26 +137,17 @@ public:
         SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(node.getBranch());
         LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress().getIPNum() << ": " << branch;
         if (level) {
-            // Right child
-            StarsNode & rightChild = Simulator::getInstance().getNode(branch.getRightAddress().getIPNum());
-            LogMsg("Sim.Tree", WARN) << prefix << "  |- " << branch.getRightZone();
+            for (int c : {0, 1}) {
+                // Right child
+                StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
+                LogMsg("Sim.Tree", WARN) << prefix << "  |- " << branch.getChildZone(c);
 
-            if (!branch.isRightLeaf()) {
-                showRecursiveStructure(rightChild, level - 1, prefix + "  |  ");
-            } else {
-                LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getRightAddress().getIPNum() << ": "
-                        << static_cast<SimOverlayLeaf &>(rightChild.getLeaf());
-            }
-
-            // Left child
-            StarsNode & leftChild = Simulator::getInstance().getNode(branch.getLeftAddress().getIPNum());
-            LogMsg("Sim.Tree", WARN) << prefix << "  \\- " << branch.getLeftZone();
-
-            if (!branch.isLeftLeaf()) {
-                showRecursiveStructure(leftChild, level - 1, prefix + "     ");
-            } else {
-                LogMsg("Sim.Tree", WARN) << prefix << "     " << "L@" << branch.getLeftAddress().getIPNum() << ": "
-                        << static_cast<SimOverlayLeaf &>(leftChild.getLeaf());
+                if (!branch.isLeaf(c)) {
+                    showRecursiveStructure(child, level - 1, prefix + "  |  ");
+                } else {
+                    LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getChildAddress(c).getIPNum() << ": "
+                            << static_cast<SimOverlayLeaf &>(child.getLeaf());
+                }
             }
         }
     }
@@ -186,34 +170,20 @@ public:
         else
             LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress().getIPNum() << ": " << " ?";
         if (level) {
-            // Right child
-            StarsNode & rightChild = Simulator::getInstance().getNode(branch.getRightAddress().getIPNum());
-            info = node.getDisp().getRightChildInfo();
-            if (info.get())
-                LogMsg("Sim.Tree", WARN) << prefix << "  |- " << *info;
-            else
-                LogMsg("Sim.Tree", WARN) << prefix << "  |- " << " ?";
+            for (int c : {0, 1}) {
+                StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
+                info = node.getDisp().getChildInfo(c);
+                if (info.get())
+                    LogMsg("Sim.Tree", WARN) << prefix << "  |- " << *info;
+                else
+                    LogMsg("Sim.Tree", WARN) << prefix << "  |- " << " ?";
 
-            if (!branch.isRightLeaf()) {
-                showRecursiveInfo(rightChild, level - 1, prefix + "  |  ");
-            } else {
-                LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getRightAddress().getIPNum() << ": "
-                        << rightChild << ' ' << rightChild.getSch().getAvailability();
-            }
-
-            // Left child
-            StarsNode & leftChild = Simulator::getInstance().getNode(branch.getLeftAddress().getIPNum());
-            info = node.getDisp().getLeftChildInfo();
-            if (info.get())
-                LogMsg("Sim.Tree", WARN) << prefix << "  \\- " << *info;
-            else
-                LogMsg("Sim.Tree", WARN) << prefix << "  \\- " << " ?";
-
-            if (!branch.isLeftLeaf()) {
-                showRecursiveInfo(leftChild, level - 1, prefix + "     ");
-            } else {
-                LogMsg("Sim.Tree", WARN) << prefix << "     " << "L@" << branch.getLeftAddress().getIPNum() << ": "
-                        << leftChild << ' ' << leftChild.getSch().getAvailability();
+                if (!branch.isLeaf(c)) {
+                    showRecursiveInfo(child, level - 1, prefix + "  |  ");
+                } else {
+                    LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getChildAddress(c).getIPNum() << ": "
+                            << child << ' ' << child.getSch().getAvailability();
+                }
             }
         }
     }

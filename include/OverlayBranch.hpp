@@ -40,23 +40,22 @@ protected:
 
 class OverlayBranch : public Service {
 public:
+    enum {
+        left = 0,
+        right = 1,
+    };
+
     virtual ~OverlayBranch() {}
 
     virtual bool inNetwork() const = 0;
 
     virtual const CommAddress & getFatherAddress() const = 0;
 
-    virtual const CommAddress & getLeftAddress() const = 0;
+    virtual const CommAddress & getChildAddress(int child) const = 0;
 
-    virtual double getLeftDistance(const CommAddress & src) const = 0;
+    virtual double getChildDistance(int child, const CommAddress & src) const = 0;
 
-    virtual bool isLeftLeaf() const = 0;
-
-    virtual const CommAddress & getRightAddress() const = 0;
-
-    virtual double getRightDistance(const CommAddress & src) const = 0;
-
-    virtual bool isRightLeaf() const = 0;
+    virtual bool isLeaf(int child) const = 0;
 
     void registerObserver(OverlayBranchObserver * o) {
         observers.push_back(o);

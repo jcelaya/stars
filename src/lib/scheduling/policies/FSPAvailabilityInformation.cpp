@@ -62,7 +62,7 @@ bool FSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
 
 void FSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & r) {
     LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating " << *this << " and " << r;
-    LAFunction newMaxL;
+    ZAFunction newMaxL;
     accumLsq += accumLsq + r.accumLsq
             + newMaxL.maxAndLoss(maxL, r.maxL, value, r.value, accumMaxL, r.accumMaxL, reference->lengthHorizon);
     accumMaxL.maxDiff(maxL, r.maxL, value, r.value, accumMaxL, r.accumMaxL);
@@ -90,7 +90,7 @@ void FSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const F
 }
 
 
-void FSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f) {
+void FSPAvailabilityInformation::getFunctions(const TaskDescription & req, std::vector<std::pair<ZAFunction *, unsigned int> > & f) {
     for (auto & i : summary)
         if (i.fulfills(req))
             f.push_back(std::make_pair(&i.maxL, i.value));

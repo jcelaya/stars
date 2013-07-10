@@ -45,12 +45,8 @@ public:
 
     static void setBeta(double b) { beta = b; }
 
-    boost::shared_ptr<MMPAvailabilityInformation> getLeftChildWaitingInfo() const {
-        return leftChild.waitingInfo;
-    }
-
-    boost::shared_ptr<MMPAvailabilityInformation> getRightChildWaitingInfo() const {
-        return rightChild.waitingInfo;
+    boost::shared_ptr<MMPAvailabilityInformation> getChildWaitingInfo(int c) const {
+        return child[c].waitingInfo;
     }
 
 private:
@@ -61,7 +57,7 @@ private:
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 
-    boost::shared_ptr<MMPAvailabilityInformation> getChildInfo(const Link & other);
+    boost::shared_ptr<MMPAvailabilityInformation> getChildInfo(int c);
 };
 
 #endif /*MMPDISPATCHER_H_*/

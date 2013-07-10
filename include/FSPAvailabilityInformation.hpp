@@ -32,7 +32,7 @@
 #include "Time.hpp"
 #include "TaskDescription.hpp"
 #include "FSPTaskList.hpp"
-#include "LAFunction.hpp"
+#include "ZAFunction.hpp"
 #include "ScalarParameter.hpp"
 
 namespace stars {
@@ -118,7 +118,7 @@ public:
             return minD.getValue() * value;
         }
 
-        const LAFunction & getMaximumSlowness() const {
+        const ZAFunction & getMaximumSlowness() const {
             return maxL;
         }
 
@@ -140,9 +140,9 @@ public:
 
         uint32_t value;
         MinParameter<int32_t, int64_t> minM, minD;
-        LAFunction maxL;
+        ZAFunction maxL;
         double accumLsq;
-        LAFunction accumMaxL;
+        ZAFunction accumMaxL;
     };
 
     MESSAGE_SUBCLASS(FSPAvailabilityInformation);
@@ -167,7 +167,7 @@ public:
      * Obtain the maximum slowness reached when allocating a set of tasks of a certain application.
      * @param req Application requirements.
      */
-    void getFunctions(const TaskDescription & req, std::vector<std::pair<LAFunction *, unsigned int> > & f);
+    void getFunctions(const TaskDescription & req, std::vector<std::pair<ZAFunction *, unsigned int> > & f);
 
     void setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power);
 
@@ -224,7 +224,7 @@ private:
     ClusteringList<MDLCluster> summary;   ///< List of clusters representing queues and their availability
     Interval<int32_t> memoryRange;
     Interval<int32_t> diskRange;
-    LAFunction minL, maxL;                ///< Minimum and maximum values of availability
+    ZAFunction minL, maxL;                ///< Minimum and maximum values of availability
     double lengthHorizon;                 ///< Last meaningful task length
     Interval<double> slownessRange;   /// Slowness among the nodes in this branch
     double slownessSquareDiff;

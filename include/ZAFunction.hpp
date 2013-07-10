@@ -18,8 +18,8 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LAFUNCTION_HPP_
-#define LAFUNCTION_HPP_
+#ifndef ZAFUNCTION_HPP_
+#define ZAFUNCTION_HPP_
 
 #include <vector>
 #include <utility>
@@ -29,7 +29,7 @@
 
 namespace stars {
 
-class LAFunction {
+class ZAFunction {
 public:
     class SubFunction {
     public:
@@ -87,25 +87,25 @@ public:
     }
 
     /// Default constructor
-    LAFunction() {
+    ZAFunction() {
         pieces.push_back(SubFunction());
     }
 
     /**
-     * Creates an LAFunction from a task queue.
+     * Creates an ZAFunction from a task queue.
      */
-    LAFunction(FSPTaskList curTasks, double power);
+    ZAFunction(FSPTaskList curTasks, double power);
 
-    LAFunction(const LAFunction & copy) : pieces(copy.pieces) {}
+    ZAFunction(const ZAFunction & copy) : pieces(copy.pieces) {}
 
-    LAFunction(LAFunction && copy) : pieces(std::move(copy.pieces)) {}
+    ZAFunction(ZAFunction && copy) : pieces(std::move(copy.pieces)) {}
 
-    LAFunction & operator=(const LAFunction & copy) {
+    ZAFunction & operator=(const ZAFunction & copy) {
         pieces = copy.pieces;
         return *this;
     }
 
-    LAFunction & operator=(LAFunction && copy) {
+    ZAFunction & operator=(ZAFunction && copy) {
         pieces = std::move(copy.pieces);
         return *this;
     }
@@ -115,22 +115,22 @@ public:
      * @param l The left function.
      * @param r The right function.
      */
-    void min(const LAFunction & l, const LAFunction & r);
+    void min(const ZAFunction & l, const ZAFunction & r);
 
     /**
      * The maximum of two functions.
      * @param l The left function.
      * @param r The right function.
      */
-    void max(const LAFunction & l, const LAFunction & r);
+    void max(const ZAFunction & l, const ZAFunction & r);
 
     /**
      * The sum of the differences between two functions and the maximum of them
      * @param l The left function.
      * @param r The right function.
      */
-    void maxDiff(const LAFunction & l, const LAFunction & r, unsigned int lv, unsigned int rv,
-                 const LAFunction & maxL, const LAFunction & maxR);
+    void maxDiff(const ZAFunction & l, const ZAFunction & r, unsigned int lv, unsigned int rv,
+                 const ZAFunction & maxL, const ZAFunction & maxR);
 
     /**
      * Calculates the squared difference with another function
@@ -138,14 +138,14 @@ public:
      * @param sh The measurement horizon for the stretch.
      * @param wh The measurement horizon for the application length.
      */
-    double sqdiff(const LAFunction & r, double ah) const;
+    double sqdiff(const ZAFunction & r, double ah) const;
 
     /**
      * Calculates the loss of the approximation to another function, with the least squares method, and the mean
      * of two functions at the same time
      */
-    double maxAndLoss(const LAFunction & l, const LAFunction & r, unsigned int lv, unsigned int rv,
-                      const LAFunction & maxL, const LAFunction & maxR, double ah);
+    double maxAndLoss(const ZAFunction & l, const ZAFunction & r, unsigned int lv, unsigned int rv,
+                      const ZAFunction & maxL, const ZAFunction & maxR, double ah);
 
     /**
      * Reduces the number of points of the function to a specific number, resulting in a function
@@ -153,10 +153,10 @@ public:
      */
     double reduceMax(double horizon, unsigned int quality = 10);
 
-    std::vector<LAFunction> getReductionOptions(double horizon) const;
+    std::vector<ZAFunction> getReductionOptions(double horizon) const;
 
     /// Comparison operator
-    bool operator==(const LAFunction & r) const {
+    bool operator==(const ZAFunction & r) const {
         return pieces == r.pieces;
     }
 
@@ -187,7 +187,7 @@ public:
     /// Return the maximum among z1 values
     double getSlowestMachine() const;
 
-    friend std::ostream & operator<<(std::ostream & os, const LAFunction & o) {
+    friend std::ostream & operator<<(std::ostream & os, const ZAFunction & o) {
         os << "[LAF";
         for (auto & i: o.pieces) {
             os << ' ' << i;
@@ -198,7 +198,7 @@ public:
     MSGPACK_DEFINE(pieces);
 private:
     // Steps through all the intervals of a pair of functions
-    template<int numF, typename Func> static void stepper(const LAFunction * (&f)[numF], Func step);
+    template<int numF, typename Func> static void stepper(const ZAFunction * (&f)[numF], Func step);
 
     static unsigned int numPieces;
 
@@ -208,4 +208,4 @@ private:
 
 } // namespace stars
 
-#endif /* LAFUNCTION_HPP_ */
+#endif /* ZAFUNCTION_HPP_ */

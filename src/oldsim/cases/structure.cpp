@@ -380,10 +380,10 @@ public:
         list<StarsNode *> sortedNodes;
         sortedNodes.push_back(&sim.getNode(currentLevel[0]));
         for (list<StarsNode *>::iterator i = sortedNodes.begin(); i != sortedNodes.end(); ++i) {
-            if (!(**i).getBranch().isLeftLeaf())
-                sortedNodes.push_back(&sim.getNode((**i).getBranch().getLeftAddress().getIPNum()));
-            if (!(**i).getBranch().isRightLeaf())
-                sortedNodes.push_back(&sim.getNode((**i).getBranch().getRightAddress().getIPNum()));
+            for (int j : {0, 1}) {
+                if (!(**i).getBranch().isLeaf(j))
+                    sortedNodes.push_back(&sim.getNode((**i).getBranch().getChildAddress(j).getIPNum()));
+            }
         }
         for (list<StarsNode *>::reverse_iterator i = sortedNodes.rbegin(); i != sortedNodes.rend(); ++i)
             (**i).buildDispatcher();

@@ -34,7 +34,7 @@ const unsigned int DPDispatcher::REQUEST_CACHE_SIZE = 100;
  */
 struct DPDispatcher::DecissionInfo {
     DPAvailabilityInformation::AssignmentInfo ai;
-    bool leftBranch;
+    int branch;
     double distance;
     uint64_t availability;
 
@@ -42,8 +42,8 @@ struct DPDispatcher::DecissionInfo {
     static const uint32_t ALPHA_DISK = 1;
     static const uint32_t ALPHA_COMP = 100;
 
-    DecissionInfo(const DPAvailabilityInformation::AssignmentInfo & c, bool b, double d)
-            : ai(c), leftBranch(b), distance(d) {
+    DecissionInfo(const DPAvailabilityInformation::AssignmentInfo & c, int b, double d)
+            : ai(c), branch(b), distance(d) {
         availability = ALPHA_MEM * ai.remngMem + ALPHA_DISK * ai.remngDisk + ALPHA_COMP * ai.remngAvail;
     }
 
@@ -94,26 +94,16 @@ void DPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // First create a list of node groups which can potentially manage the request
     list<DecissionInfo> groups;
     // Ignore the zone that has sent this message, only if it is a StructureNode, and zones without information
-    if ((msg.isFromEN() || leftChild.addr != src) && leftChild.availInfo.get()) {
-        list<DPAvailabilityInformation::AssignmentInfo> ai;
-        leftChild.availInfo->getAvailability(ai, req);
-        LogMsg("Dsp.Dl", DEBUG) << "Obtained " << ai.size() << " groups with enough availability";
-        for (list<DPAvailabilityInformation::AssignmentInfo>::iterator git = ai.begin();
-                git != ai.end(); git++) {
-            LogMsg("Dsp.Dl", DEBUG) << git->numTasks << " tasks with remaining availability " << git->remngAvail;
-            groups.push_back(DecissionInfo(*git, true, branch.getLeftDistance(msg.getRequester())));
-        }
-    }
-
-
-    if ((msg.isFromEN() || rightChild.addr != src) && rightChild.availInfo.get()) {
-        list<DPAvailabilityInformation::AssignmentInfo> ai;
-        rightChild.availInfo->getAvailability(ai, req);
-        LogMsg("Dsp.Dl", DEBUG) << "Obtained " << ai.size() << " groups with enough availability";
-        for (list<DPAvailabilityInformation::AssignmentInfo>::iterator git = ai.begin();
-                git != ai.end(); git++) {
-            LogMsg("Dsp.Dl", DEBUG) << git->numTasks << " tasks with remaining availability " << git->remngAvail;
-            groups.push_back(DecissionInfo(*git, false, branch.getLeftDistance(msg.getRequester())));
+    for (int c : {0, 1}) {
+        if ((msg.isFromEN() || child[c].addr != src) && child[c].availInfo.get()) {
+            list<DPAvailabilityInformation::AssignmentInfo> ai;
+            child[c].availInfo->getAvailability(ai, req);
+            LogMsg("Dsp.Dl", DEBUG) << "Obtained " << ai.size() << " groups with enough availability";
+            for (list<DPAvailabilityInformation::AssignmentInfo>::iterator git = ai.begin();
+                    git != ai.end(); git++) {
+                LogMsg("Dsp.Dl", DEBUG) << git->numTasks << " tasks with remaining availability " << git->remngAvail;
+                groups.push_back(DecissionInfo(*git, c, branch.getChildDistance(c, msg.getRequester())));
+            }
         }
     }
 
@@ -121,31 +111,30 @@ void DPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     LogMsg("Dsp.Dl", DEBUG) << groups.size() << " groups found";
 
     // Now divide the request between the zones
-    list<DPAvailabilityInformation::AssignmentInfo> leftAssgn, rightAssgn;
-    unsigned int leftTasks = 0, rightTasks = 0;
+    list<DPAvailabilityInformation::AssignmentInfo> assign[2];
+    unsigned int numTasks[2] = {0, 0};
     for (list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.Dl", DEBUG) << "Using group from " << (it->leftBranch ? "left" : "right") << " branch and " << it->ai.numTasks << " tasks";
+        LogMsg("Dsp.Dl", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->ai.numTasks << " tasks";
         unsigned int tasksInGroup = it->ai.numTasks;
         if (remainingTasks > tasksInGroup) {
-            (it->leftBranch ? leftTasks : rightTasks) += tasksInGroup;
+            numTasks[it->branch] += tasksInGroup;
             remainingTasks -= tasksInGroup;
-            (it->leftBranch ? leftAssgn : rightAssgn).push_back(it->ai);
+            assign[it->branch].push_back(it->ai);
         } else {
-            (it->leftBranch ? leftTasks : rightTasks) += remainingTasks;
-            (it->leftBranch ? leftAssgn : rightAssgn).push_back(it->ai);
-            (it->leftBranch ? leftAssgn : rightAssgn).back().numTasks = remainingTasks;
+            numTasks[it->branch] += remainingTasks;
+            assign[it->branch].push_back(it->ai);
+            assign[it->branch].back().numTasks = remainingTasks;
             remainingTasks = 0;
         }
     }
 
     // Update the availability information
-    if (leftChild.availInfo.get())
-        leftChild.availInfo->update(leftAssgn, req);
-    if (rightChild.availInfo.get())
-        rightChild.availInfo->update(rightAssgn, req);
+    for (int c : {0, 1})
+        if (child[c].availInfo.get())
+            child[c].availInfo->update(assign[c], req);
     // Send the result to the father
     recomputeInfo();
     notify();
 
-    sendTasks(msg, leftTasks, rightTasks, father.addr == CommAddress());
+    sendTasks(msg, numTasks, father.addr == CommAddress());
 }

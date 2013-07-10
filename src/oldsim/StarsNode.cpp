@@ -186,7 +186,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
         }
     }
     stars::LDeltaFunction::setNumPieces(property("dp_pieces", 8U));
-    stars::LAFunction::setNumPieces(property("fsp_pieces", 64U));
+    stars::ZAFunction::setNumPieces(property("fsp_pieces", 64U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     FSPDispatcher::setBeta(property("fsp_beta", 2.0));
     SimAppDatabase::reset();
@@ -543,13 +543,13 @@ template <class T> void StarsNode::buildDispatcherGen() {
     MemoryOutArchive oaa(vv.begin());
     typename T::Link fatherLink, leftLink, rightLink;
     fatherLink.addr = getBranch().getFatherAddress();
-    leftLink.addr = getBranch().getLeftAddress();
-    rightLink.addr = getBranch().getRightAddress();
-    if (getBranch().isLeftLeaf())
+    leftLink.addr = getBranch().getChildAddress(0);
+    rightLink.addr = getBranch().getChildAddress(1);
+    if (getBranch().isLeaf(0))
         leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getSch().getAvailability().clone()));
     else
         leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
-    if (getBranch().isRightLeaf())
+    if (getBranch().isLeaf(1))
         rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getSch().getAvailability().clone()));
     else
         rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
@@ -588,10 +588,10 @@ template <class T> void StarsNode::buildDispatcherDownGen() {
     boost::shared_ptr<typename T::availInfoType> & fatherInfo = *static_cast<boost::shared_ptr<typename T::availInfoType> *>(vv[1]);
     if (fatherAddr != CommAddress()) {
         StarsNode & father = sim.getNode(fatherAddr.getIPNum());
-        if (father.getBranch().getLeftAddress() == localAddress) {
-            fatherInfo.reset(static_cast<T &>(father.getDisp()).getLeftChildWaitingInfo()->clone());
+        if (father.getBranch().getChildAddress(0) == localAddress) {
+            fatherInfo.reset(static_cast<T &>(father.getDisp()).getChildWaitingInfo(0)->clone());
         } else {
-            fatherInfo.reset(static_cast<T &>(father.getDisp()).getRightChildWaitingInfo()->clone());
+            fatherInfo.reset(static_cast<T &>(father.getDisp()).getChildWaitingInfo(1)->clone());
         }
     }
     static_cast<T &>(getDisp()).recomputeInfo();
