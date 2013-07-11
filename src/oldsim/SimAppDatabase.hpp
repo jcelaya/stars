@@ -44,12 +44,22 @@ public:
     struct Request {
         int64_t rid;
         Time rtime, stime;
-        size_t numNodes, acceptedTasks, remainingTasks;
+        size_t acceptedTasks, remainingTasks;
         std::vector<RemoteTask *> tasks;
 //        friend std::ostream & operator<<(std::ostream& os, const Request & r) {
 //            return os << "(A=" << r.appId << ", r=" << r.rtime << ", s=" << r.stime
 //                    << ", n=" << r.numNodes << ", a=" << r.acceptedTasks << ", t=" << r.tasks.size() << ")";
 //        }
+        size_t countNodes() const {
+            std::list<CommAddress> hosts;
+            for (auto & task : tasks) {
+                if (task)
+                    hosts.push_back(task->host);
+            }
+            hosts.sort();
+            hosts.unique();
+            return hosts.size();
+        }
     };
 
     struct AppInstance {

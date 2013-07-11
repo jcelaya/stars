@@ -125,7 +125,7 @@ void TaskBagAppDatabase::requestFromReadyTasks(int64_t appId, TaskBagMsg & msg) 
         instance.requests.push_back(SimAppDatabase::Request());
         SimAppDatabase::Request & r = instance.requests.back();
         r.rid = rid;
-        r.acceptedTasks = r.numNodes = 0;
+        r.acceptedTasks = 0;
 
         // Look for ready tasks
         for (vector<SimAppDatabase::RemoteTask>::iterator t = instance.tasks.begin(); t != instance.tasks.end(); t++) {
@@ -163,8 +163,7 @@ bool TaskBagAppDatabase::startSearch(int64_t rid, Time timeout) {
         request->rtime = request->stime = Time::getCurrentTime();
         LogMsg("Database.Sim", DEBUG) << "Submitting request " << rid;
         for (vector<SimAppDatabase::RemoteTask *>::iterator t = request->tasks.begin(); t != request->tasks.end(); ++t)
-            if (*t != NULL)
-                (*t)->state = SimAppDatabase::RemoteTask::SEARCHING;
+            (*t)->state = SimAppDatabase::RemoteTask::SEARCHING;
         return true;
     }
     return false;
@@ -214,7 +213,6 @@ unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t 
             // Update last search time
             request->stime = Time::getCurrentTime();
             LogMsg("Database.Sim", DEBUG) << "Update search time to " << (request->stime - request->rtime).seconds() << " seconds";
-            request->numNodes++;
         }
     }
     return accepted;
@@ -243,7 +241,6 @@ bool TaskBagAppDatabase::finishedTask(const CommAddress & src, int64_t rid, unsi
             return false;
         } else {
             request->tasks[rtid]->state = SimAppDatabase::RemoteTask::FINISHED;
-            request->tasks[rtid] = NULL;
             --request->remainingTasks;
             return true;
         }

@@ -225,7 +225,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, int64_t appId, Time end, 
     for (std::list<SimAppDatabase::Request>::const_iterator it = requests.begin(); it != requests.end(); ++it) {
         double search = (it->stime - it->rtime).seconds();
         reqos << it->rid << ',' << appId << ',' << node.getLocalAddress() << ','
-            << it->tasks.size() << ',' << it->numNodes << ',' << it->acceptedTasks << ','
+            << it->tasks.size() << ',' << it->countNodes() << ',' << it->acceptedTasks << ','
             << std::setprecision(3) << std::fixed << (it->rtime.getRawDate() / 1000000.0) << ','
             << std::setprecision(8) << std::fixed << search << std::endl;
     }

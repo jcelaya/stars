@@ -189,20 +189,19 @@ protected:
             // Delay this message
             LogMsg("Dsp", DEBUG) << "In the middle of a change, delaying";
             delayedUpdates.push_back(AddrMsg(src, boost::shared_ptr<T>(msg.clone())));
-            return;
-        }
-
-        if ((!msg.isFromSch() && father.update(src, msg)) || child[0].update(src, msg) || child[1].update(src, msg)) {
+        } else if ((!msg.isFromSch() && father.update(src, msg)) || child[0].update(src, msg) || child[1].update(src, msg)) {
             // Check if the resulting zone changes
             if (!delayed) {
                 recomputeInfo();
+                informationUpdated();
                 notify();
             }
-            return;
+        } else {
+            LogMsg("Dsp", INFO) << "Comes from unknown node, maybe old info?";
         }
-
-        LogMsg("Dsp", INFO) << "Comes from unknown node, maybe old info?";
     }
+
+    virtual void informationUpdated() {}
 
     /**
      * An update timer, to signal when an update is allowed to be sent in order to not overcome

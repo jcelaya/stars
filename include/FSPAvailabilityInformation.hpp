@@ -147,8 +147,17 @@ public:
 
     MESSAGE_SUBCLASS(FSPAvailabilityInformation);
 
-    FSPAvailabilityInformation() : AvailabilityInformation(), memoryRange(0), diskRange(0),
-            lengthHorizon(0.0), slownessRange(0.0) {}
+    FSPAvailabilityInformation() : AvailabilityInformation() { reset();}
+
+    void reset() {
+        summary.clear();
+        memoryRange.setLimits(0);
+        diskRange.setLimits(0);
+        minL = maxL = ZAFunction();
+        lengthHorizon = 0.0;
+        slownessRange.setLimits(0.0);
+        slownessSquareDiff = 0.0;
+    }
 
     static void setNumClusters(unsigned int c) {
         numClusters = c;
