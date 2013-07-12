@@ -75,6 +75,8 @@ public:
 
     double plotSampledGetMaxDifference(int n, std::ostream & os);
 
+    double getRealSlowness(double a, unsigned int n);
+
     double power;
     FSPTaskList proxys;
     ZAFunction function;
@@ -97,32 +99,8 @@ double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) 
     const vector<double> & lBounds = proxys.getBoundaries();
 
     forAinDomain(horizon*1.2, [&] (uint64_t a) {
-        // Add a new task of length a
-        if (!proxys.empty()) {
-            vector<double> lBoundsTmp(lBounds);
-            for (FSPTaskList::iterator it = ++proxys.begin(); it != proxys.end(); ++it)
-                if (it->a != a) {
-                    double l = (now - it->rabs).seconds() / (it->a - a);
-                    if (l > 0.0) {
-                        lBoundsTmp.push_back(l);
-                    }
-                }
-            std::sort(lBoundsTmp.begin(), lBoundsTmp.end());
-            for (int i = 0; i < n; ++i)
-                proxys.push_back(TaskProxy(a, power, now));
-            proxys.sortMinSlowness(lBoundsTmp);
-        } else
-            for (int i = 0; i < n; ++i)
-                proxys.push_back(TaskProxy(a, power, now));
-        double estimate = function.estimateSlowness(a, n), real = 0.0;
-        Time e = Time::getCurrentTime();
-        // For each task, calculate finishing time
-        for (FSPTaskList::iterator i = proxys.begin(); i != proxys.end(); ++i) {
-            e += Duration(i->t);
-            double slowness = (e - i->rabs).seconds() / i->a;
-            if (slowness > real)
-                real = slowness;
-        }
+        double estimate = function.estimateSlowness(a, n),
+               real = getRealSlowness(a, n);
         double difference;
         {
             double diff = std::fabs(estimate - real);
@@ -132,15 +110,21 @@ double QueueFunctionPair::plotSampledGetMaxDifference(int n, std::ostream & os) 
         }
         if (difference > maxDiff) maxDiff = difference;
         os << a << ',' << estimate << ',' << real << ',' << difference << "  # ";
-        for (FSPTaskList::iterator i = proxys.begin(); i != proxys.end();) {
-            os << i->id << ',';
-            if (i->id == (unsigned int)-1)
-                proxys.erase(i++);
-            else ++i;
+        for (auto & i : proxys) {
+            os << i.id << ',';
         }
         os << endl;
     } );
     return maxDiff;
+}
+
+
+double QueueFunctionPair::getRealSlowness(double a, unsigned int n) {
+    Time now = Time::getCurrentTime();
+    FSPTaskList tmp(proxys);
+    tmp.addTasks(TaskProxy(a, power, now), n);
+    tmp.sortMinSlowness();
+    return tmp.getSlowness();
 }
 
 
@@ -213,12 +197,19 @@ BOOST_AUTO_TEST_CASE(ZAFunction_estimateSlowness) {
     f.createNTaskFunction(20);
     forAinDomain(f.horizon, [&] (uint64_t a) {
         // Check the estimation of one task
-        BOOST_CHECK_CLOSE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1), 0.01);
-        BOOST_CHECK_LE(f.function.getSlowness(a), f.function.estimateSlowness(a, 1));
-        BOOST_CHECK_LE(f.function.estimateSlowness(a, 1), f.function.estimateSlowness(a, 2));
-        BOOST_CHECK_LE(f.function.estimateSlowness(a, 2), f.function.estimateSlowness(a, 3));
-        BOOST_CHECK_LE(f.function.estimateSlowness(a, 3), f.function.estimateSlowness(a, 4));
-        BOOST_CHECK_LE(f.function.estimateSlowness(a, 4), f.function.estimateSlowness(a, 5));
+        double estimate[6];
+        double real[6];
+        estimate[1] = f.function.estimateSlowness(a, 1);
+        real[1] = f.getRealSlowness(a, 1);
+        BOOST_CHECK_CLOSE(f.function.getSlowness(a), estimate[1], 0.01);
+        BOOST_CHECK_LE(f.function.getSlowness(a), estimate[1]);
+        for (int i : {2, 3, 4, 5}) {
+            estimate[i] = f.function.estimateSlowness(a, i);
+            real[i] = f.getRealSlowness(a, i);
+            BOOST_CHECK_LE(estimate[i - 1], estimate[i]);
+            BOOST_CHECK_LE(real[i - 1], real[i]);
+            BOOST_CHECK_LE(real[i], estimate[i] * 1.00001);
+        }
     } );
 }
 
