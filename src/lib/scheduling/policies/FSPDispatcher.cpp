@@ -42,50 +42,51 @@ class FunctionVector : public std::vector<FunctionInfo> {
 public:
     FunctionVector(std::list<FSPAvailabilityInformation::MDLCluster *> clusters[2], double bs[2])
             : std::vector<FunctionInfo>(clusters[0].size() + clusters[1].size()),
-              totalTasks(0), diffWithRequest(0), branchSlowness{bs[0], bs[1]} {
+              totalTasks(0), diffWithRequest(0), minSlowness(INFINITY),
+              branchSlowness{bs[0], bs[1]}, worstChild(0) {
         size_t j = 0;
+        totalNodes = 0;
         for (int c : {0, 1}) {
+            nodesPerBranch[c] = totalNodes;
             for (auto i : clusters[c]) {
                 (*this)[j].f = &i->getMaximumSlowness();
                 (*this)[j].v = i->getValue();
                 (*this)[j].child = c;
                 (*this)[j].slowness = INFINITY;
                 (*this)[j].tasks = 0;
+                totalNodes += i->getValue();
                 ++j;
             }
+            nodesPerBranch[c] = totalNodes - nodesPerBranch[c];
         }
     }
 
     void computeTasksPerFunction(unsigned int numTasksReq, uint64_t a) {
         if (!empty()) {
-            bool tryOneMoreTask = true;
-            for (int currentTpn = 1; tryOneMoreTask; ++currentTpn) {
-                // Try with one more task per node
-                tryOneMoreTask = false;
+            minSlowness = 0.0;
+            for (int currentTpn = 1; totalTasks < numTasksReq; ++currentTpn) {
+                vector<std::pair<double, FunctionInfo *>> slownessHeap;
                 for (auto & func : *this) {
-                    // With those functions that got an additional task per node in the last iteration,
-                    if (func.tasks == currentTpn - 1) {
-                        // calculate the slowness with one task more
-                        double slowness = currentTpn == 1 ?
-                                func.f->getSlowness(a)
-                                : func.f->estimateSlowness(a, currentTpn);
-                        // Check that it is not under the minimum of its branch
-                        if (slowness < branchSlowness[func.child]) {
-                            slowness = branchSlowness[func.child];
-                        }
-                        // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
-                        if (totalTasks < numTasksReq || slowness < slownessHeap.front()->slowness) {
-                            // Add one task per node to that function
-                            ++func.tasks;
-                            func.slowness = slowness;
-                            slownessHeap.push_back(&func);
-                            std::push_heap(slownessHeap.begin(), slownessHeap.end());
-                            totalTasks += func.v;
-                            removeExceedingTasks(numTasksReq);
-                            // As long as one function gets another task, we continue trying
-                            tryOneMoreTask = true;
-                        }
+                    double slowness = currentTpn == 1 ?
+                            func.f->getSlowness(a)
+                            : func.f->estimateSlowness(a, currentTpn);
+                    // Check that it is not under the minimum of its branch
+                    if (slowness < branchSlowness[func.child]) {
+                        slowness = branchSlowness[func.child];
                     }
+                    slownessHeap.push_back(std::make_pair(slowness, &func));
+                    std::push_heap(slownessHeap.begin(), slownessHeap.end(), compare);
+                }
+                while (!slownessHeap.empty() && totalTasks < numTasksReq) {
+                    std::pop_heap(slownessHeap.begin(), slownessHeap.end(), compare);
+                    auto & func = *slownessHeap.back().second;
+                    func.tasks++;
+                    func.slowness = slownessHeap.back().first;
+                    if (minSlowness < func.slowness) {
+                        minSlowness = func.slowness;
+                        worstChild = func.child;
+                    }
+                    totalTasks += func.v;
                 }
             }
             diffWithRequest = totalTasks - numTasksReq;
@@ -96,29 +97,36 @@ public:
     const double * getNewBranchSlowness() const { return branchSlowness; }
 
     double getMinimumSlowness() const {
-        return empty() ? INFINITY : slownessHeap.front()->slowness;
+        return minSlowness;
     }
 
     void computeTasksPerBranch(unsigned int tpb[2]) {
         for (auto & func : *this) {
             if (func.tasks) {
                 unsigned int tasksToCluster = func.tasks * func.v;
-                if (&func == slownessHeap.front()) {
-                    tasksToCluster -= diffWithRequest;
-                }
                 tpb[func.child] += tasksToCluster;
-                //func.f->update(a, tpn[i]);
             }
         }
+        tpb[worstChild] -= diffWithRequest;
+    }
+
+    unsigned int getTotalNodes() const {
+        return totalNodes;
+    }
+
+    unsigned int getNodesOfBranch(int c) const {
+        return nodesPerBranch[c];
     }
 
 private:
-    unsigned int totalTasks, diffWithRequest;
-    vector<FunctionInfo *> slownessHeap;
+    unsigned int totalTasks, diffWithRequest, totalNodes;
+    unsigned int nodesPerBranch[2];
+    double minSlowness;
     double branchSlowness[2];
+    int worstChild;
 
-    static bool compare(FunctionInfo * l, FunctionInfo * r) {
-        return l->slowness < r->slowness;
+    static bool compare(const std::pair<double, FunctionInfo *> & l, const std::pair<double, FunctionInfo *> & r) {
+        return l.first > r.first;
     }
 
     void updateBranchSlowness() {
@@ -130,16 +138,18 @@ private:
             }
         }
     }
-
-    void removeExceedingTasks(unsigned int numTasksReq) {
-        while (totalTasks - slownessHeap.front()->v >= numTasksReq) {
-            totalTasks -= slownessHeap.front()->v;
-            --slownessHeap.front()->tasks;
-            std::pop_heap(slownessHeap.begin(), slownessHeap.end());
-            slownessHeap.pop_back();
-        }
-    }
 };
+
+
+void FSPDispatcher::informationUpdated() {
+    while (!delayedRequests.empty() && validInformation()) {
+        LogMsg("Dsp.FSP", INFO) << "Relaunch request";
+        TaskBagMsg * msg = delayedRequests.front();
+        delayedRequests.pop_front();
+        handle(child[0].addr, *msg);
+        delete msg;
+    }
+}
 
 
 void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
@@ -147,14 +157,22 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
     showMsgSource(src, msg);
 
+    if (!validInformation()) {
+        delayedRequests.push_back(msg.clone());
+        LogMsg("Dsp.FSP", INFO) << "Invalid information, waiting...";
+        return;
+    }
+//    if (!msg.isFromEN() && (
+//            (src == child[0].addr && (!child[0].availInfo.get() || msg.getInfoSequenceUsed() > child[0].availInfo->getSeq())) ||
+//            (src == child[1].addr && (!child[1].availInfo.get() || msg.getInfoSequenceUsed() > child[1].availInfo->getSeq())))) {
+//        delayedRequests.push_back(msg.clone());
+//        LogMsg("Dsp.FSP", INFO) << "Outdated information, waiting...";
+//        return;
+//    }
+
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
-
-    // If it is comming from the father, update its notified information
-//	if (!msg.isFromEN() && structureNode.getFather() == src && father.availInfo.get()) {
-//		father.availInfo->update(numTasks, req.getLength());
-//	}
 
     std::list<FSPAvailabilityInformation::MDLCluster *> clusters[2];
     double branchSlowness[2] = {0.0, 0.0};
@@ -169,18 +187,24 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     functions.computeTasksPerFunction(numTasksReq, a);
     double minSlowness = functions.getMinimumSlowness();
     LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << minSlowness;
+    unsigned int numTasks[2] = {0, 0};
+    functions.computeTasksPerBranch(numTasks);
 
-    if (minSlowness <= getSlownessLimit(src, msg)) {
-        unsigned int numTasks[2] = {0, 0};
-        functions.computeTasksPerBranch(numTasks);
+    if (mustGoDown(src, msg) ||
+            (functions.getNodesOfBranch(0) >= numTasks[0] &&
+             functions.getNodesOfBranch(1) >= numTasks[1] &&
+             minSlowness <= getSlownessLimit())) {
         LogMsg("Dsp.FSP", DEBUG) << "Sending " << numTasks[0] << " tasks to left child (" << child[0].addr << ")"
                 " and " << numTasks[1] << " tasks to right child (" << child[1].addr << ")";
         sendTasks(msg, numTasks, false);
 
         updateBranchSlowness(functions.getNewBranchSlowness());
+        // Invalidate children info
+        if (numTasks[0]) child[0].availInfo->reset();
+        if (numTasks[1]) child[1].availInfo->reset();
         recomputeInfo();
         // Only notify the father if the message does not come from it
-        if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
+        if (!mustGoDown(src, msg)) {
             notify();
         }
     } else {
@@ -190,23 +214,19 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 }
 
 
-double FSPDispatcher::getSlownessLimit(const CommAddress & src, const TaskBagMsg & msg) const {
-    double slownessLimit = INFINITY;
-    // if we are not the root and the message does not come from the father
-    if (father.addr != CommAddress() && (msg.isFromEN() || father.addr != src)) {
-        boost::shared_ptr<FSPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
-        // Compare the slowness reached by the new application with the one in the rest of the tree,
-        slownessLimit = zoneInfo->getMaximumSlowness();
-        LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in this branch is " << slownessLimit;
-        if (father.availInfo.get()) {
-            slownessLimit = father.availInfo->getMaximumSlowness();
-            LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in the rest of the tree is " << slownessLimit;
-        }
-        LogMsg("Dsp.FSP", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
-        if (zoneInfo->getSlowestMachine() > slownessLimit)
-            slownessLimit = zoneInfo->getSlowestMachine();
-        slownessLimit *= beta;
+double FSPDispatcher::getSlownessLimit() const {
+    boost::shared_ptr<FSPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+    // Compare the slowness reached by the new application with the one in the rest of the tree,
+    double slownessLimit = zoneInfo->getMaximumSlowness();
+    LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in this branch is " << slownessLimit;
+    if (father.availInfo.get()) {
+        slownessLimit = father.availInfo->getMaximumSlowness();
+        LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in the rest of the tree is " << slownessLimit;
     }
+    LogMsg("Dsp.FSP", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
+    if (zoneInfo->getSlowestMachine() > slownessLimit)
+        slownessLimit = zoneInfo->getSlowestMachine();
+    slownessLimit *= beta;
     return slownessLimit;
 }
 

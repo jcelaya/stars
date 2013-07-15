@@ -116,9 +116,9 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
         const TaskDescription & desc = msg.getMinRequirements();
         // Check static constraints
         if (desc.getMaxMemory() > backend.impl->getAvailableMemory()) {
-            LogMsg("Ex.Sch", DEBUG) << "Not enough memory to execute the task: " << desc.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
+            LogMsg("Ex.Sch", WARN) << "Not enough memory to execute the task: " << desc.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
         } else if (desc.getMaxDisk() > backend.impl->getAvailableDisk()) {
-            LogMsg("Ex.Sch", DEBUG) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
+            LogMsg("Ex.Sch", WARN) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
         } else {
             // Take the TaskDescription object and try to accept it
             LogMsg("Ex.Sch", INFO) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();

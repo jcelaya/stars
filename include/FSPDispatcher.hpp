@@ -21,6 +21,7 @@
 #ifndef FSPDISPATCHER_H_
 #define FSPDISPATCHER_H_
 
+#include <list>
 #include "Dispatcher.hpp"
 #include "FSPAvailabilityInformation.hpp"
 #include "Time.hpp"
@@ -52,10 +53,23 @@ public:
 
 private:
     static double beta;
+    std::list<TaskBagMsg *> delayedRequests;
 
-    double getSlownessLimit(const CommAddress & src, const TaskBagMsg & msg) const;
+    double getSlownessLimit() const;
+
+    bool mustGoDown(const CommAddress & src, const TaskBagMsg & msg) const {
+        return father.addr == CommAddress() || (!msg.isFromEN() && father.addr == src);
+    }
 
     void updateBranchSlowness(const double branchSlowness[2]);
+
+    bool validInformation() const {
+        return (father.waitingInfo.get() && !father.waitingInfo->getSummary().empty()) ||
+               (!father.waitingInfo.get() && father.notifiedInfo.get() && !father.notifiedInfo->getSummary().empty());
+    }
+
+    // This is documented in Dispatcher.
+    virtual void informationUpdated();
 
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);

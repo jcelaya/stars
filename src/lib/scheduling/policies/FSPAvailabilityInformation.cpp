@@ -105,26 +105,16 @@ double FSPAvailabilityInformation::getSlowestMachine() const {
 
 
 void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
-    if (!r.summary.empty()) {
-        LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
-
-        if (summary.empty()) {
-            // operator= forbidden
-            memoryRange = r.memoryRange;
-            diskRange = r.diskRange;
-            minL = r.minL;
-            maxL = r.maxL;
+    if (r.summary.empty()) {
+        reset();   // Invalidate!!
+    } else if (!summary.empty()) {
+        memoryRange.extend(r.memoryRange);
+        diskRange.extend(r.diskRange);
+        minL.min(minL, r.minL);
+        maxL.max(maxL, r.maxL);
+        if (lengthHorizon < r.lengthHorizon)
             lengthHorizon = r.lengthHorizon;
-            slownessRange = r.slownessRange;
-        } else {
-            memoryRange.extend(r.memoryRange);
-            diskRange.extend(r.diskRange);
-            minL.min(minL, r.minL);
-            maxL.max(maxL, r.maxL);
-            if (lengthHorizon < r.lengthHorizon)
-                lengthHorizon = r.lengthHorizon;
-            slownessRange.extend(r.slownessRange);
-        }
+        slownessRange.extend(r.slownessRange);
         summary.insert(summary.end(), r.summary.begin(), r.summary.end());
     }
 }
