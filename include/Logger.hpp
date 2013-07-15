@@ -40,6 +40,13 @@ public:
         AbstractTypeContainer * next;
     };
 
+    static const class Indent {
+    public:
+        friend std::ostream & operator<<(std::ostream & os, const Indent & r) {
+            return os << std::endl << LogMsg::getIndent();
+        }
+    } indent;
+
     /**
      * Initializes the logging facility with a configuration string. The string contains the same
      * pairs, separated by a semicolon.
@@ -53,6 +60,14 @@ public:
             end = config.find_first_of(';', start);
         }
         setPriority(config.substr(start));
+    }
+
+    static const std::string & getIndent() {
+        return currentIndent;
+    }
+
+    static void setIndent(size_t n) {
+        currentIndent = std::string(n, ' ');
     }
 
     LogMsg(const char * c, int p) : first(NULL), last(NULL), category(c), priority(p) {}
@@ -91,6 +106,8 @@ private:
     AbstractTypeContainer * first, * last;
     const char * category;
     int priority;
+    static std::string currentIndent;
+
     static void log(const char * category, int priority, AbstractTypeContainer * values);
     static void setPriority(const std::string & catPrio);
 };

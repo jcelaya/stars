@@ -34,6 +34,9 @@ struct fix2hourdigits {
 }
 
 
+std::string LogMsg::currentIndent;
+const LogMsg::Indent LogMsg::indent;
+
 void LogMsg::setPriority(const std::string & catPrio) {
     int pos = catPrio.find_first_of('=');
     if (pos == (int)std::string::npos) return;

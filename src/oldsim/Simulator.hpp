@@ -138,6 +138,7 @@ public:
     void progressLog(const std::string & msg);
     bool isLogEnabled(const std::string & category, int priority);
     boost::iostreams::filtering_ostream & getDebugArchive() { return debugArchive; }
+    bool isLastLogMoment();
 
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
 
@@ -164,6 +165,8 @@ private:
     fs::ofstream progressFile, debugFile;
     boost::iostreams::filtering_ostream debugArchive;
     StarsNode * debugNode;
+    Time lastDebugTime;
+    StarsNode * lastDebugNode;
     boost::shared_ptr<CentralizedScheduler> cs;
     FailureGenerator fg;
 

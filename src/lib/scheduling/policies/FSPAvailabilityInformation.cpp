@@ -132,11 +132,13 @@ void FSPAvailabilityInformation::reduce() {
 
 
 void FSPAvailabilityInformation::output(std::ostream & os) const {
-    os << slownessRange.getMin() << "s/i, ";
-    os << '(' << minL << ", " << maxL << ") (";
-    for (auto & i : summary)
-        os << i << ',';
-    os << ')';
+    os << slownessRange.getMin() << "s/i";
+    if (!summary.empty()) {
+        os << LogMsg::indent << "  (" << minL << ", " << maxL << ") {" << LogMsg::indent;
+        for (auto & i : summary)
+            os << "    " << i << LogMsg::indent;
+        os << "  }";
+    }
 }
 
 }

@@ -64,12 +64,18 @@ void LogMsg::log(const char * category, int priority, AbstractTypeContainer * va
             boost::iostreams::filtering_ostream & debugArchive = sim.getDebugArchive();
             Duration realTime(sim.getRealTime().total_microseconds());
             Time curTime = sim.getCurrentTime();
-            debugArchive << realTime << ' ' << curTime << ' ';
-            if(sim.inEvent())
-                debugArchive << sim.getCurrentNode().getLocalAddress() << ' ';
-            else
-                debugArchive << "sim.control ";
-            debugArchive << category << '(' << priority << ')' << ' ';
+            if (!sim.isLastLogMoment()) {
+                debugArchive << endl << realTime << ' ' << curTime << ' ';
+                if(sim.inEvent())
+                    debugArchive << sim.getCurrentNode().getLocalAddress() << ' ';
+                else
+                    debugArchive << "sim.control ";
+                debugArchive << endl;
+            }
+            ostringstream oss;
+            oss << "    " << category << '(' << priority << ')' << ' ';
+            debugArchive << oss.str();
+            LogMsg::setIndent(oss.tellp());
 
             for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
                 debugArchive << *it;
@@ -77,6 +83,24 @@ void LogMsg::log(const char * category, int priority, AbstractTypeContainer * va
             debugArchive << endl;
         }
     }
+}
+
+
+bool Simulator::isLastLogMoment() {
+    if (inEvent()) {
+        if (lastDebugTime == time && lastDebugNode == currentNode) return true;
+        else {
+            lastDebugTime = time;
+            lastDebugNode = currentNode;
+        }
+    } else {
+        if (lastDebugTime == time && lastDebugNode == NULL) return true;
+        else {
+            lastDebugTime = time;
+            lastDebugNode = NULL;
+        }
+    }
+    return false;
 }
 
 
