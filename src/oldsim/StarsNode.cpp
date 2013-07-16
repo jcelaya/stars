@@ -170,6 +170,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setHeartbeat(property("heartbeat", 300));
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
     ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
+    ConfigurationManager::getInstance().setRequestTimeout(property("request_timeout", 30.0));
     unsigned int clustersBase = property("avail_clusters_base", 0U);
     if (clustersBase) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);

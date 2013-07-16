@@ -68,6 +68,9 @@ REGISTER_SIMULATION_CASE(sigsev);
 
 
 class networkCheck : public SimulationCase {
+    static const char * prefixDash[2];
+    static const char * prefixNoDash[2];
+
 public:
     networkCheck(const Properties & p) : SimulationCase(p) {
         // Prepare the properties
@@ -140,12 +143,12 @@ public:
             for (int c : {0, 1}) {
                 // Right child
                 StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
-                LogMsg("Sim.Tree", WARN) << prefix << "  |- " << branch.getChildZone(c);
+                LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << branch.getChildZone(c);
 
                 if (!branch.isLeaf(c)) {
-                    showRecursiveStructure(child, level - 1, prefix + "  |  ");
+                    showRecursiveStructure(child, level - 1, prefix + prefixNoDash[c]);
                 } else {
-                    LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getChildAddress(c).getIPNum() << ": "
+                    LogMsg("Sim.Tree", WARN) << prefix << prefixNoDash[c] << "L@" << branch.getChildAddress(c).getIPNum() << ": "
                             << static_cast<SimOverlayLeaf &>(child.getLeaf());
                 }
             }
@@ -155,6 +158,7 @@ public:
     void showInfoTree(std::set<unsigned int> & roots) {
         for (auto root : roots) {
             LogMsg("Sim.Tree", WARN) << "Information tree:";
+            LogMsg::setIndentActive(false);
             StarsNode & rootNode = Simulator::getInstance().getNode(root);
             if (rootNode.getBranch().inNetwork()) {
                 showRecursiveInfo(rootNode, -1, "");
@@ -166,22 +170,22 @@ public:
         boost::shared_ptr<AvailabilityInformation> info = node.getDisp().getBranchInfo();
         SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(node.getBranch());
         if (info.get())
-            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress().getIPNum() << ": " << *info;
+            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress() << ": " << *info;
         else
-            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress().getIPNum() << ": " << " ?";
+            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress() << ": " << " ?";
         if (level) {
             for (int c : {0, 1}) {
                 StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
                 info = node.getDisp().getChildInfo(c);
                 if (info.get())
-                    LogMsg("Sim.Tree", WARN) << prefix << "  |- " << *info;
+                    LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << *info;
                 else
-                    LogMsg("Sim.Tree", WARN) << prefix << "  |- " << " ?";
+                    LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << " ?";
 
                 if (!branch.isLeaf(c)) {
-                    showRecursiveInfo(child, level - 1, prefix + "  |  ");
+                    showRecursiveInfo(child, level - 1, prefix + prefixNoDash[c]);
                 } else {
-                    LogMsg("Sim.Tree", WARN) << prefix << "  |  " << "L@" << branch.getChildAddress(c).getIPNum() << ": "
+                    LogMsg("Sim.Tree", WARN) << prefix << prefixNoDash[c] << "L@" << branch.getChildAddress(c) << ": "
                             << child << ' ' << child.getSch().getAvailability();
                 }
             }
@@ -193,3 +197,6 @@ public:
     }
 };
 REGISTER_SIMULATION_CASE(networkCheck);
+
+const char * networkCheck::prefixDash[2] = {"  |- ", "  \\- "};
+const char * networkCheck::prefixNoDash[2] = {"  |  ", "     "};

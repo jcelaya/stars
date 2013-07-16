@@ -34,7 +34,8 @@ struct fix2hourdigits {
 }
 
 
-std::string LogMsg::currentIndent;
+std::string LogMsg::Indent::currentIndent;
+bool LogMsg::Indent::active = true;
 const LogMsg::Indent LogMsg::indent;
 
 void LogMsg::setPriority(const std::string & catPrio) {

@@ -72,7 +72,7 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         remainingTasks[appInstance] += tbm->getLastTask() - tbm->getFirstTask() + 1;
 
         // Set a request timeout of 30 seconds
-        Time timeout = Time::getCurrentTime() + Duration(30.0);
+        Time timeout = Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRequestTimeout());
         // Schedule the timeout message
         boost::shared_ptr<RequestTimeout> rt(new RequestTimeout);
         rt->setRequestId(reqId);

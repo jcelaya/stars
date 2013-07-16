@@ -51,6 +51,7 @@ ConfigurationManager::ConfigurationManager() : description("Allowed options") {
     availMemory = 128;
     availDisk = 200;
     dbPath = workingPath / boost::filesystem::path("stars.db");
+    requestTimeout = 30.0;
 
     // Options description
     description.add_options()

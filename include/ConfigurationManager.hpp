@@ -48,6 +48,7 @@ class ConfigurationManager {
     unsigned int availDisk;         ///< Available disk for tasks
     boost::filesystem::path dbPath;
     std::string entryPoint;
+    double requestTimeout;
 
     /// default constructor, prevents instantiation
     ConfigurationManager();
@@ -228,6 +229,14 @@ public:
     }
 
     CommAddress getEntryPoint() const;
+
+    double getRequestTimeout() const {
+        return requestTimeout;
+    }
+
+    void setRequestTimeout(double rt) {
+        requestTimeout = rt;
+    }
 };
 
 #endif /* CONFIGURATIONMANAGER_H_ */

@@ -43,8 +43,14 @@ public:
     static const class Indent {
     public:
         friend std::ostream & operator<<(std::ostream & os, const Indent & r) {
-            return os << std::endl << LogMsg::getIndent();
+            if (active)
+                os << std::endl << currentIndent;
+            return os;
         }
+    private:
+        friend class LogMsg;
+        static std::string currentIndent;
+        static bool active;
     } indent;
 
     /**
@@ -62,12 +68,12 @@ public:
         setPriority(config.substr(start));
     }
 
-    static const std::string & getIndent() {
-        return currentIndent;
+    static void setIndent(size_t n) {
+        Indent::currentIndent = std::string(n, ' ');
     }
 
-    static void setIndent(size_t n) {
-        currentIndent = std::string(n, ' ');
+    static void setIndentActive(bool active) {
+        Indent::active = active;
     }
 
     LogMsg(const char * c, int p) : first(NULL), last(NULL), category(c), priority(p) {}
@@ -106,7 +112,6 @@ private:
     AbstractTypeContainer * first, * last;
     const char * category;
     int priority;
-    static std::string currentIndent;
 
     static void log(const char * category, int priority, AbstractTypeContainer * values);
     static void setPriority(const std::string & catPrio);

@@ -82,11 +82,10 @@ public:
                     auto & func = *slownessHeap.back().second;
                     func.tasks++;
                     func.slowness = slownessHeap.back().first;
-                    if (minSlowness < func.slowness) {
-                        minSlowness = func.slowness;
-                        worstChild = func.child;
-                    }
+                    minSlowness = func.slowness;
+                    worstChild = func.child;
                     totalTasks += func.v;
+                    slownessHeap.pop_back();
                 }
             }
             diffWithRequest = totalTasks - numTasksReq;
@@ -185,15 +184,23 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     }
     FunctionVector functions(clusters, branchSlowness);
     functions.computeTasksPerFunction(numTasksReq, a);
-    double minSlowness = functions.getMinimumSlowness();
-    LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << minSlowness;
+    LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << functions.getMinimumSlowness();
+    double minSlowness = functions.getMinimumSlowness(), slownessLimit = getSlownessLimit();
     unsigned int numTasks[2] = {0, 0};
     functions.computeTasksPerBranch(numTasks);
 
+    if (mustGoDown(src, msg))
+        LogMsg("Dsp.FSP", DEBUG) << "The request must go down.";
+    if (functions.getNodesOfBranch(0) >= numTasks[0])
+        LogMsg("Dsp.FSP", DEBUG) << "There are enough nodes in left branch.";
+    if (functions.getNodesOfBranch(1) >= numTasks[1])
+        LogMsg("Dsp.FSP", DEBUG) << "There are enough nodes in right branch.";
+    if (minSlowness <= slownessLimit)
+        LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit.";
+
     if (mustGoDown(src, msg) ||
-            (functions.getNodesOfBranch(0) >= numTasks[0] &&
-             functions.getNodesOfBranch(1) >= numTasks[1] &&
-             minSlowness <= getSlownessLimit())) {
+            (functions.getTotalNodes() >= numTasksReq &&
+             minSlowness <= slownessLimit)) {
         LogMsg("Dsp.FSP", DEBUG) << "Sending " << numTasks[0] << " tasks to left child (" << child[0].addr << ")"
                 " and " << numTasks[1] << " tasks to right child (" << child[1].addr << ")";
         sendTasks(msg, numTasks, false);
@@ -209,7 +216,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
     } else {
         LogMsg("Dsp.FSP", INFO) << "Not enough information to route this request, sending to the father.";
-        CommLayer::getInstance().sendMessage(father.addr, msg.clone());
+        CommLayer::getInstance().sendMessage(father.addr, msg.getSubRequest(msg.getFirstTask(), msg.getLastTask()));
     }
 }
 

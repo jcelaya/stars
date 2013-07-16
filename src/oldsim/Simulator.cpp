@@ -199,7 +199,9 @@ Simulator::Simulator() {
     // Simulation variables
     p = NULL;
     currentNode = NULL;
+    lastDebugNode = NULL;
     time = Time();
+    lastDebugTime = Time(-1);
     real_time = seconds(0);
     start = microsec_clock::local_time();
     doStop = false;
