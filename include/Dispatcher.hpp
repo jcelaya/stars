@@ -85,7 +85,7 @@ public:
 
     // This is documented in DispatcherInterface.
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const {
-        return father.notifiedInfo.get() ? father.notifiedInfo : father.waitingInfo;
+        return father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
     }
 
     /**
@@ -120,6 +120,10 @@ public:
         }
         unsigned int sendUpdate() {
             if (waitingInfo.get() && !(notifiedInfo.get() && *notifiedInfo == *waitingInfo)) {
+                if (!notifiedInfo.get())
+                    LogMsg("Dsp", DEBUG) << "No notified info";
+                else
+                    LogMsg("Dsp", DEBUG) << "Notified info was " << *notifiedInfo;
                 uint32_t seq = notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1;
                 notifiedInfo = waitingInfo;
                 waitingInfo.reset();
@@ -242,7 +246,7 @@ protected:
                     if (!branch.isLeaf(c)) {
                         unsigned int s = child[c].sendUpdate();
                         if (s > 0)
-                            LogMsg("Dsp", DEBUG) << "There were changes for the " << c << " children, sending update";
+                            LogMsg("Dsp", DEBUG) << "There were changes for the " << childName(c) << " child, sending update";
                         sentSize += s;
                     }
                 }
@@ -265,8 +269,9 @@ protected:
         unsigned int nextTask = msg.getFirstTask();
         for (int c : {0, 1}) {
             if (numTasks[c] > 0) {
-                LogMsg("Dsp", INFO) << "Sending " << numTasks[c] << " tasks to the " << c << " child";
+                LogMsg("Dsp", INFO) << "Sending " << numTasks[c] << " tasks to the " << childName(c) << " child (" << child[c].addr << ')';
                 TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + numTasks[c] - 1);
+                tbm->setInfoSequenceUsed(child[c].availInfo->getSeq());
                 tbm->setForEN(branch.isLeaf(c));
                 nextTask += numTasks[c];
                 CommLayer::getInstance().sendMessage(child[c].addr, tbm);
@@ -275,12 +280,14 @@ protected:
 
         // If this branch cannot execute all the tasks, send the request to the father
         if (nextTask <= msg.getLastTask()) {
-            LogMsg("Dsp", DEBUG) << "There are " << (msg.getLastTask() - (nextTask - 1)) << " remaining tasks";
+            LogMsg("Dsp", DEBUG) << "There are " << (msg.getLastTask() - (nextTask - 1)) << " remaining tasks for the father (" << father.addr << ')';
             if (branch.getFatherAddress() != CommAddress()) {
                 if (dontSendToFather) {
                     LogMsg("Dsp", DEBUG) << "But came from the father.";
                 } else {
                     TaskBagMsg * tbm = msg.getSubRequest(nextTask, msg.getLastTask());
+                    boost::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+                    tbm->setInfoSequenceUsed(availInfo->getSeq());
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {
@@ -305,12 +312,12 @@ protected:
         if (!msg.isFromEN() && src == father.addr) {
             LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (father)";
         } else {
-            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (" << (src == child[0].addr ? "left child)" : "right child)");
+            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (" << childName(src == child[0].addr ? 0 : 1) << " child)";
         }
         const TaskDescription & req = msg.getMinRequirements();
         unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
         uint64_t a = req.getLength();
-        LogMsg("Dsp.FSP", INFO) << "Requested allocation of request " << msg.getRequestId() << " with " << numTasksReq << " tasks with requirements:";
+        LogMsg("Dsp.FSP", INFO) << "Request " << msg.getRequestId() << " from " << msg.getRequester() << " with " << numTasksReq << " tasks with requirements:";
         LogMsg("Dsp.FSP", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
     }
 
@@ -325,6 +332,11 @@ protected:
             LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
         } else
             father.waitingInfo.reset();
+    }
+
+    static const char * childName(int i) {
+        static const char * name[2] = { "left", "right" };
+        return name[i];
     }
 
 private:

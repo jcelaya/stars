@@ -18,7 +18,6 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "Logger.hpp"
 #include "FSPDispatcher.hpp"
 #include "Time.hpp"
@@ -156,19 +155,6 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
     showMsgSource(src, msg);
 
-    if (!validInformation()) {
-        delayedRequests.push_back(msg.clone());
-        LogMsg("Dsp.FSP", INFO) << "Invalid information, waiting...";
-        return;
-    }
-//    if (!msg.isFromEN() && (
-//            (src == child[0].addr && (!child[0].availInfo.get() || msg.getInfoSequenceUsed() > child[0].availInfo->getSeq())) ||
-//            (src == child[1].addr && (!child[1].availInfo.get() || msg.getInfoSequenceUsed() > child[1].availInfo->getSeq())))) {
-//        delayedRequests.push_back(msg.clone());
-//        LogMsg("Dsp.FSP", INFO) << "Outdated information, waiting...";
-//        return;
-//    }
-
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
@@ -199,10 +185,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit.";
 
     if (mustGoDown(src, msg) ||
-            (functions.getTotalNodes() >= numTasksReq &&
-             minSlowness <= slownessLimit)) {
-        LogMsg("Dsp.FSP", DEBUG) << "Sending " << numTasks[0] << " tasks to left child (" << child[0].addr << ")"
-                " and " << numTasks[1] << " tasks to right child (" << child[1].addr << ")";
+            (functions.getTotalNodes() >= numTasksReq && minSlowness <= slownessLimit)) {
         sendTasks(msg, numTasks, false);
 
         updateBranchSlowness(functions.getNewBranchSlowness());
@@ -222,7 +205,8 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
 
 double FSPDispatcher::getSlownessLimit() const {
-    boost::shared_ptr<FSPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+    boost::shared_ptr<FSPAvailabilityInformation> zoneInfo =
+            boost::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
     // Compare the slowness reached by the new application with the one in the rest of the tree,
     double slownessLimit = zoneInfo->getMaximumSlowness();
     LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in this branch is " << slownessLimit;

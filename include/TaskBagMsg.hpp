@@ -149,6 +149,14 @@ public:
         // os << *minRequirements;
     }
 
+    uint32_t getInfoSequenceUsed() const {
+        return seq;
+    }
+
+    void setInfoSequenceUsed(uint32_t s) {
+        seq = s;
+    }
+
     TaskBagMsg * getSubRequest(uint32_t first, uint32_t last) const {
         TaskBagMsg * result = clone();
         result->firstTask = first;
@@ -157,7 +165,7 @@ public:
         return result;
     }
 
-    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN)
+    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN, seq)
 
 private:
     CommAddress requester;             ///< Requester's address
@@ -167,6 +175,7 @@ private:
     TaskDescription minRequirements;   ///< Minimum requirements for those tasks.
     bool forEN;                        ///< Whether the message is for the EN or the SN
     bool fromEN;                       ///< Whether the message comes from the EN or the SN
+    uint32_t seq;
 };
 
 #endif /*TASKBAGMSG_H_*/

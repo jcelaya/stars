@@ -64,8 +64,9 @@ private:
     void updateBranchSlowness(const double branchSlowness[2]);
 
     bool validInformation() const {
-        return (father.waitingInfo.get() && !father.waitingInfo->getSummary().empty()) ||
-               (!father.waitingInfo.get() && father.notifiedInfo.get() && !father.notifiedInfo->getSummary().empty());
+        boost::shared_ptr<FSPAvailabilityInformation> info =
+                boost::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
+        return info.get() && !info->getSummary().empty();
     }
 
     // This is documented in Dispatcher.

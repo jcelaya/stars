@@ -93,7 +93,8 @@ struct MMPDispatcher::DecissionInfo {
 void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
     LogMsg("Dsp.MMP", INFO) << "Received a TaskBagMsg from " << src;
-    boost::shared_ptr<MMPAvailabilityInformation> zoneInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+    boost::shared_ptr<MMPAvailabilityInformation> zoneInfo =
+            boost::static_pointer_cast<MMPAvailabilityInformation>(getBranchInfo());
 
     TaskDescription req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
