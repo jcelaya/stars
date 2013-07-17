@@ -284,7 +284,7 @@ void Simulator::setProperties(Properties & property) {
     maxSimTime = Duration(property("max_sim_time", 0.0));
     maxMemUsage = property("max_mem", 0U);
     srand(property("seed", defaultSeed));
-    showStep = property("show_step", 100000);
+    showStep = property("show_step", 10000);
     // Network delay in (50ms, 300ms) by default
     // Delay follows pareto distribution of k=2
     static const double kDelay = 2.0;
@@ -433,7 +433,8 @@ void Simulator::run() {
                 << numEvents << " ev (" << speed << " ev/s)   "
                 << MemoryManager::getInstance().getUsedMemory() << " mem   "
                 << simCase->getCompletedPercent() << "%   "
-                << sstats.getExistingTasks() << " tasks";
+                << sstats.getExistingTasks() << " tasks, "
+                << sstats.getRunningTasks() << " running";
             pstats.savePartialStatistics();
         }
     }

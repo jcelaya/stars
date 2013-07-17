@@ -54,8 +54,9 @@ public:
     void finishedApp(StarsNode & node, int64_t appId, Time end, int finishedTasks);
 
     void taskStarted();
-    void taskFinished(const Task & t, bool successful);
+    void taskFinished(const Task & t, int oldState, int newState);
     unsigned long int getExistingTasks() const { return existingTasks; }
+    unsigned long int getRunningTasks() const { return runningTasks; }
 
 private:
     boost::mutex m;
@@ -72,6 +73,7 @@ private:
     void finishThroughputStatistics();
     boost::filesystem::ofstream throughputos;
     unsigned long int existingTasks;
+    unsigned long int runningTasks;
     Time lastTSample;
     unsigned int partialFinishedTasks, totalFinishedTasks;
     unsigned long partialComputation, totalComputation;

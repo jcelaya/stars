@@ -227,10 +227,8 @@ class BlindScheduler : public CentralizedScheduler {
     }
 
     void newApp(boost::shared_ptr<TaskBagMsg> msg) {
-        unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-
-        unsigned int n = clientVar();
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
+            unsigned int n = clientVar();
             boost::shared_ptr<TaskBagMsg> tbm(msg->clone());
             tbm->setFromEN(false);
             tbm->setForEN(true);
@@ -524,31 +522,6 @@ class CentralizedFSP : public CentralizedScheduler {
                 }
                 // Sort the queue
                 updateQueue(n);
-
-//                // Check order
-//                assert(queues[n].size() == proxys.size());
-//                if (proxys.size() > 0) {
-//                    list<TaskDesc>::iterator qi = ++queues[n].begin();
-//                    FSPTaskList::iterator pi = ++proxys.begin();
-//                    while (qi != queues[n].end()) {
-//                        if (qi->a != Duration(pi->t)) {
-//                            cerr << "Queues are different, slowness should be " << slowness << ", queue yields " << getMaxSlowness(n) << endl;
-//                            cerr << "queue:";
-//                            for (list<TaskDesc>::iterator qj = queues[n].begin(); qj != queues[n].end(); ++qj) {
-//                                cerr << ' ' << *qj;
-//                            }
-//                            cerr << endl << "proxys:";
-//                            for (FSPTaskList::iterator qj = proxys.begin(); qj != proxys.end(); ++qj) {
-//                                qj->setSlowness(slowness);
-//                                cerr << ' ' << *qj;
-//                            }
-//                            cerr << endl;
-//                            break;
-//                        }
-//                        ++qi;
-//                        ++pi;
-//                    }
-//                }
             }
         }
     }

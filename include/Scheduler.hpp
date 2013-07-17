@@ -186,7 +186,7 @@ protected:
     // Statistics
     void addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted);
     void startedTaskEvent(const Task & t);
-    void finishedTaskEvent(const Task & t, bool successful);
+    void finishedTaskEvent(const Task & t, int oldState, int newState);
 
 private:
     bool inChange;         ///< States whether the father of the ResourceNode is changing.

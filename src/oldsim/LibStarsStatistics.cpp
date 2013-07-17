@@ -27,7 +27,7 @@
 #include "FSPDispatcher.hpp"
 
 
-LibStarsStatistics::LibStarsStatistics() : existingTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
+LibStarsStatistics::LibStarsStatistics() : existingTasks(0), runningTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
         partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0), maxSlowness(0.0) {}
 
 
@@ -64,8 +64,8 @@ void Scheduler::startedTaskEvent(const Task & t) {
 }
 
 
-void Scheduler::finishedTaskEvent(const Task & t, bool successful) {
-    Simulator::getInstance().getStarsStatistics().taskFinished(t, successful);
+void Scheduler::finishedTaskEvent(const Task & t, int oldState, int newState) {
+    Simulator::getInstance().getStarsStatistics().taskFinished(t, oldState, newState);
 }
 
 
@@ -107,6 +107,7 @@ Time LibStarsStatistics::updateCurMaxSlowness() {
 
 
 void LibStarsStatistics::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
+    existingTasks += numAccepted;
     CommAddress a = Simulator::getInstance().getCurrentNode().getLocalAddress();
     Time now = Simulator::getInstance().getCurrentTime(), queueEnd = updateCurMaxSlowness();
     // Record maximum queue length
@@ -140,16 +141,18 @@ void LibStarsStatistics::finishThroughputStatistics() {
 
 
 void LibStarsStatistics::taskStarted() {
-    ++existingTasks;
+    ++runningTasks;
 }
 
 
-void LibStarsStatistics::taskFinished(const Task & t, bool successful) {
+void LibStarsStatistics::taskFinished(const Task & t, int oldState, int newState) {
     --existingTasks;
+    if (oldState == Task::Running)
+        --runningTasks;
     // Calculate current maximum slowness, and record it
     updateCurMaxSlowness();
     // Record throughput
-    if (successful) {
+    if (newState == Task::Finished) {
         Time now = Time::getCurrentTime();
         partialFinishedTasks++;
         partialComputation += t.getDescription().getLength();

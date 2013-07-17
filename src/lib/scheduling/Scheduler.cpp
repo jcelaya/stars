@@ -38,7 +38,7 @@ Scheduler::ExecutionEnvironmentImpl::ExecutionEnvironmentImpl() : impl(new UnixE
 
 void Scheduler::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {}
 void Scheduler::startedTaskEvent(const Task & t) {}
-void Scheduler::finishedTaskEvent(const Task & t, bool successful) {}
+void Scheduler::finishedTaskEvent(const Task & t, int oldState, int newState) {}
 
 
 // Timers
@@ -75,7 +75,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
                 if ((*i)->getTaskId() == msg.getTaskId()) {
                     notFound = false;
                     // For statistics purpose
-                    finishedTaskEvent(**i, msg.getNewState() == Task::Finished);
+                    finishedTaskEvent(**i, msg.getOldState(), msg.getNewState());
                     // Send a TaskMonitorMsg to signal finalization
                     boost::shared_ptr<Task> task = *i;
                     TaskMonitorMsg * tmm = new TaskMonitorMsg;
@@ -168,7 +168,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
         for (list<boost::shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
             if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
                 notFound = false;
-                finishedTaskEvent(**it, false);
+                finishedTaskEvent(**it, (*it)->getStatus(), Task::Aborted);
                 (*it)->abort();
                 tasks.erase(it);
                 break;
