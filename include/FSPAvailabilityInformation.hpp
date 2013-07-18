@@ -50,53 +50,53 @@ public:
      *
      * This cluster contains an aggregation of availability functions with memory, disk and fair allocation constraints.
      */
-    class MDLCluster {
+    class MDZCluster {
     public:
         /// Default constructor, do nothing for fast empty array creation
-        MDLCluster() {}
+        MDZCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDLCluster(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power)
-                : reference(NULL), value(1), minM(m), minD(d), maxL(curTasks, power), accumLsq(0.0), accumMaxL(maxL) {}
-        MDLCluster(const MDLCluster & copy) {
+        MDZCluster(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power)
+                : reference(NULL), value(1), minM(m), minD(d), maxZ(curTasks, power), accumZsq(0.0), accumZmax(maxZ) {}
+        MDZCluster(const MDZCluster & copy) {
             *this = copy;
         }
 
-        MDLCluster & operator=(const MDLCluster & r) {
+        MDZCluster & operator=(const MDZCluster & r) {
             reference = r.reference;
             value = r.value;
             minM = r.minM;
             minD = r.minD;
-            maxL = r.maxL;
-            accumLsq = r.accumLsq;
-            accumMaxL = r.accumMaxL;
+            maxZ = r.maxZ;
+            accumZsq = r.accumZsq;
+            accumZmax = r.accumZmax;
             return *this;
         }
 
-        MDLCluster & operator=(MDLCluster && r) {
+        MDZCluster & operator=(MDZCluster && r) {
             reference = r.reference;
             value = r.value;
             minM = r.minM;
             minD = r.minD;
-            maxL = std::move(r.maxL);
-            accumLsq = r.accumLsq;
-            accumMaxL = std::move(r.accumMaxL);
+            maxZ = std::move(r.maxZ);
+            accumZsq = r.accumZsq;
+            accumZmax = std::move(r.accumZmax);
             return *this;
         }
 
         /// Comparison operator
-        bool operator==(const MDLCluster & r) const {
+        bool operator==(const MDZCluster & r) const {
             return value == r.value
                    && minM == r.minM && minD == r.minD
-                   && accumLsq == r.accumLsq && maxL == r.maxL && accumMaxL == r.accumMaxL;
+                   && accumZsq == r.accumZsq && maxZ == r.maxZ && accumZmax == r.accumZmax;
         }
 
         /// Distance operator for the clustering algorithm
-        double distance(const MDLCluster & r, MDLCluster & sum) const;
+        double distance(const MDZCluster & r, MDZCluster & sum) const;
 
-        bool far(const MDLCluster & r) const;
+        bool far(const MDZCluster & r) const;
 
         /// Aggregation operator for the clustering algorithm
-        void aggregate(const MDLCluster & r);
+        void aggregate(const MDZCluster & r);
 
         /// Reduce the number of samples in the functions contained in this cluster
         void reduce();
@@ -119,30 +119,30 @@ public:
         }
 
         const ZAFunction & getMaximumSlowness() const {
-            return maxL;
+            return maxZ;
         }
 
         /// Outputs a textual representation of the object.
-        friend std::ostream & operator<<(std::ostream & os, const MDLCluster & o) {
+        friend std::ostream & operator<<(std::ostream & os, const MDZCluster & o) {
             os << 'M' << o.minM << ',';
             os << 'D' << o.minD << ',';
-            os << 'L' << o.maxL << '-' << o.accumLsq << '-' << o.accumMaxL << ',';
+            os << 'L' << o.maxZ << '-' << o.accumZsq << '-' << o.accumZmax << ',';
             return os << o.value;
         }
 
-        MSGPACK_DEFINE(value, minM, minD, maxL, accumLsq, accumMaxL);
+        MSGPACK_DEFINE(value, minM, minD, maxZ, accumZsq, accumZmax);
 
     private:
-        friend class ClusteringList<MDLCluster>;
+        friend class ClusteringList<MDZCluster>;
         friend class FSPAvailabilityInformation;
 
         FSPAvailabilityInformation * reference;
 
         uint32_t value;
         MinParameter<int32_t, int64_t> minM, minD;
-        ZAFunction maxL;
-        double accumLsq;
-        ZAFunction accumMaxL;
+        ZAFunction maxZ;
+        double accumZsq;
+        ZAFunction accumZmax;
     };
 
     MESSAGE_SUBCLASS(FSPAvailabilityInformation);
@@ -153,7 +153,7 @@ public:
         summary.clear();
         memoryRange.setLimits(0);
         diskRange.setLimits(0);
-        minL = maxL = ZAFunction();
+        minZ = maxZ = ZAFunction();
         lengthHorizon = 0.0;
         slownessRange.setLimits(0.0);
         slownessSquareDiff = 0.0;
@@ -164,7 +164,7 @@ public:
         numIntervals = (unsigned int)floor(cbrt(c));
     }
 
-    const ClusteringList<MDLCluster> & getSummary() const {
+    const ClusteringList<MDZCluster> & getSummary() const {
         return summary;
     }
 
@@ -176,7 +176,9 @@ public:
      * Obtain the maximum slowness reached when allocating a set of tasks of a certain application.
      * @param req Application requirements.
      */
-    std::list<MDLCluster *> getFunctions(const TaskDescription & req);
+    std::list<MDZCluster *> getFunctions(const TaskDescription & req);
+
+    void removeClusters(const std::list<MDZCluster *> & clusters);
 
     void setAvailability(uint32_t m, uint32_t d, const FSPTaskList & curTasks, double power);
 
@@ -222,7 +224,7 @@ public:
     // This is documented in BasicMsg
     virtual void output(std::ostream& os) const;
 
-    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, memoryRange, diskRange, minL, maxL, lengthHorizon, slownessRange);
+    MSGPACK_DEFINE((AvailabilityInformation &)*this, summary, memoryRange, diskRange, minZ, maxZ, lengthHorizon, slownessRange);
 
 private:
     FSPAvailabilityInformation & operator=(const FSPAvailabilityInformation & copy) { return *this; }
@@ -230,10 +232,10 @@ private:
     static unsigned int numClusters;
     static unsigned int numIntervals;
 
-    ClusteringList<MDLCluster> summary;   ///< List of clusters representing queues and their availability
+    ClusteringList<MDZCluster> summary;   ///< List of clusters representing queues and their availability
     Interval<int32_t> memoryRange;
     Interval<int32_t> diskRange;
-    ZAFunction minL, maxL;                ///< Minimum and maximum values of availability
+    ZAFunction minZ, maxZ;                ///< Minimum and maximum values of availability
     double lengthHorizon;                 ///< Last meaningful task length
     Interval<double> slownessRange;   /// Slowness among the nodes in this branch
     double slownessSquareDiff;

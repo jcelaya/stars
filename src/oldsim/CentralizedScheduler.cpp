@@ -541,6 +541,7 @@ class CentralizedFSP : public CentralizedScheduler {
                     // calculate the slowness with one task more
                     FSPTaskList proxys = proxysN[n];
                     proxys.addTasks(TaskProxy(req.getLength(), sim.getNode(n).getAveragePower(), now), currentTpn);
+                    proxys.sortMinSlowness();
                     double slowness = proxys.getSlowness();
                     // If the slowness is less than the maximum to date, or there aren't enough tasks yet, insert it in the heap
                     if (totalTasks < numTasks || slowness < slownessHeap.front().first) {

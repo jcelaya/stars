@@ -25,12 +25,11 @@
 using std::vector;
 using stars::ZAFunction;
 
-double FSPDispatcher::beta = 2.0;
+double FSPDispatcher::beta = 0.4;
 
 
 struct FunctionInfo {
-    const ZAFunction * f;
-    unsigned int v;
+    FSPAvailabilityInformation::MDZCluster * cluster;
     int child;
     double slowness;
     int tasks;
@@ -39,7 +38,7 @@ struct FunctionInfo {
 
 class FunctionVector : public std::vector<FunctionInfo> {
 public:
-    FunctionVector(std::list<FSPAvailabilityInformation::MDLCluster *> clusters[2], double bs[2])
+    FunctionVector(std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2], double bs[2])
             : std::vector<FunctionInfo>(clusters[0].size() + clusters[1].size()),
               totalTasks(0), diffWithRequest(0), minSlowness(INFINITY),
               branchSlowness{bs[0], bs[1]}, worstChild(0) {
@@ -48,8 +47,7 @@ public:
         for (int c : {0, 1}) {
             nodesPerBranch[c] = totalNodes;
             for (auto i : clusters[c]) {
-                (*this)[j].f = &i->getMaximumSlowness();
-                (*this)[j].v = i->getValue();
+                (*this)[j].cluster = i;
                 (*this)[j].child = c;
                 (*this)[j].slowness = INFINITY;
                 (*this)[j].tasks = 0;
@@ -67,8 +65,8 @@ public:
                 vector<std::pair<double, FunctionInfo *>> slownessHeap;
                 for (auto & func : *this) {
                     double slowness = currentTpn == 1 ?
-                            func.f->getSlowness(a)
-                            : func.f->estimateSlowness(a, currentTpn);
+                            func.cluster->getMaximumSlowness().getSlowness(a)
+                            : func.cluster->getMaximumSlowness().estimateSlowness(a, currentTpn);
                     // Check that it is not under the minimum of its branch
                     if (slowness < branchSlowness[func.child]) {
                         slowness = branchSlowness[func.child];
@@ -83,7 +81,7 @@ public:
                     func.slowness = slownessHeap.back().first;
                     minSlowness = func.slowness;
                     worstChild = func.child;
-                    totalTasks += func.v;
+                    totalTasks += func.cluster->getValue();
                     slownessHeap.pop_back();
                 }
             }
@@ -101,7 +99,7 @@ public:
     void computeTasksPerBranch(unsigned int tpb[2]) {
         for (auto & func : *this) {
             if (func.tasks) {
-                unsigned int tasksToCluster = func.tasks * func.v;
+                unsigned int tasksToCluster = func.tasks * func.cluster->getValue();
                 tpb[func.child] += tasksToCluster;
             }
         }
@@ -140,13 +138,6 @@ private:
 
 
 void FSPDispatcher::informationUpdated() {
-    while (!delayedRequests.empty() && validInformation()) {
-        LogMsg("Dsp.FSP", INFO) << "Relaunch request";
-        TaskBagMsg * msg = delayedRequests.front();
-        delayedRequests.pop_front();
-        handle(child[0].addr, *msg);
-        delete msg;
-    }
 }
 
 
@@ -159,7 +150,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
 
-    std::list<FSPAvailabilityInformation::MDLCluster *> clusters[2];
+    std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2];
     double branchSlowness[2] = {0.0, 0.0};
     for (int c : {0, 1}) {
         if (child[c].availInfo.get()) {
@@ -189,9 +180,16 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         sendTasks(msg, numTasks, false);
 
         updateBranchSlowness(functions.getNewBranchSlowness());
-        // Invalidate children info
-        if (numTasks[0]) child[0].availInfo->reset();
-        if (numTasks[1]) child[1].availInfo->reset();
+        clusters[0].clear();
+        clusters[1].clear();
+        for (auto & func : functions) {
+            if (func.tasks) {
+               clusters[func.child].push_back(func.cluster);
+            }
+        }
+        for (int c : {0, 1})
+            child[c].availInfo->removeClusters(clusters[c]);
+
         recomputeInfo();
         // Only notify the father if the message does not come from it
         if (!mustGoDown(src, msg)) {

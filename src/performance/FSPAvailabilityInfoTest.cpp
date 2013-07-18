@@ -33,7 +33,7 @@ template<> struct Priv<FSPAvailabilityInformation> {
 
 
 template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("fsp_mem_disk_slowness.stat", 2) {
-    stars::ClusteringList<FSPAvailabilityInformation::MDLCluster>::setDistVectorSize(20);
+    stars::ClusteringList<FSPAvailabilityInformation::MDZCluster>::setDistVectorSize(20);
     ZAFunction::setNumPieces(8);
 }
 
@@ -64,7 +64,7 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
 
     unsigned long int aggrMem = 0, aggrDisk = 0;
     double meanAccuracy = 0.0;
-    const stars::ClusteringList<FSPAvailabilityInformation::MDLCluster> & clusters = summary->getSummary();
+    const stars::ClusteringList<FSPAvailabilityInformation::MDZCluster> & clusters = summary->getSummary();
     for (auto & u : clusters) {
         aggrMem += u.getTotalMemory();
         aggrDisk += u.getTotalDisk();

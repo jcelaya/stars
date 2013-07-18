@@ -42,40 +42,40 @@ unsigned int FSPAvailabilityInformation::numClusters = 125;
 unsigned int FSPAvailabilityInformation::numIntervals = 5;
 
 
-double FSPAvailabilityInformation::MDLCluster::distance(const MDLCluster & r, MDLCluster & sum) const {
+double FSPAvailabilityInformation::MDZCluster::distance(const MDZCluster & r, MDZCluster & sum) const {
     sum = *this;
     sum.aggregate(r);
     return sum.minM.norm(reference->memoryRange, sum.value)
             + sum.minD.norm(reference->diskRange, sum.value)
-            + reference->slownessSquareDiff ? sum.accumLsq / (sum.value * reference->slownessSquareDiff) : 0.0;
+            + reference->slownessSquareDiff ? sum.accumZsq / (sum.value * reference->slownessSquareDiff) : 0.0;
 }
 
 
-bool FSPAvailabilityInformation::MDLCluster::far(const MDLCluster & r) const {
+bool FSPAvailabilityInformation::MDZCluster::far(const MDZCluster & r) const {
     return minM.far(r.minM, reference->memoryRange, numIntervals) ||
             minD.far(r.minD, reference->diskRange, numIntervals) ||
             (reference->slownessSquareDiff &&
-                floor(maxL.sqdiff(reference->minL, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff) !=
-                floor(r.maxL.sqdiff(r.reference->minL, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff));
+                floor(maxZ.sqdiff(reference->minZ, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff) !=
+                floor(r.maxZ.sqdiff(r.reference->minZ, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff));
 }
 
 
-void FSPAvailabilityInformation::MDLCluster::aggregate(const MDLCluster & r) {
+void FSPAvailabilityInformation::MDZCluster::aggregate(const MDZCluster & r) {
     LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating " << *this << " and " << r;
     ZAFunction newMaxL;
-    accumLsq += accumLsq + r.accumLsq
-            + newMaxL.maxAndLoss(maxL, r.maxL, value, r.value, accumMaxL, r.accumMaxL, reference->lengthHorizon);
-    accumMaxL.maxDiff(maxL, r.maxL, value, r.value, accumMaxL, r.accumMaxL);
-    maxL = newMaxL;
+    accumZsq += accumZsq + r.accumZsq
+            + newMaxL.maxAndLoss(maxZ, r.maxZ, value, r.value, accumZmax, r.accumZmax, reference->lengthHorizon);
+    accumZmax.maxDiff(maxZ, r.maxZ, value, r.value, accumZmax, r.accumZmax);
+    maxZ = newMaxL;
     minM.aggregate(value, r.minM, r.value);
     minD.aggregate(value, r.minD, r.value);
     value = value + r.value;
 }
 
 
-void FSPAvailabilityInformation::MDLCluster::reduce() {
-    accumLsq += value * maxL.reduceMax(reference->lengthHorizon);
-    accumMaxL.reduceMax(reference->lengthHorizon);
+void FSPAvailabilityInformation::MDZCluster::reduce() {
+    accumZsq += value * maxZ.reduceMax(reference->lengthHorizon);
+    accumZmax.reduceMax(reference->lengthHorizon);
 }
 
 
@@ -84,14 +84,14 @@ void FSPAvailabilityInformation::setAvailability(uint32_t m, uint32_t d, const F
     diskRange.setLimits(d);
     slownessRange.setLimits(curTasks.getSlowness());   // curTasks must be sorted!!
     summary.clear();
-    summary.push_back(MDLCluster(m, d, curTasks, power));
-    minL = maxL = summary.front().maxL;
-    lengthHorizon = minL.getHorizon();
+    summary.push_back(MDZCluster(m, d, curTasks, power));
+    minZ = maxZ = summary.front().maxZ;
+    lengthHorizon = minZ.getHorizon();
 }
 
 
-std::list<FSPAvailabilityInformation::MDLCluster *> FSPAvailabilityInformation::getFunctions(const TaskDescription & req) {
-    std::list<MDLCluster *> f;
+std::list<FSPAvailabilityInformation::MDZCluster *> FSPAvailabilityInformation::getFunctions(const TaskDescription & req) {
+    std::list<MDZCluster *> f;
     for (auto & i : summary)
         if (i.fulfills(req))
             f.push_back(&i);
@@ -99,22 +99,43 @@ std::list<FSPAvailabilityInformation::MDLCluster *> FSPAvailabilityInformation::
 }
 
 
+void FSPAvailabilityInformation::removeClusters(const std::list<MDZCluster *> & clusters) {
+    auto it = summary.begin();
+    for (auto c : clusters) {
+        while (it != summary.end() && &(*it) != c)
+            ++it;
+        if (it != summary.end())
+            it = summary.erase(it);
+    }
+}
+
+
 double FSPAvailabilityInformation::getSlowestMachine() const {
-    return maxL.getSlowestMachine();
+    return maxZ.getSlowestMachine();
 }
 
 
 void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
-    if (r.summary.empty()) {
-        reset();   // Invalidate!!
-    } else if (!summary.empty()) {
-        memoryRange.extend(r.memoryRange);
-        diskRange.extend(r.diskRange);
-        minL.min(minL, r.minL);
-        maxL.max(maxL, r.maxL);
-        if (lengthHorizon < r.lengthHorizon)
+    if (!r.summary.empty()) {
+        LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
+
+        if (summary.empty()) {
+            // operator= forbidden
+            memoryRange = r.memoryRange;
+            diskRange = r.diskRange;
+            minZ = r.minZ;
+            maxZ = r.maxZ;
             lengthHorizon = r.lengthHorizon;
-        slownessRange.extend(r.slownessRange);
+            slownessRange = r.slownessRange;
+        } else {
+            memoryRange.extend(r.memoryRange);
+            diskRange.extend(r.diskRange);
+            minZ.min(minZ, r.minZ);
+            maxZ.max(maxZ, r.maxZ);
+            if (lengthHorizon < r.lengthHorizon)
+                lengthHorizon = r.lengthHorizon;
+            slownessRange.extend(r.slownessRange);
+        }
         summary.insert(summary.end(), r.summary.begin(), r.summary.end());
     }
 }
@@ -122,7 +143,7 @@ void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
 
 void FSPAvailabilityInformation::reduce() {
     // Set up clustering variables
-    slownessSquareDiff = maxL.sqdiff(minL, lengthHorizon);
+    slownessSquareDiff = maxZ.sqdiff(minZ, lengthHorizon);
     for (auto & i : summary)
         i.reference = this;
     summary.cluster(numClusters);
@@ -134,7 +155,7 @@ void FSPAvailabilityInformation::reduce() {
 void FSPAvailabilityInformation::output(std::ostream & os) const {
     os << slownessRange.getMin() << "s/i";
     if (!summary.empty()) {
-        os << LogMsg::indent << "  (" << minL << ", " << maxL << ") {" << LogMsg::indent;
+        os << LogMsg::indent << "  (" << minZ << ", " << maxZ << ") {" << LogMsg::indent;
         for (auto & i : summary)
             os << "    " << i << LogMsg::indent;
         os << "  }";
