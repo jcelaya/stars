@@ -80,7 +80,7 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     LogMsg("Dsp.Simple", DEBUG) << groups.size() << " groups found";
 
     // Now divide the request between the zones
-    unsigned int numTasks[2] = {0, 0};
+    std::array<unsigned int, 2> numTasks = {0, 0};
     for (std::list<DecisionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; ++it) {
         LogMsg("Dsp.Simple", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->cluster.getValue() << " nodes, availability is " << it->availability;
         uint32_t numTaken = remainingTasks - it->cluster.takeUpToNodes(remainingTasks);

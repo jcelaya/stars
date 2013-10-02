@@ -339,6 +339,7 @@ void Simulator::setProperties(Properties & property) {
 void Simulator::stepForward() {
     // Do not take into account the canceled and delayed timers
     while (!events.empty()) {
+        pstats.startEvent("Event selection");
         p = events.top();
         events.pop();
         time = p->t;
@@ -379,14 +380,19 @@ void Simulator::stepForward() {
             << " at " << time
             << " from " << AddrIO(p->from)
             << " to " << AddrIO(p->to);
+        pstats.endEvent("Event selection");
+        pstats.startEvent("Before event");
         tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
         simCase->beforeEvent(p->from, p->to, *p->msg);
+        pstats.endEvent("Before event");
         pstats.startEvent(p->msg->getName());
         // Measure operation duration from this point
         opStart = microsec_clock::local_time();
         routingTable[p->to].receiveMessage(p->from, p->msg);
         pstats.endEvent(p->msg->getName());
+        pstats.startEvent("After event");
         simCase->afterEvent(p->from, p->to, *p->msg);
+        pstats.endEvent("After event");
         delete p;
         break;
     }
@@ -467,7 +473,9 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_pt
     unsigned long int size = 0;
     if (src != dst) {
         if (measureSize) {
+            pstats.startEvent("getMsgSize");
             size = getMsgSize(msg) + 90;   // 90 bytes of Ethernet + IP + TCP
+            pstats.endEvent("getMsgSize");
         }
         NodeNetInterface & srcIface = iface[src];
         NodeNetInterface & dstIface = iface[dst];

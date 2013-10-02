@@ -38,10 +38,10 @@ struct FunctionInfo {
 
 class FunctionVector : public std::vector<FunctionInfo> {
 public:
-    FunctionVector(std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2], double bs[2])
+    FunctionVector(std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2], const std::array<double, 2> & bs)
             : std::vector<FunctionInfo>(clusters[0].size() + clusters[1].size()),
               totalTasks(0), diffWithRequest(0), minSlowness(INFINITY),
-              branchSlowness{bs[0], bs[1]}, worstChild(0) {
+              branchSlowness(bs), worstChild(0) {
         size_t j = 0;
         totalNodes = 0;
         for (int c : {0, 1}) {
@@ -90,13 +90,14 @@ public:
         }
     }
 
-    const double * getNewBranchSlowness() const { return branchSlowness; }
+    const std::array<double, 2> & getNewBranchSlowness() const { return branchSlowness; }
 
     double getMinimumSlowness() const {
         return minSlowness;
     }
 
-    void computeTasksPerBranch(unsigned int tpb[2]) {
+    std::array<unsigned int, 2> computeTasksPerBranch() {
+        std::array<unsigned int, 2> tpb = {0, 0};
         for (auto & func : *this) {
             if (func.tasks) {
                 unsigned int tasksToCluster = func.tasks * func.cluster->getValue();
@@ -104,6 +105,7 @@ public:
             }
         }
         tpb[worstChild] -= diffWithRequest;
+        return tpb;
     }
 
     unsigned int getTotalNodes() const {
@@ -118,7 +120,7 @@ private:
     unsigned int totalTasks, diffWithRequest, totalNodes;
     unsigned int nodesPerBranch[2];
     double minSlowness;
-    double branchSlowness[2];
+    std::array<double, 2> branchSlowness;
     int worstChild;
 
     static bool compare(const std::pair<double, FunctionInfo *> & l, const std::pair<double, FunctionInfo *> & r) {
@@ -151,7 +153,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     uint64_t a = req.getLength();
 
     std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2];
-    double branchSlowness[2] = {0.0, 0.0};
+    std::array<double, 2> branchSlowness = {0.0, 0.0};
     for (int c : {0, 1}) {
         if (child[c].availInfo.get()) {
             LogMsg("Dsp.FSP", DEBUG) << "Getting functions of children (" << child[c].addr << "): " << *child[c].availInfo;
@@ -160,45 +162,38 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         }
     }
     FunctionVector functions(clusters, branchSlowness);
-    functions.computeTasksPerFunction(numTasksReq, a);
-    LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << functions.getMinimumSlowness();
-    double minSlowness = functions.getMinimumSlowness(), slownessLimit = getSlownessLimit();
-    unsigned int numTasks[2] = {0, 0};
-    functions.computeTasksPerBranch(numTasks);
-
-    if (mustGoDown(src, msg))
-        LogMsg("Dsp.FSP", DEBUG) << "The request must go down.";
-    if (functions.getNodesOfBranch(0) >= numTasks[0])
-        LogMsg("Dsp.FSP", DEBUG) << "There are enough nodes in left branch.";
-    if (functions.getNodesOfBranch(1) >= numTasks[1])
-        LogMsg("Dsp.FSP", DEBUG) << "There are enough nodes in right branch.";
-    if (minSlowness <= slownessLimit)
-        LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit.";
-
-    if (mustGoDown(src, msg) ||
-            (functions.getTotalNodes() >= numTasksReq && minSlowness <= slownessLimit)) {
-        sendTasks(msg, numTasks, false);
-
-        updateBranchSlowness(functions.getNewBranchSlowness());
-        clusters[0].clear();
-        clusters[1].clear();
-        for (auto & func : functions) {
-            if (func.tasks) {
-               clusters[func.child].push_back(func.cluster);
-            }
-        }
-        for (int c : {0, 1})
-            child[c].availInfo->removeClusters(clusters[c]);
-
-        recomputeInfo();
-        // Only notify the father if the message does not come from it
-        if (!mustGoDown(src, msg)) {
-            notify();
-        }
+    std::array<unsigned int, 2> numTasks = {0, 0};
+    if (!mustGoDown(src, msg) && functions.getTotalNodes() < numTasksReq) {
+        LogMsg("Dsp.FSP", INFO) << "Not enough nodes to route this request, sending to the father.";
     } else {
-        LogMsg("Dsp.FSP", INFO) << "Not enough information to route this request, sending to the father.";
-        CommLayer::getInstance().sendMessage(father.addr, msg.getSubRequest(msg.getFirstTask(), msg.getLastTask()));
+        functions.computeTasksPerFunction(numTasksReq, a);
+        double minSlowness = functions.getMinimumSlowness(), slownessLimit = getSlownessLimit();
+        LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << minSlowness;
+        if (mustGoDown(src, msg) || minSlowness <= slownessLimit) {
+            numTasks = functions.computeTasksPerBranch();
+            updateBranchSlowness(functions.getNewBranchSlowness());
+            clusters[0].clear();
+            clusters[1].clear();
+            for (auto & func : functions) {
+                if (func.tasks) {
+                   clusters[func.child].push_back(func.cluster);
+                }
+            }
+            for (int c : {0, 1})
+                child[c].availInfo->removeClusters(clusters[c]);
+            recomputeInfo();
+            if (mustGoDown(src, msg)) {
+                LogMsg("Dsp.FSP", DEBUG) << "The request must go down.";
+            } else {
+                LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit " << slownessLimit;
+                // Only notify the father if the message does not come from it
+                notify();
+            }
+        } else {
+            LogMsg("Dsp.FSP", INFO) << "Not enough information to route this request, sending to the father.";
+        }
     }
+    sendTasks(msg, numTasks, false);
 }
 
 
@@ -220,7 +215,7 @@ double FSPDispatcher::getSlownessLimit() const {
 }
 
 
-void FSPDispatcher::updateBranchSlowness(const double branchSlowness[2]) {
+void FSPDispatcher::updateBranchSlowness(const std::array<double, 2> & branchSlowness) {
     for (int c : {0, 1}) {
         if (child[c].availInfo.get()) {
             child[c].availInfo->setMinimumSlowness(branchSlowness[c]);

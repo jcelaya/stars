@@ -25,21 +25,22 @@
 
 void PerformanceStatistics::openFile(const fs::path & statDir) {
     os.open(statDir / fs::path("perf.stat"));
+    lastPartialSave = pt::seconds(0);
 }
 
 
 void PerformanceStatistics::startEvent(const std::string & ev) {
-    handleTimeStatistics[ev].start = std::clock();
+    handleTimeStatistics[ev].start = pt::microsec_clock::local_time();
 }
 
 
 void PerformanceStatistics::endEvent(const std::string & ev) {
-    clock_t end = std::clock();
     EventStats & es = handleTimeStatistics[ev];
+    pt::time_duration span = pt::microsec_clock::local_time() - es.start;
     es.partialNumEvents++;
     es.totalNumEvents++;
-    es.partialHandleTime += (end - es.start) / clocksPerUSecond;
-    es.totalHandleTime += (end - es.start) / clocksPerUSecond;
+    es.partialHandleTime += span.total_microseconds();
+    es.totalHandleTime += span.total_microseconds();
 }
 
 
@@ -69,15 +70,21 @@ void PerformanceStatistics::savePartialStatistics() {
 
     // Save statistics
     Simulator & sim = Simulator::getInstance();
-    os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << sim.getCurrentTime() << std::endl;
+    pt::time_duration realTime = sim.getRealTime();
+    os << "Real Time: " << realTime << "   Sim Time: " << sim.getCurrentTime() << std::endl;
+    pt::time_duration elapsed = realTime - lastPartialSave;
+    lastPartialSave = realTime;
+    double eventTime = 0.0;
     for (std::list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
         os << "   " << it->ev->first << ": "
             << it->ev->second.partialNumEvents << " events at "
             << it->tpe << " us/ev" << std::endl;
+        eventTime += it->ev->second.partialHandleTime;
         // Reset partial counters
         it->ev->second.partialNumEvents = 0;
         it->ev->second.partialHandleTime = 0.0;
     }
+    os << "   Other: " << (elapsed.total_microseconds() - eventTime) << " us" << std::endl;
 
     // Harvest memory occupation statistics
     os << "Database instances: " << SimAppDatabase::getTotalInstances() << " instances in " << SimAppDatabase::getTotalInstancesMem() << " bytes" << std::endl;

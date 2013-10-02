@@ -20,6 +20,7 @@
 
 
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/shared_array.hpp>
 #include <limits>
 #include <algorithm>
@@ -142,6 +143,7 @@ void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
 
 
 void FSPAvailabilityInformation::reduce() {
+    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
     // Set up clustering variables
     slownessSquareDiff = maxZ.sqdiff(minZ, lengthHorizon);
     for (auto & i : summary)
@@ -149,6 +151,8 @@ void FSPAvailabilityInformation::reduce() {
     summary.cluster(numClusters);
     for (auto & i : summary)
         i.reduce();
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+    LogMsg("Ex.RI.Aggr", INFO) << "Clustering lasted " << (end - start).total_microseconds() << " us";
 }
 
 

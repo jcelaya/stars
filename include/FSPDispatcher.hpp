@@ -61,7 +61,7 @@ private:
         return father.addr == CommAddress() || (!msg.isFromEN() && father.addr == src);
     }
 
-    void updateBranchSlowness(const double branchSlowness[2]);
+    void updateBranchSlowness(const std::array<double, 2> & branchSlowness);
 
     bool validInformation() const {
         boost::shared_ptr<FSPAvailabilityInformation> info =

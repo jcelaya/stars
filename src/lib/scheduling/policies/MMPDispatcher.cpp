@@ -158,7 +158,7 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     groups.sort();
 
     // Now divide the request between the zones
-    unsigned int numTasks[2] = { 0, 0 };
+    std::array<unsigned int, 2> numTasks = { 0, 0 };
     for (std::list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
         LogMsg("Dsp.MMP", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->numTasks << " tasks";
         unsigned int tasksInGroup = it->numTasks;

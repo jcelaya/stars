@@ -21,6 +21,7 @@
 #ifndef DISPATCHER_H_
 #define DISPATCHER_H_
 
+#include <array>
 #include <boost/shared_ptr.hpp>
 #include "Logger.hpp"
 #include "CommLayer.hpp"
@@ -42,8 +43,6 @@ public:
     virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const = 0;
 
     virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int child) const = 0;
-
-    virtual bool changed() = 0;
 };
 
 
@@ -57,7 +56,7 @@ public:
      * @param sn The StructureNode of this branch.
      */
     Dispatcher(OverlayBranch & b) : branch(b),
-        infoChanged(false), updateTimer(0), nextUpdate(), inChange(false) {
+        updateTimer(0), nextUpdate(), inChange(false) {
         // See if sn is already in the network
         branch.registerObserver(this);
         if (branch.inNetwork()) {
@@ -112,18 +111,21 @@ public:
         boost::shared_ptr<T> availInfo;
         boost::shared_ptr<T> waitingInfo;
         boost::shared_ptr<T> notifiedInfo;
-        Link() {}
-        Link(const CommAddress & a) : addr(a) {}
+        bool hasNewInformation;
+        Link() : hasNewInformation(false) {}
+        Link(const CommAddress & a, bool c) : addr(a), hasNewInformation(c) {}
         template<class Archive> void serializeState(Archive & ar) {
             // Serialization only works if not in a transaction
             ar & addr & availInfo & waitingInfo & notifiedInfo;
         }
         unsigned int sendUpdate() {
             if (waitingInfo.get() && !(notifiedInfo.get() && *notifiedInfo == *waitingInfo)) {
-                if (!notifiedInfo.get())
+                if (!notifiedInfo.get()) {
                     LogMsg("Dsp", DEBUG) << "No notified info";
-                else
+                } else {
                     LogMsg("Dsp", DEBUG) << "Notified info was " << *notifiedInfo;
+                    LogMsg("Dsp.Compare", DEBUG) << "Notified info was different from waiting info";
+                }
                 uint32_t seq = notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1;
                 notifiedInfo = waitingInfo;
                 waitingInfo.reset();
@@ -133,7 +135,9 @@ public:
                 sendMsg->reduce();
                 return CommLayer::getInstance().sendMessage(addr, sendMsg);
             }
-            else return 0;
+            else if (waitingInfo.get() && notifiedInfo.get())
+                LogMsg("Dsp.Compare", DEBUG) << "Notified info was equal to waiting info";
+            return 0;
         }
         bool update(const CommAddress & src, const T & msg) {
             if (addr == src) {
@@ -142,18 +146,13 @@ public:
                 } else {
                     // Update data
                     availInfo.reset(msg.clone());
+                    hasNewInformation = true;
                 }
                 return true;
             }
             return false;
         }
     };
-
-    virtual bool changed() {
-        bool tmp = infoChanged;
-        infoChanged = false;
-        return tmp;
-    }
 
     /**
      * Calculates the availability information of this branch.
@@ -170,7 +169,6 @@ protected:
     Link father;
     /// Info about this branch
     Link child[2];
-    bool infoChanged;
 
     typedef std::pair<CommAddress, boost::shared_ptr<T> > AddrMsg;
     std::vector<AddrMsg> delayedUpdates;   ///< Delayed messages when the structure is changing
@@ -197,6 +195,7 @@ protected:
             // Check if the resulting zone changes
             if (!delayed) {
                 recomputeInfo();
+                father.hasNewInformation = child[0].hasNewInformation = child[1].hasNewInformation = false;
                 informationUpdated();
                 notify();
             }
@@ -251,7 +250,8 @@ protected:
                     }
                 }
             }
-            double t = (double)sentSize / ConfigurationManager::getInstance().getUpdateBandwidth();
+            double ubw = ConfigurationManager::getInstance().getUpdateBandwidth();
+            double t = ubw > 0.0 ? (double)sentSize / ConfigurationManager::getInstance().getUpdateBandwidth() : 0.0;
             nextUpdate = Time::getCurrentTime() + Duration(t);
         }
     }
@@ -264,7 +264,7 @@ protected:
      */
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg) = 0;
 
-    void sendTasks(const TaskBagMsg & msg, unsigned int numTasks[2], bool dontSendToFather) {
+    void sendTasks(const TaskBagMsg & msg, const std::array<unsigned int, 2> & numTasks, bool dontSendToFather) {
         // Now create and send the messages
         unsigned int nextTask = msg.getFirstTask();
         for (int c : {0, 1}) {
@@ -322,16 +322,18 @@ protected:
     }
 
     void recomputeFatherInfo() {
-        if (child[0].availInfo.get()) {
-            father.waitingInfo.reset(child[0].availInfo->clone());
-            if (child[1].availInfo.get())
-                father.waitingInfo->join(*child[1].availInfo);
-            LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
-        } else if (child[1].availInfo.get()) {
-            father.waitingInfo.reset(child[1].availInfo->clone());
-            LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
-        } else
-            father.waitingInfo.reset();
+        if (child[0].hasNewInformation || child[1].hasNewInformation) {
+            if (child[0].availInfo.get()) {
+                father.waitingInfo.reset(child[0].availInfo->clone());
+                if (child[1].availInfo.get())
+                    father.waitingInfo->join(*child[1].availInfo);
+                LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+            } else if (child[1].availInfo.get()) {
+                father.waitingInfo.reset(child[1].availInfo->clone());
+                LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+            } else
+                father.waitingInfo.reset();
+        }
     }
 
     static const char * childName(int i) {
@@ -349,11 +351,11 @@ private:
     virtual void commitChanges(bool fatherChanged, bool leftChanged, bool rightChanged) {
         inChange = false;
         if (fatherChanged)
-            father = Link(branch.getFatherAddress());
+            father = Link(branch.getFatherAddress(), true);
         if (leftChanged)
-            child[0] = Link(branch.getChildAddress(0));
+            child[0] = Link(branch.getChildAddress(0), true);
         if (rightChanged)
-            child[1] = Link(branch.getChildAddress(1));
+            child[1] = Link(branch.getChildAddress(1), true);
         // Check delayed updates
         for (typename std::vector<AddrMsg>::iterator it = delayedUpdates.begin();
                 it != delayedUpdates.end(); it++)
@@ -361,6 +363,7 @@ private:
         delayedUpdates.clear();
         // Recompute info
         recomputeInfo();
+        father.hasNewInformation = child[0].hasNewInformation = child[1].hasNewInformation = false;
         // Notify
         notify();
     }

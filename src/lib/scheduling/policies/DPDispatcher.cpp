@@ -112,7 +112,7 @@ void DPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // Now divide the request between the zones
     list<DPAvailabilityInformation::AssignmentInfo> assign[2];
-    unsigned int numTasks[2] = {0, 0};
+    std::array<unsigned int, 2> numTasks = {0, 0};
     for (list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
         LogMsg("Dsp.Dl", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->ai.numTasks << " tasks";
         unsigned int tasksInGroup = it->ai.numTasks;

@@ -60,6 +60,7 @@ void MMPScheduler::reschedule() {
 
     info.setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
                      backend.impl->getAveragePower(), estimatedFinish);
+    info.setMaxQueueLength(estimatedFinish);
     LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Resulting info is " << info;
 }
 

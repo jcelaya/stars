@@ -23,24 +23,24 @@
 
 #include <map>
 #include <string>
-#include <ctime>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
+namespace pt = boost::posix_time;
 
 class PerformanceStatistics {
 public:
     struct EventStats {
-        clock_t start;
+        pt::ptime start;
         unsigned long int totalNumEvents, partialNumEvents;
         double totalHandleTime, partialHandleTime;
         EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
     };
 
-    static constexpr double clocksPerUSecond = CLOCKS_PER_SEC / 1000000.0;
 private:
     std::map<std::string, EventStats> handleTimeStatistics;
-
     fs::ofstream os;
+    pt::time_duration lastPartialSave;
 
 public:
     void openFile(const fs::path & statDir);

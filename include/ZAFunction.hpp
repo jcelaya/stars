@@ -73,9 +73,9 @@ public:
 
         MSGPACK_DEFINE(leftEndpoint, x, y, z1, z2);
 
-        double leftEndpoint;
+        float leftEndpoint;
         // z1 is the sum of the independent term in L = x/a + z1, while z2 is the independent part in the other functions
-        double x, y, z1, z2;   // L = x/a + y*a + z1 + z2
+        float x, y, z1, z2;   // L = x/a + y*a + z1 + z2
     };
 
     typedef std::vector<SubFunction> PieceVector;
