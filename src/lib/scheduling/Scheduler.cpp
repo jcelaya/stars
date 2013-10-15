@@ -113,17 +113,14 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
         LogMsg("Ex.Sch", INFO) << "Handling TaskBagMsg from " << src;
         unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
         unsigned int numAccepted = 0;
-        const TaskDescription & desc = msg.getMinRequirements();
-        // Check static constraints
-        if (desc.getMaxMemory() > backend.impl->getAvailableMemory()) {
-            LogMsg("Ex.Sch", WARN) << "Not enough memory to execute the task: " << desc.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
-        } else if (desc.getMaxDisk() > backend.impl->getAvailableDisk()) {
-            LogMsg("Ex.Sch", WARN) << "Not enough disk to execute the task: " << desc.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
-        } else {
+        if (checkStaticRequirements(msg.getMinRequirements())) {
             // Take the TaskDescription object and try to accept it
-            LogMsg("Ex.Sch", INFO) << "Accepting " << numTasks << " tasks from request " << msg.getRequestId() << " for " << msg.getRequester();
+            LogMsg("Ex.Sch", INFO) << "Accepting " << numTasks << " tasks from request "
+                    << msg.getRequestId() << " for " << msg.getRequester();
             numAccepted = accept(msg);
             if (numAccepted > 0) {
+                LogMsg("Ex.Sch.Timing", INFO) << "Used information from ["
+                        << msg.getOldestInfo() << ", " << msg.getNewestInfo() << ']';
                 notifySchedule();
                 // Acknowledge the requester
                 AcceptTaskMsg * atm = new AcceptTaskMsg;
@@ -143,6 +140,18 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
         // If control reaches this point, there are tasks which were not accepted.
         LogMsg("Ex.Sch", WARN) << (numTasks - numAccepted) << " tasks rejected.";
     }
+}
+
+
+bool Scheduler::checkStaticRequirements(const TaskDescription & req) {
+    if (req.getMaxMemory() > backend.impl->getAvailableMemory()) {
+        LogMsg("Ex.Sch", WARN) << "Not enough memory to execute the task: "
+                << req.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
+    } else if (req.getMaxDisk() > backend.impl->getAvailableDisk()) {
+        LogMsg("Ex.Sch", WARN) << "Not enough disk to execute the task: "
+                << req.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
+    } else return true;
+    return false;
 }
 
 
@@ -238,6 +247,8 @@ void Scheduler::notifySchedule() {
     if (!inChange && leaf.getFatherAddress() != CommAddress()) {
         AvailabilityInformation * msg = getAvailability().clone();
         msg->setSeq(++seqNum);
+        msg->setFirstModified(Time::getCurrentTime());
+        msg->setLastModified(Time::getCurrentTime());
         CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
         dirty = false;
     } else {

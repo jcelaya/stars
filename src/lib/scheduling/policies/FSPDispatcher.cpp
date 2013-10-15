@@ -187,7 +187,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             } else {
                 LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit " << slownessLimit;
                 // Only notify the father if the message does not come from it
-                notify();
+                //notify();
             }
         } else {
             LogMsg("Dsp.FSP", INFO) << "Not enough information to route this request, sending to the father.";

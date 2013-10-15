@@ -42,7 +42,7 @@ void PerformanceStatistics::endEvent(const std::string & ev) {
     uint32_t node = sim.isInSimulation() ? sim.getCurrentNode().getLocalAddress().getIPNum() : 0;
     boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time(), s = start[node][ev];
     boost::mutex::scoped_lock lock(m);
-    EventStats & es = handleTimeStatistics[ev];
+    EventStats & es = statsPerEvent[ev];
     es.partialNumEvents++;
     es.totalNumEvents++;
     es.partialHandleTime += (end - s).total_microseconds();
@@ -51,8 +51,8 @@ void PerformanceStatistics::endEvent(const std::string & ev) {
 
 
 PerformanceStatistics::EventStats PerformanceStatistics::getEvent(const std::string & ev) const {
-    map<string, EventStats>::const_iterator it = handleTimeStatistics.find(ev);
-    if (it != handleTimeStatistics.end())
+    map<string, EventStats>::const_iterator it = statsPerEvent.find(ev);
+    if (it != statsPerEvent.end())
         return it->second;
     else return EventStats();
 }
@@ -71,7 +71,7 @@ struct TimePerEvent {
 void PerformanceStatistics::savePartialStatistics() {
     // NOTE: Not protected by the mutex, this method should be called always from just one thread
     list<TimePerEvent> v;
-    for (map<string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
+    for (map<string, EventStats>::iterator it = statsPerEvent.begin(); it != statsPerEvent.end(); it++) {
         if (it->second.partialNumEvents > 0)
             v.push_back(TimePerEvent(it->second.partialHandleTime / it->second.partialNumEvents, it));
     }
@@ -96,7 +96,7 @@ void PerformanceStatistics::savePartialStatistics() {
 void PerformanceStatistics::saveTotalStatistics() {
     // NOTE: Not protected by the mutex, this method should be called always from just one thread
     list<TimePerEvent> v;
-    for (map<string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
+    for (map<string, EventStats>::iterator it = statsPerEvent.begin(); it != statsPerEvent.end(); it++) {
         if (it->second.totalNumEvents > 0)
             v.push_back(TimePerEvent(it->second.totalHandleTime / it->second.totalNumEvents, it));
     }

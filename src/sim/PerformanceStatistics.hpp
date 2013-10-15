@@ -84,7 +84,7 @@ public:
 private:
     /// Last measurement starting time per node and event type
     std::vector<std::map<std::string, boost::posix_time::ptime> > start;
-    std::map<std::string, EventStats> handleTimeStatistics;   ///< Association between event names and statistics.
+    std::map<std::string, EventStats> statsPerEvent;   ///< Association between event names and statistics.
     boost::filesystem::ofstream os;                           ///< Output file.
     boost::mutex m;                                           ///< Access mutex.
 };

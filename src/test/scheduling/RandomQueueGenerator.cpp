@@ -46,7 +46,7 @@ std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(do
     reset(power);
 
     // Add a random number of applications, with random length and number of tasks
-    while(boost::random::uniform_int_distribution<>(1, 3)(gen) != 1) {
+    while(boost::random::uniform_int_distribution<>(1, 8)(gen) != 1) {
         createRandomApp(getRandomNumTasks());
     }
 

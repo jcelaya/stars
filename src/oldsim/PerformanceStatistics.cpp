@@ -23,6 +23,29 @@
 #include "Simulator.hpp"
 
 
+void PerformanceStatistics::EventStats::end() {
+    pt::time_duration span = pt::microsec_clock::local_time() - start;
+    unsigned long int micros = span.total_microseconds();
+    if (numEvents == 0 || minDuration > micros)
+        minDuration = micros;
+    if (maxDuration < micros)
+        maxDuration = micros;
+    numEvents++;
+    handleTime += micros;
+}
+
+
+PerformanceStatistics::EventStats & PerformanceStatistics::EventStats::operator+=(const EventStats & r) {
+    if (numEvents == 0 || minDuration > r.minDuration)
+        minDuration = r.minDuration;
+    if (maxDuration < r.maxDuration)
+        maxDuration = r.maxDuration;
+    numEvents += r.numEvents;
+    handleTime += r.handleTime;
+    return *this;
+}
+
+
 void PerformanceStatistics::openFile(const fs::path & statDir) {
     os.open(statDir / fs::path("perf.stat"));
     lastPartialSave = pt::seconds(0);
@@ -30,43 +53,49 @@ void PerformanceStatistics::openFile(const fs::path & statDir) {
 
 
 void PerformanceStatistics::startEvent(const std::string & ev) {
-    handleTimeStatistics[ev].start = pt::microsec_clock::local_time();
+    partialStatsPerEvent[ev].start = pt::microsec_clock::local_time();
 }
 
 
 void PerformanceStatistics::endEvent(const std::string & ev) {
-    EventStats & es = handleTimeStatistics[ev];
-    pt::time_duration span = pt::microsec_clock::local_time() - es.start;
-    es.partialNumEvents++;
-    es.totalNumEvents++;
-    es.partialHandleTime += span.total_microseconds();
-    es.totalHandleTime += span.total_microseconds();
+    partialStatsPerEvent[ev].end();
 }
 
 
-PerformanceStatistics::EventStats PerformanceStatistics::getEvent(const std::string & ev) const {
-    std::map<std::string, EventStats>::const_iterator it = handleTimeStatistics.find(ev);
-    if (it != handleTimeStatistics.end())
-        return it->second;
-    else return EventStats();
-}
-
-
-struct TimePerEvent {
+struct TimeSummary {
     double tpe;
-    std::map<std::string, PerformanceStatistics::EventStats>::iterator ev;
-    TimePerEvent(double t, std::map<std::string, PerformanceStatistics::EventStats>::iterator it) : tpe(t), ev(it) {}
-    bool operator<(const TimePerEvent & r) { return tpe < r.tpe; }
+    std::string eventName;
+    PerformanceStatistics::EventStats & stats;
+    TimeSummary(const std::string & name, PerformanceStatistics::EventStats & st)
+        : tpe(st.handleTime / st.numEvents), eventName(name), stats(st) {}
+    bool operator<(const TimeSummary & r) { return tpe < r.tpe; }
+
+    friend std::ostream & operator<<(std::ostream & os, const TimeSummary & r) {
+        return os << "   " << r.eventName << ": "
+            << r.stats.numEvents << " events at "
+            << r.tpe << " us/ev [" << r.stats.minDuration << ", " << r.stats.maxDuration << "]"
+            << std::endl;
+    }
 };
 
 
-void PerformanceStatistics::savePartialStatistics() {
-    std::list<TimePerEvent> v;
-    for (std::map<std::string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
-        if (it->second.partialNumEvents > 0)
-            v.push_back(TimePerEvent(it->second.partialHandleTime / it->second.partialNumEvents, it));
+void PerformanceStatistics::copyPartialToTotal() {
+    for (auto & partialStat : partialStatsPerEvent) {
+        statsPerEvent[partialStat.first] += partialStat.second;
     }
-    v.sort();
+}
+
+
+void PerformanceStatistics::savePartialStatistics() {
+    copyPartialToTotal();
+
+    std::list<TimeSummary> summaries;
+    for (auto & it : partialStatsPerEvent) {
+        if (it.second.numEvents > 0) {
+            summaries.push_back(TimeSummary(it.first, it.second));
+        }
+    }
+    summaries.sort();
 
     // Save statistics
     Simulator & sim = Simulator::getInstance();
@@ -75,14 +104,10 @@ void PerformanceStatistics::savePartialStatistics() {
     pt::time_duration elapsed = realTime - lastPartialSave;
     lastPartialSave = realTime;
     double eventTime = 0.0;
-    for (std::list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
-        os << "   " << it->ev->first << ": "
-            << it->ev->second.partialNumEvents << " events at "
-            << it->tpe << " us/ev" << std::endl;
-        eventTime += it->ev->second.partialHandleTime;
-        // Reset partial counters
-        it->ev->second.partialNumEvents = 0;
-        it->ev->second.partialHandleTime = 0.0;
+    for (auto & summary : summaries) {
+        os << summary;
+        eventTime += summary.stats.handleTime;
+        summary.stats.reset();
     }
     os << "   Other: " << (elapsed.total_microseconds() - eventTime) << " us" << std::endl;
 
@@ -93,20 +118,21 @@ void PerformanceStatistics::savePartialStatistics() {
 
 
 void PerformanceStatistics::saveTotalStatistics() {
-    std::list<TimePerEvent> v;
-    for (std::map<std::string, EventStats>::iterator it = handleTimeStatistics.begin(); it != handleTimeStatistics.end(); it++) {
-        if (it->second.totalNumEvents > 0)
-            v.push_back(TimePerEvent(it->second.totalHandleTime / it->second.totalNumEvents, it));
+    copyPartialToTotal();
+
+    std::list<TimeSummary> summaries;
+    for (auto & it : statsPerEvent) {
+        if (it.second.numEvents > 0) {
+            summaries.push_back(TimeSummary(it.first, it.second));
+        }
     }
-    v.sort();
+    summaries.sort();
 
     // Save statistics
     Simulator & sim = Simulator::getInstance();
     os << "Final Statistics" << std::endl;
     os << "Real Time: " << sim.getRealTime() << "   Sim Time: " << sim.getCurrentTime() << std::endl;
-    for (std::list<TimePerEvent>::iterator it = v.begin(); it != v.end(); it++) {
-        os << "   " << it->ev->first << ": "
-            << it->ev->second.totalNumEvents << " events at "
-            << it->tpe << " us/ev" << std::endl;
+    for (auto & summary : summaries) {
+        os << summary;
     }
 }

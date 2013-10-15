@@ -49,6 +49,7 @@ class ConfigurationManager {
     boost::filesystem::path dbPath;
     std::string entryPoint;
     double requestTimeout;
+    double rescheduleTimeout;
 
     /// default constructor, prevents instantiation
     ConfigurationManager();
@@ -236,6 +237,14 @@ public:
 
     void setRequestTimeout(double rt) {
         requestTimeout = rt;
+    }
+
+    double getRescheduleTimeout() const {
+        return rescheduleTimeout;
+    }
+
+    void setRescheduleTimeout(double rt) {
+        rescheduleTimeout = rt;
     }
 };
 

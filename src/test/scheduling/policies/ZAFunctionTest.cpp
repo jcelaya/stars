@@ -265,7 +265,7 @@ BOOST_AUTO_TEST_CASE(ZAFunction_reduceMax) {
     for (int i = 0; i < 100; ++i) {
         f.createNTaskFunction(20);
         ZAFunction fred(f.function);
-        double accumAsqRed = 5 * fred.reduceMax(f.horizon);
+        double accumAsqRed = 5 * fred.reduceMax(f.horizon, 10);
         BOOST_CHECK_GE(accumAsqRed, 0);
         forAinDomain(f.horizon, [&] (uint64_t a) {
             BOOST_REQUIRE_GE(fred.getSlowness(a) * 1.000001, f.function.getSlowness(a));

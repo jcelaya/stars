@@ -171,6 +171,7 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     ConfigurationManager::getInstance().setWorkingPath(Simulator::getInstance().getResultDir());
     ConfigurationManager::getInstance().setSubmitRetries(property("submit_retries", 3));
     ConfigurationManager::getInstance().setRequestTimeout(property("request_timeout", 30.0));
+    ConfigurationManager::getInstance().setRescheduleTimeout(property("reschedule_timeout", 600.0));
     unsigned int clustersBase = property("avail_clusters_base", 0U);
     if (clustersBase) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
@@ -187,7 +188,8 @@ void StarsNode::libStarsConfigure(const Properties & property) {
         }
     }
     stars::LDeltaFunction::setNumPieces(property("dp_pieces", 8U));
-    stars::ZAFunction::setNumPieces(property("fsp_pieces", 64U));
+    stars::ZAFunction::setNumPieces(property("fsp_pieces", 10U));
+    stars::ZAFunction::setReductionQuality(property("fsp_reduction_quality", 10U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     FSPDispatcher::setBeta(property("fsp_beta", 2.0));
     SimAppDatabase::reset();

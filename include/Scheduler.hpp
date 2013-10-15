@@ -213,6 +213,8 @@ private:
         if (dirty)
             notifySchedule();
     }
+
+    bool checkStaticRequirements(const TaskDescription & req);
 };
 
 #endif /*SCHEDULER_H_*/

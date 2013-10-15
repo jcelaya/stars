@@ -22,6 +22,7 @@
 #define RESOURCEINFORMATION_H_
 
 #include "BasicMsg.hpp"
+#include "Time.hpp"
 
 
 /**
@@ -33,9 +34,7 @@
  */
 class AvailabilityInformation : public BasicMsg {
 public:
-    /// Default constructor
-    AvailabilityInformation() : seq(0), fromSch(true) {}
-    /// Default destructor, virtual
+    AvailabilityInformation() : sequenceNumber(0), fromSch(true) {}
     virtual ~AvailabilityInformation() {}
 
     // This is described in BasicMsg
@@ -47,7 +46,7 @@ public:
      * @return The sequence number.
      */
     uint32_t getSeq() const {
-        return seq;
+        return sequenceNumber;
     }
 
     /**
@@ -55,7 +54,7 @@ public:
      * @param s Sequence number.
      */
     void setSeq(uint32_t s) {
-        seq = s;
+        sequenceNumber = s;
     }
 
     /**
@@ -72,13 +71,30 @@ public:
         fromSch = f;
     }
 
+    Time getFirstModified() const {
+        return firstModified;
+    }
+
+    Time getLastModified() const {
+        return lastModified;
+    }
+
+    void setFirstModified(Time f) {
+        firstModified = f;
+    }
+
+    void setLastModified(Time l) {
+        lastModified = l;
+    }
+
     /// Reduces the size of this availability summary so that it is bounded by a certain limit.
     virtual void reduce() = 0;
 
-    MSGPACK_DEFINE(seq, fromSch);
+    MSGPACK_DEFINE(sequenceNumber, fromSch);
 protected:
-    uint32_t seq;   ///< Sequence number, to provide message ordering.
+    uint32_t sequenceNumber;   ///< Sequence number, to provide message ordering.
     bool fromSch;   ///< Whether the message comes from the scheduler or the dispatcher
+    Time firstModified, lastModified;
 };
 
 #endif /*RESOURCEINFORMATION_H_*/

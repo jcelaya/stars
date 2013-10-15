@@ -32,28 +32,36 @@ class PerformanceStatistics {
 public:
     struct EventStats {
         pt::ptime start;
-        unsigned long int totalNumEvents, partialNumEvents;
-        double totalHandleTime, partialHandleTime;
-        EventStats() : totalNumEvents(0), partialNumEvents(0), totalHandleTime(0.0), partialHandleTime(0.0) {}
+        unsigned long int numEvents;
+        unsigned long int minDuration;
+        unsigned long int maxDuration;
+        double handleTime;
+        void reset() {
+            numEvents = minDuration = maxDuration = 0;
+            handleTime = 0.0;
+        }
+        void end();
+        EventStats & operator+=(const EventStats & r);
+        EventStats() { reset(); }
     };
 
-private:
-    std::map<std::string, EventStats> handleTimeStatistics;
-    fs::ofstream os;
-    pt::time_duration lastPartialSave;
-
-public:
     void openFile(const fs::path & statDir);
 
     void startEvent(const std::string & ev);
 
     void endEvent(const std::string & ev);
 
-    EventStats getEvent(const std::string & ev) const;
-
     void savePartialStatistics();
 
     void saveTotalStatistics();
+
+private:
+    std::map<std::string, EventStats> partialStatsPerEvent;
+    std::map<std::string, EventStats> statsPerEvent;
+    fs::ofstream os;
+    pt::time_duration lastPartialSave;
+
+    void copyPartialToTotal();
 };
 
 #endif /* PERFORMANCESTATISTICS_H_ */

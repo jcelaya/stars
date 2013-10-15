@@ -72,7 +72,7 @@ void DPScheduler::reschedule() {
 
     // Program a timer
     if (!tasks.empty())
-        rescheduleAt(Time::getCurrentTime() + Duration(600.0));
+        rescheduleAt(Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRescheduleTimeout()));
 }
 
 

@@ -19,12 +19,13 @@
  */
 
 
+#include <fstream>
+
+#include <limits>
+#include <algorithm>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/shared_array.hpp>
-#include <limits>
-#include <algorithm>
-#include <sstream>
 #include "Logger.hpp"
 #include "FSPAvailabilityInformation.hpp"
 #include "Time.hpp"
@@ -54,10 +55,10 @@ double FSPAvailabilityInformation::MDZCluster::distance(const MDZCluster & r, MD
 
 bool FSPAvailabilityInformation::MDZCluster::far(const MDZCluster & r) const {
     return minM.far(r.minM, reference->memoryRange, numIntervals) ||
-            minD.far(r.minD, reference->diskRange, numIntervals) ||
+            minD.far(r.minD, reference->diskRange, numIntervals);/* ||
             (reference->slownessSquareDiff &&
                 floor(maxZ.sqdiff(reference->minZ, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff) !=
-                floor(r.maxZ.sqdiff(r.reference->minZ, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff));
+                floor(r.maxZ.sqdiff(r.reference->minZ, reference->lengthHorizon) * numIntervals / reference->slownessSquareDiff));*/
 }
 
 
@@ -138,21 +139,40 @@ void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
             slownessRange.extend(r.slownessRange);
         }
         summary.insert(summary.end(), r.summary.begin(), r.summary.end());
+        if (firstModified > r.firstModified)
+            firstModified = r.firstModified;
+        if (lastModified < r.lastModified)
+            lastModified = r.lastModified;
     }
 }
 
 
+void saveToFile(FSPAvailabilityInformation * fspai) {
+    std::ofstream oss("fsptest.dat");
+    msgpack::packer<std::ostream> pk(&oss);
+    fspai->pack(pk);
+}
+
+
 void FSPAvailabilityInformation::reduce() {
-    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
     // Set up clustering variables
     slownessSquareDiff = maxZ.sqdiff(minZ, lengthHorizon);
     for (auto & i : summary)
         i.reference = this;
+    //FSPAvailabilityInformation * copy = this->clone();
+    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
     summary.cluster(numClusters);
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+    long mus = (end - start).total_microseconds();
+    LogMsg("Ex.RI.Aggr.FSP", INFO) << "Clustering lasted " << mus << " us";
+    start = end;
     for (auto & i : summary)
         i.reduce();
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-    LogMsg("Ex.RI.Aggr", INFO) << "Clustering lasted " << (end - start).total_microseconds() << " us";
+    end = boost::posix_time::microsec_clock::local_time();
+    LogMsg("Ex.RI.Aggr.FSP", INFO) << "Reduction lasted " << (end - start).total_microseconds() << " us";
+//    if (mus > 30000)
+//        saveToFile(copy);
+//    delete copy;
 }
 
 

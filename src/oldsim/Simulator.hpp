@@ -135,9 +135,9 @@ public:
     Time getCurrentTime() const { return time; }
     pt::time_duration getRealTime() const { return real_time + (pt::microsec_clock::local_time() - start); }
 
-    void progressLog(const std::string & msg);
     bool isLogEnabled(const std::string & category, int priority);
-    boost::iostreams::filtering_ostream & getDebugArchive() { return debugArchive; }
+    boost::iostreams::filtering_ostream & getDebugStream() { return debugStream; }
+    boost::iostreams::filtering_ostream & getProgressStream() { return progressStream; }
     bool isLastLogMoment();
 
     static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
@@ -163,7 +163,8 @@ private:
     ParetoVariable netDelay; // network delay
     fs::path resultDir;
     fs::ofstream progressFile, debugFile;
-    boost::iostreams::filtering_ostream debugArchive;
+    boost::iostreams::filtering_ostream debugStream;
+    boost::iostreams::filtering_ostream progressStream;
     StarsNode * debugNode;
     Time lastDebugTime;
     StarsNode * lastDebugNode;
@@ -180,7 +181,6 @@ private:
     unsigned long int totalBytesSent;
     unsigned long int numMsgSent;
     bool measureSize;
-    unsigned long int maxEvents;
     pt::time_duration maxRealTime;
     Duration maxSimTime;
     unsigned int maxMemUsage;

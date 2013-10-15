@@ -23,3 +23,5 @@ target_link_libraries(dp-aggrtest ${LIBS})
 add_executable(fsp-aggrtest ${MAIN_SRCS} FSPAvailabilityInfoTest.cpp)
 target_link_libraries(fsp-aggrtest ${LIBS})
 
+add_executable(fsp-clustering fsp_clustering.cpp)
+target_link_libraries(fsp-clustering ${LIBS})

@@ -98,7 +98,28 @@ public:
         return *this;
     }
 
+    template <typename... Args>
+    static void logMsg(const char * category, int priority, const Args &... params) {
+        std::ostream * out = streamIfEnabled(category, priority);
+        if (out) {
+            output(*out, params...);
+            *out << std::endl;
+            freeStream(out);
+        }
+    }
+
 private:
+    static void output(std::ostream & out) {}
+
+    template<typename T, typename... Args>
+    static void output(std::ostream & out, const T & value, const Args &... args) {
+        out << value;
+        output(out, args...);
+    }
+
+    static std::ostream * streamIfEnabled(const char * category, int priority);
+    static void freeStream(std::ostream * out);
+
     template <typename T> class TypeReference : public AbstractTypeContainer {
         const T * value;
     public:

@@ -28,6 +28,7 @@ using std::make_pair;
 namespace stars {
 
 unsigned int ZAFunction::numPieces = 10;
+unsigned int ZAFunction::reductionQuality = 10;
 
 
 ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
@@ -396,12 +397,6 @@ double ZAFunction::maxAndLoss(const ZAFunction & l, const ZAFunction & r, unsign
 
         ss(si);
         int lin = 3 - si.max;
-        // Add 2 * v * int((f - f1)*(f1 - max))
-//		double u2 = f[ss.I]->x - f[lin]->x;
-//		double v2 = f[ss.I]->y - f[lin]->y;
-//		double w2 = f[ss.I]->z - f[lin]->z;
-//		double tmp = ss.val[ss.I] * ((ss.u*u2/ss.ab + u2*ss.v + ss.u*v2 + ss.w*w2)*ss.ba + (ss.w*v2 + ss.v*w2)*ss.ba2/2.0 + ss.v*v2*ss.ba3/3.0 + (u2*ss.w + ss.u*w2)*log(ss.fracba));
-
         // Add 2 * int((f - f1)*(f1 - max_i(f1i)))
         double u2 = si.f[lin]->x;
         double v2 = si.f[lin]->y;
@@ -483,13 +478,6 @@ ZAFunction::SubFunction::SubFunction(const SubFunction & l, const SubFunction & 
             fromTwoPointsAndSlope(a, b);
         }
     }
-//    leftEndpoint = l.leftEndpoint;
-//    double a = l.leftEndpoint, b = r.leftEndpoint, c = rightEndpoint;
-//    double pc = (b - a) / (c - a), cc = (c - b) / (c - a);
-//    x = l.x * pc + r.x * cc;
-//    y = l.y * pc + r.y * cc;
-//    z1 = l.z1 * pc + r.z1 * cc;
-//    z2 = l.z2 * pc + r.z2 * cc;
 }
 
 
@@ -528,7 +516,7 @@ bool ZAFunction::SubFunction::isBiggerThan(const SubFunction & l, const SubFunct
 }
 
 
-double ZAFunction::getSlowness(uint64_t a) const {
+double ZAFunction::getSlowness(double a) const {
     PieceVector::const_iterator next = pieces.begin(), it = next++;
     while (next != pieces.end() && next->covers(a)) it = next++;
     return it->value(a);
@@ -546,9 +534,6 @@ void ZAFunction::update(uint64_t length, unsigned int n) {
     // FIXME: Invalidate?
     pieces.clear();
     pieces.push_back(SubFunction(minTaskLength, 0.0, INFINITY, 0.0, 0.0));
-    // TODO
-//    for (size_t i = 0; i < pieces.size(); ++i)
-//        pieces[i].z2 += length * n * pieces[i].y;
 }
 
 

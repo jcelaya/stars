@@ -24,6 +24,7 @@
 #include <iostream>
 #include <algorithm>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/tee.hpp>
 #include <log4cpp/Category.hh>
 #include <google/heap-profiler.h>
 #include "config.h"
@@ -54,14 +55,15 @@ bool Simulator::isLogEnabled(const std::string & category, int priority) {
 void LogMsg::log(const char * category, int priority, AbstractTypeContainer * values) {
     Simulator & sim = Simulator::getInstance();
     if (category == std::string("Sim.Progress")) {
-        ostringstream oss;
+        boost::iostreams::filtering_ostream & pstream = sim.getProgressStream();
+        pstream << '#' << getpid() << ": ";
         for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
-            oss << *it;
-        sim.progressLog(oss.str());
+            pstream << *it;
+        pstream << endl;
     }
     else {
         if (sim.isLogEnabled(category, priority)) {
-            boost::iostreams::filtering_ostream & debugArchive = sim.getDebugArchive();
+            boost::iostreams::filtering_ostream & debugArchive = sim.getDebugStream();
             Duration realTime(sim.getRealTime().total_microseconds());
             Time curTime = sim.getCurrentTime();
             if (!sim.isLastLogMoment()) {
@@ -85,6 +87,32 @@ void LogMsg::log(const char * category, int priority, AbstractTypeContainer * va
     }
 }
 
+std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
+    Simulator & sim = Simulator::getInstance();
+    if (category == std::string("Sim.Progress")) {
+        boost::iostreams::filtering_ostream & pstream = sim.getProgressStream();
+        pstream << '#' << getpid() << ": ";
+        return &pstream;
+    } else if (sim.isLogEnabled(category, priority)) {
+        boost::iostreams::filtering_ostream & debugArchive = sim.getDebugStream();
+        Duration realTime(sim.getRealTime().total_microseconds());
+        Time curTime = sim.getCurrentTime();
+        if (!sim.isLastLogMoment()) {
+            debugArchive << endl << realTime << ' ' << curTime << ' ';
+            if(sim.inEvent())
+                debugArchive << sim.getCurrentNode().getLocalAddress() << ' ';
+            else
+                debugArchive << "sim.control ";
+            debugArchive << endl;
+        }
+        ostringstream oss;
+        oss << "    " << category << '(' << priority << ')' << ' ';
+        debugArchive << oss.str();
+        LogMsg::setIndent(oss.tellp());
+        return &debugArchive;
+    } else return nullptr;
+}
+
 
 bool Simulator::isLastLogMoment() {
     if (inEvent()) {
@@ -101,15 +129,6 @@ bool Simulator::isLastLogMoment() {
         }
     }
     return false;
-}
-
-
-void Simulator::progressLog(const string & msg) {
-    cout << '#' << getpid() << ": " << msg << endl;
-
-    if (progressFile.is_open()) {
-        progressFile << msg << endl;
-    }
 }
 
 
@@ -169,7 +188,7 @@ int main(int argc, char * argv[]) {
             sim.getPerfStats().startEvent("Prepare simulation case");
             sim.getSimulationCase()->preStart();
             sim.getPerfStats().endEvent("Prepare simulation case");
-            LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation case.";
+            LogMsg::logMsg("Sim.Progress", 0, MemoryManager::getInstance().getMaxUsedMemory(), " bytes to prepare simulation case.");
             if (property("profile_heap", false))
                 HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
             sim.run();
@@ -266,10 +285,14 @@ void Simulator::setProperties(Properties & property) {
     LogMsg("Sim.Progress", 0) << "Logging to " << (resultDir / logFile);
 
     progressFile.open(resultDir / logFile);
+    if (progressFile.is_open()) {
+        progressStream.push(boost::iostreams::tee_filter<fs::ofstream>(progressFile));
+    }
+    progressStream.push(cout);
     debugFile.open(resultDir / "debug.log.gz");
     if (debugFile.is_open()) {
-        debugArchive.push(boost::iostreams::gzip_compressor());
-        debugArchive.push(debugFile);
+        debugStream.push(boost::iostreams::gzip_compressor());
+        debugStream.push(debugFile);
     }
     LogMsg::initLog(property("log_conf_string", string("")));
     LogMsg("Sim.Progress", 0) << "Running simulation test at " << microsec_clock::local_time() << ": " << property;
@@ -279,7 +302,6 @@ void Simulator::setProperties(Properties & property) {
 
     // Simulation variables
     measureSize = property("measure_size", true);
-    maxEvents = property("max_events", 0ULL);
     maxRealTime = seconds(property("max_time", 0));
     maxSimTime = Duration(property("max_sim_time", 0.0));
     maxMemUsage = property("max_mem", 0U);
@@ -375,11 +397,13 @@ void Simulator::stepForward() {
         numEvents++;
         LogMsg("Sim.Event", INFO) << "";
         LogMsg("Sim.Event", INFO) << "###################################";
-        LogMsg("Sim.Event", INFO) << "Event #" << numEvents
-            << ": " << *p->msg
-            << " at " << time
-            << " from " << AddrIO(p->from)
-            << " to " << AddrIO(p->to);
+//        LogMsg("Sim.Event", INFO) << "Event #" << numEvents
+//            << ": " << *p->msg
+//            << " at " << time
+//            << " from " << AddrIO(p->from)
+//            << " to " << AddrIO(p->to);
+        LogMsg::logMsg("Sim.Event", INFO, "Event #", numEvents, ": ", *p->msg,
+                " at ", time, " from ", AddrIO(p->from), " to ", AddrIO(p->to));
         pstats.endEvent("Event selection");
         pstats.startEvent("Before event");
         tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
@@ -411,10 +435,7 @@ void Simulator::run() {
     realTimeText.imbue(locale(locale::classic(), f));
     while (!events.empty() && !doStop && simCase->doContinue()) {
         ptime currentTime = microsec_clock::local_time();
-        if (maxEvents && numEvents >= maxEvents) {
-            LogMsg("Sim.Progress", 0) << "Maximum number of events limit reached: " << maxEvents;
-            break;
-        } else if (maxRealTime > seconds(0) && currentTime - realStart >= maxRealTime) {
+        if (maxRealTime > seconds(0) && currentTime - realStart >= maxRealTime) {
             LogMsg("Sim.Progress", 0) << "Maximum real time limit reached: " << maxRealTime;
             break;
         } else if (maxSimTime > Duration(0.0) && time - Time() >= maxSimTime) {
@@ -426,7 +447,7 @@ void Simulator::run() {
         }
         stepForward();
         if (currentTime >= nextShow) {
-            nextShow += milliseconds(showStep);
+            while (currentTime >= nextShow) nextShow += milliseconds(showStep);
             end = currentTime;
             real_time += end - start;
             realTimeText.str("");
@@ -483,7 +504,11 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_pt
             srcIface.outQueueFreeTime = time;
         }
         Duration txTime(size / (srcIface.outBW < dstIface.inBW ? srcIface.outBW : dstIface.inBW));
-        event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, Duration(netDelay()), msg, size);
+        Duration delay(netDelay());
+//        if (msg->getName() == "FSPAvailabilityInformation" || msg->getName() == "TaskBagMsg") {
+//            delay = Duration(0.0);
+//        }
+        event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, delay, msg, size);
         srcIface.outQueueFreeTime += txTime;
         tstats.msgSent(src, dst, size, srcIface.outBW, srcIface.outQueueFreeTime + txTime, *msg);
     } else {

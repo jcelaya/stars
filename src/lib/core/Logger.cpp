@@ -20,6 +20,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <log4cpp/Category.hh>
+#include <log4cpp/CategoryStream.hh>
 #include "Logger.hpp"
 
 
@@ -61,4 +62,18 @@ void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContai
         for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
             cs << *it;
     }
+}
+
+
+std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
+    log4cpp::Category & cat = log4cpp::Category::getInstance(category);
+    if (cat.isPriorityEnabled(priority))
+        return nullptr; // TODO
+    else
+        return nullptr;
+}
+
+
+void LogMsg::freeStream(std::ostream * out) {
+
 }

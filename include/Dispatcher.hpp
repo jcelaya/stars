@@ -112,8 +112,8 @@ public:
         boost::shared_ptr<T> waitingInfo;
         boost::shared_ptr<T> notifiedInfo;
         bool hasNewInformation;
-        Link() : hasNewInformation(false) {}
-        Link(const CommAddress & a, bool c) : addr(a), hasNewInformation(c) {}
+        Link() : hasNewInformation(true) {}
+        Link(const CommAddress & a) : addr(a), hasNewInformation(true) {}
         template<class Archive> void serializeState(Archive & ar) {
             // Serialization only works if not in a transaction
             ar & addr & availInfo & waitingInfo & notifiedInfo;
@@ -267,12 +267,21 @@ protected:
     void sendTasks(const TaskBagMsg & msg, const std::array<unsigned int, 2> & numTasks, bool dontSendToFather) {
         // Now create and send the messages
         unsigned int nextTask = msg.getFirstTask();
+        boost::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+        Time oldestInfo = msg.getOldestInfo(), newestInfo = msg.getNewestInfo();
+        if (msg.isFromEN() || oldestInfo > availInfo->getFirstModified())
+            oldestInfo = availInfo->getFirstModified();
+        if (msg.isFromEN() || newestInfo < availInfo->getLastModified())
+            newestInfo = availInfo->getLastModified();
+
         for (int c : {0, 1}) {
             if (numTasks[c] > 0) {
                 LogMsg("Dsp", INFO) << "Sending " << numTasks[c] << " tasks to the " << childName(c) << " child (" << child[c].addr << ')';
                 TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + numTasks[c] - 1);
                 tbm->setInfoSequenceUsed(child[c].availInfo->getSeq());
                 tbm->setForEN(branch.isLeaf(c));
+                tbm->setOldestInfo(oldestInfo);
+                tbm->setNewestInfo(newestInfo);
                 nextTask += numTasks[c];
                 CommLayer::getInstance().sendMessage(child[c].addr, tbm);
             }
@@ -286,8 +295,9 @@ protected:
                     LogMsg("Dsp", DEBUG) << "But came from the father.";
                 } else {
                     TaskBagMsg * tbm = msg.getSubRequest(nextTask, msg.getLastTask());
-                    boost::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
                     tbm->setInfoSequenceUsed(availInfo->getSeq());
+                    tbm->setOldestInfo(oldestInfo);
+                    tbm->setNewestInfo(newestInfo);
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {
@@ -351,11 +361,11 @@ private:
     virtual void commitChanges(bool fatherChanged, bool leftChanged, bool rightChanged) {
         inChange = false;
         if (fatherChanged)
-            father = Link(branch.getFatherAddress(), true);
+            father = Link(branch.getFatherAddress());
         if (leftChanged)
-            child[0] = Link(branch.getChildAddress(0), true);
+            child[0] = Link(branch.getChildAddress(0));
         if (rightChanged)
-            child[1] = Link(branch.getChildAddress(1), true);
+            child[1] = Link(branch.getChildAddress(1));
         // Check delayed updates
         for (typename std::vector<AddrMsg>::iterator it = delayedUpdates.begin();
                 it != delayedUpdates.end(); it++)

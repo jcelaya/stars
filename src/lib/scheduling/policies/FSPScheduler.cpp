@@ -20,6 +20,7 @@
 
 #include "Logger.hpp"
 #include "FSPScheduler.hpp"
+#include "ConfigurationManager.hpp"
 
 
 namespace stars {
@@ -48,7 +49,7 @@ void FSPScheduler::reschedule() {
             startedTaskEvent(*tasks.front());
         }
         // Program a timer
-        rescheduleAt(Time::getCurrentTime() + Duration(600.0));
+        rescheduleAt(Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRescheduleTimeout()));
     }
 }
 

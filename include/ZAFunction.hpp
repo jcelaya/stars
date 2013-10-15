@@ -86,6 +86,10 @@ public:
         numPieces = n;
     }
 
+    static void setReductionQuality(unsigned int n) {
+        reductionQuality = n;
+    }
+
     /// Default constructor
     ZAFunction() {
         pieces.push_back(SubFunction());
@@ -151,7 +155,9 @@ public:
      * Reduces the number of points of the function to a specific number, resulting in a function
      * with approximate value over the original.
      */
-    double reduceMax(double horizon, unsigned int quality = 10);
+    double reduceMax(double horizon) { return reduceMax(horizon, reductionQuality); }
+
+    double reduceMax(double horizon, unsigned int quality);
 
     std::vector<ZAFunction> getReductionOptions(double horizon) const;
 
@@ -172,7 +178,7 @@ public:
     /**
      * Returns the slowness reached for a certain application type.
      */
-    double getSlowness(uint64_t a) const;
+    double getSlowness(double a) const;
 
     /**
      * Estimates the slowness of allocating n tasks of length a
@@ -201,6 +207,7 @@ private:
     template<int numF, typename Func> static void stepper(const ZAFunction * (&f)[numF], Func step);
 
     static unsigned int numPieces;
+    static unsigned int reductionQuality;
 
     /// Piece set
     PieceVector pieces;

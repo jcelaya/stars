@@ -157,6 +157,22 @@ public:
         seq = s;
     }
 
+    Time getOldestInfo() const {
+        return oldestInfo;
+    }
+
+    void setOldestInfo(Time o) {
+        oldestInfo = o;
+    }
+
+    Time getNewestInfo() const {
+        return newestInfo;
+    }
+
+    void setNewestInfo(Time n) {
+        newestInfo = n;
+    }
+
     TaskBagMsg * getSubRequest(uint32_t first, uint32_t last) const {
         TaskBagMsg * result = clone();
         result->firstTask = first;
@@ -165,7 +181,7 @@ public:
         return result;
     }
 
-    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN, seq)
+    MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN, seq, oldestInfo, newestInfo)
 
 private:
     CommAddress requester;             ///< Requester's address
@@ -176,6 +192,7 @@ private:
     bool forEN;                        ///< Whether the message is for the EN or the SN
     bool fromEN;                       ///< Whether the message comes from the EN or the SN
     uint32_t seq;
+    Time oldestInfo, newestInfo;
 };
 
 #endif /*TASKBAGMSG_H_*/

@@ -33,8 +33,9 @@ template<> struct Priv<FSPAvailabilityInformation> {
 
 
 template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl() : AggregationTest("fsp_mem_disk_slowness.stat", 2) {
-    stars::ClusteringList<FSPAvailabilityInformation::MDZCluster>::setDistVectorSize(20);
-    ZAFunction::setNumPieces(8);
+    stars::ClusteringList<FSPAvailabilityInformation::MDZCluster>::setDistVectorSize(10);
+    ZAFunction::setNumPieces(10);
+    ZAFunction::setReductionQuality(1);
 }
 
 
@@ -72,10 +73,11 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
     }
     // TODO: The accuracy is not linear...
     double prevAccuracy = 100.0;
-    uint64_t prevA = ZAFunction::minTaskLength;
+    double prevA = ZAFunction::minTaskLength;
     double ah = privateData.totalAvail.getHorizon() * 1.2;
-    uint64_t astep = (ah - ZAFunction::minTaskLength) / 1000;
-    for (uint64_t a = ZAFunction::minTaskLength; a < ah; a += astep) {
+    double astep = (ah - ZAFunction::minTaskLength) / 1000.0;
+    if (astep == 0) astep = 1;
+    for (double a = ZAFunction::minTaskLength; a < ah; a += astep) {
         double maxAvailBeforeIt = maxAvail.getSlowness(a);
         double totalAvailBeforeIt = maxAvailBeforeIt - privateData.totalAvail.getSlowness(a);
         double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
