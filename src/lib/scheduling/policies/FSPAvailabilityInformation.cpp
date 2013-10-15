@@ -139,10 +139,6 @@ void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
             slownessRange.extend(r.slownessRange);
         }
         summary.insert(summary.end(), r.summary.begin(), r.summary.end());
-        if (firstModified > r.firstModified)
-            firstModified = r.firstModified;
-        if (lastModified < r.lastModified)
-            lastModified = r.lastModified;
     }
 }
 

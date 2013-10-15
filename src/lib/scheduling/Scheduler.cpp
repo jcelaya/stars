@@ -119,8 +119,6 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
                     << msg.getRequestId() << " for " << msg.getRequester();
             numAccepted = accept(msg);
             if (numAccepted > 0) {
-                LogMsg("Ex.Sch.Timing", INFO) << "Used information from ["
-                        << msg.getOldestInfo() << ", " << msg.getNewestInfo() << ']';
                 notifySchedule();
                 // Acknowledge the requester
                 AcceptTaskMsg * atm = new AcceptTaskMsg;
@@ -247,8 +245,6 @@ void Scheduler::notifySchedule() {
     if (!inChange && leaf.getFatherAddress() != CommAddress()) {
         AvailabilityInformation * msg = getAvailability().clone();
         msg->setSeq(++seqNum);
-        msg->setFirstModified(Time::getCurrentTime());
-        msg->setLastModified(Time::getCurrentTime());
         CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
         dirty = false;
     } else {

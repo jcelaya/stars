@@ -268,11 +268,6 @@ protected:
         // Now create and send the messages
         unsigned int nextTask = msg.getFirstTask();
         boost::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
-        Time oldestInfo = msg.getOldestInfo(), newestInfo = msg.getNewestInfo();
-        if (msg.isFromEN() || oldestInfo > availInfo->getFirstModified())
-            oldestInfo = availInfo->getFirstModified();
-        if (msg.isFromEN() || newestInfo < availInfo->getLastModified())
-            newestInfo = availInfo->getLastModified();
 
         for (int c : {0, 1}) {
             if (numTasks[c] > 0) {
@@ -280,8 +275,6 @@ protected:
                 TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + numTasks[c] - 1);
                 tbm->setInfoSequenceUsed(child[c].availInfo->getSeq());
                 tbm->setForEN(branch.isLeaf(c));
-                tbm->setOldestInfo(oldestInfo);
-                tbm->setNewestInfo(newestInfo);
                 nextTask += numTasks[c];
                 CommLayer::getInstance().sendMessage(child[c].addr, tbm);
             }
@@ -296,8 +289,6 @@ protected:
                 } else {
                     TaskBagMsg * tbm = msg.getSubRequest(nextTask, msg.getLastTask());
                     tbm->setInfoSequenceUsed(availInfo->getSeq());
-                    tbm->setOldestInfo(oldestInfo);
-                    tbm->setNewestInfo(newestInfo);
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {

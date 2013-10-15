@@ -71,22 +71,6 @@ public:
         fromSch = f;
     }
 
-    Time getFirstModified() const {
-        return firstModified;
-    }
-
-    Time getLastModified() const {
-        return lastModified;
-    }
-
-    void setFirstModified(Time f) {
-        firstModified = f;
-    }
-
-    void setLastModified(Time l) {
-        lastModified = l;
-    }
-
     /// Reduces the size of this availability summary so that it is bounded by a certain limit.
     virtual void reduce() = 0;
 
@@ -94,7 +78,6 @@ public:
 protected:
     uint32_t sequenceNumber;   ///< Sequence number, to provide message ordering.
     bool fromSch;   ///< Whether the message comes from the scheduler or the dispatcher
-    Time firstModified, lastModified;
 };
 
 #endif /*RESOURCEINFORMATION_H_*/
