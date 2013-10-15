@@ -37,11 +37,6 @@
 using namespace std;
 
 
-#define DEBUG_LOG(x) LogMsg("St.SN", DEBUG) << x
-#define INFO_LOG(x) LogMsg("St.SN", INFO) << x
-#define WARNING_LOG(x) LogMsg("St.SN", WARN) << x
-
-
 StructureNodeObserver::~StructureNodeObserver() {
     for (vector<StructureNodeObserver *>::iterator it = structureNode.observers.begin();
             it != structureNode.observers.end(); it++)
@@ -154,7 +149,7 @@ void StructureNode::notifyFather(TransactionId tid) {
         // Pre: zoneDesc.get()
         if (!notifiedZoneDesc.get() || !(*notifiedZoneDesc == *zoneDesc)) {
             notifiedZoneDesc.reset(new ZoneDescription(*zoneDesc));
-            DEBUG_LOG("There were changes. Sending update to the father");
+            Logger::msg("St.RN", DEBUG, "There were changes. Sending update to the father");
             UpdateZoneMsg * u = new UpdateZoneMsg;
             u->setZone(*notifiedZoneDesc);
             u->setSequence(seq++);
@@ -171,7 +166,7 @@ void StructureNode::checkFanout() {
     // Nodes do not divide until all childrens have notified, even if the info is not used in the split algo.
     if (transaction == NULL_TRANSACTION_ID && subZones.front()->getZone().get()) {
         if (subZones.size() >= 2*m) {
-            DEBUG_LOG("Need to split");
+            Logger::msg("St.RN", DEBUG, "Need to split");
             // Set a transaction id so that the comming messages for this transaction can be identified
             transaction = createRandomId();
             txDriver = CommLayer::getInstance().getLocalAddress();
@@ -186,7 +181,7 @@ void StructureNode::checkFanout() {
         }
         // TODO: What if we have no children!!
         else if (father != CommAddress() && subZones.size() < m) {
-            DEBUG_LOG("Need to merge");
+            Logger::msg("St.RN", DEBUG, "Need to merge");
             // Undone
         } else if (father == CommAddress() && subZones.size() == 1 && level > 0) {
             // Just leave
@@ -228,36 +223,36 @@ void StructureNode::recomputeZone() {
  */
 template<> void StructureNode::handle(const CommAddress & src, const InsertMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling InsertMsg from " << src << " for node " << msg.getWho());
+    Logger::msg("St.RN", INFO, "Handling InsertMsg from ", src, " for node ", msg.getWho());
 
     // Check that we are not in the middle of another transaction
     if (transaction != NULL_TRANSACTION_ID) {
-        DEBUG_LOG("In the middle of a transaction, delaying.");
+        Logger::msg("St.RN", DEBUG, "In the middle of a transaction, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     } else if (state == ONLINE && !zoneDesc.get()) {
-        DEBUG_LOG("Not enough resource information, delaying.");
+        Logger::msg("St.RN", DEBUG, "Not enough resource information, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     } else if (subZones.size() >= 2*m) {
-        DEBUG_LOG("Too many children, delaying.");
+        Logger::msg("St.RN", DEBUG, "Too many children, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         return;
     }
 
     // Check that the state is In Network for this node
     if (state == ONLINE) {
-        DEBUG_LOG("We are in network!!");
+        Logger::msg("St.RN", DEBUG, "We are in network!!");
         if (father != CommAddress())
-            DEBUG_LOG("We do have father, which " << (src == father ? "is" : "isn't") << " the sender, " <<
-                      (self ? "is" : "isn't") << " a self-message and " << (zoneDesc->contains(msg.getWho()) ? "is" : "isn't") <<
-                      " contained in the zone (" << *zoneDesc << ")");
+            Logger::msg("St.RN", DEBUG, "We do have father, which ", (src == father ? "is" : "isn't"), " the sender, ",
+                      (self ? "is" : "isn't"), " a self-message and ", (zoneDesc->contains(msg.getWho()) ? "is" : "isn't"),
+                      " contained in the zone (", *zoneDesc, ")");
         else
-            DEBUG_LOG("We don't have father, " <<
-                      (self ? "is" : "isn't") << " a self-message and " << (zoneDesc->contains(msg.getWho()) ? "is" : "isn't") <<
-                      " contained in the zone (" << *zoneDesc << ")");
+            Logger::msg("St.RN", DEBUG, "We don't have father, ",
+                      (self ? "is" : "isn't"), " a self-message and ", (zoneDesc->contains(msg.getWho()) ? "is" : "isn't"),
+                      " contained in the zone (", *zoneDesc, ")");
         if (father != CommAddress() && (src != father || self) && !zoneDesc->contains(msg.getWho())) {
-            DEBUG_LOG("Send it to the father");
+            Logger::msg("St.RN", DEBUG, "Send it to the father");
             // If this node is not the root, the message does not come from its father or is a self message, and
             // the address of the new node is not contained in its zone interval, the message is resent to the father node.
             CommLayer::getInstance().sendMessage(father, msg.clone());
@@ -280,23 +275,23 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
             if (subZones.front()->getZone().get() || (*direction)->getZone()->contains(msg.getWho())) {
                 // If every branch is up to date, or the target branch won't grow
                 // just send the insertion
-                DEBUG_LOG("Send it downwards to " << (*direction)->getLink());
+                Logger::msg("St.RN", DEBUG, "Send it downwards to ", (*direction)->getLink());
                 // Relay the message to the selected subzone
                 CommLayer::getInstance().sendMessage((*direction)->getLink(), msg.clone());
             } else {
                 // If there are branches that lack resource information, then delay the message
-                DEBUG_LOG("Not enough subZone resource information, delaying.");
+                Logger::msg("St.RN", DEBUG, "Not enough subZone resource information, delaying.");
                 delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
             }
         } else {
-            DEBUG_LOG("We insert it");
+            Logger::msg("St.RN", DEBUG, "We insert it");
             // The message reaches the leaves, insert the node in the list
             transaction = msg.getTransactionId();
             txDriver = msg.getWho();
             boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
             newZone->setLink(msg.getWho());
             fireStartChanges();
-            DEBUG_LOG("Add the new father to the list of subZones");
+            Logger::msg("St.RN", DEBUG, "Add the new father to the list of subZones");
             subZones.push_front(newZone);
             subZones.sort(compareZones);
             // Notify the new node
@@ -310,13 +305,13 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
 
     // If this node is not in network and the ResourceNode in the same peer asks to insert, create network
     else if (msg.getWho() == CommLayer::getInstance().getLocalAddress()) {
-        DEBUG_LOG("We create network");
+        Logger::msg("St.RN", DEBUG, "We create network");
         transaction = msg.getTransactionId();
         txDriver = msg.getWho();
         boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
         newZone->setLink(msg.getWho());
         fireStartChanges();
-        DEBUG_LOG("Add the new father to the list of subZones");
+        Logger::msg("St.RN", DEBUG, "Add the new father to the list of subZones");
         subZones.push_front(newZone);
         // This node is no longer available
         fireAvailabilityChanged(false);
@@ -340,15 +335,15 @@ template<> void StructureNode::handle(const CommAddress & src, const InsertMsg &
  * @param msg The received message.
  */
 template<> void StructureNode::handle(const CommAddress & src, const UpdateZoneMsg & msg, bool self) {
-    INFO_LOG("Handling UpdateZoneMsg from " << src);
+    Logger::msg("St.RN", INFO, "Handling UpdateZoneMsg from ", src);
 
     // Which child does it come from?
     int i = 0; // DEBUG
     for (zoneMutableIterator it = subZones.begin(); it != subZones.end(); it++, i++) {
         if ((*it)->comesFrom(src)) {
-            DEBUG_LOG("Comes from child " << i);
+            Logger::msg("St.RN", DEBUG, "Comes from child ", i);
             if (!(*it)->testAndSet(msg.getSequence())) {
-                DEBUG_LOG("It's old information, skipping");
+                Logger::msg("St.RN", DEBUG, "It's old information, skipping");
                 return;
             }
             // It comes from child i, update its data
@@ -386,7 +381,7 @@ template<> void StructureNode::handle(const CommAddress & src, const UpdateZoneM
  * @param self True when this message is being reprocessed.
  */
 template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeededMsg & msg, bool self) {
-    INFO_LOG("Handling StrNodeNeededMsg from " << src << " for node " << msg.getWhoNeeds() << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling StrNodeNeededMsg from ", src, " for node ", msg.getWhoNeeds(), " with transaction ID ", msg.getTransactionId());
     // If this node is already in the network, relay the message
     if (state != OFFLINE && state != START_IN) {
         // Look for the subzone with more available Structure nodes.
@@ -397,7 +392,7 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
         // There must be at least one zone
         if (it == subZones.end()) {
             // Wait for an update
-            DEBUG_LOG("Not enough information, waiting");
+            Logger::msg("St.RN", DEBUG, "Not enough information, waiting");
             delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         } else {
             zoneMutableIterator direction = it++;
@@ -413,20 +408,20 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
                 }
             }
             if (maxAvailable > 0) {
-                DEBUG_LOG("The new structure node is in the child " << debugDir << " with " <<
-                          (*direction)->getZone()->getAvailableStrNodes() << " available nodes");
+                Logger::msg("St.RN", DEBUG, "The new structure node is in the child ", debugDir, " with ",
+                          (*direction)->getZone()->getAvailableStrNodes(), " available nodes");
                 (*direction)->getZone()->setAvailableStrNodes((*direction)->getZone()->getAvailableStrNodes() - 1);
-                DEBUG_LOG("Now that child has " << (*direction)->getZone()->getAvailableStrNodes() << " available nodes");
+                Logger::msg("St.RN", DEBUG, "Now that child has ", (*direction)->getZone()->getAvailableStrNodes(), " available nodes");
                 // Relay the message to the selected subzone
                 CommLayer::getInstance().sendMessage((*direction)->getLink(), msg.clone());
             } else {
-                DEBUG_LOG("Not enough available nodes in this branch");
+                Logger::msg("St.RN", DEBUG, "Not enough available nodes in this branch");
                 // Otherwise, send it upwards
                 if (subZones.front()->getZone().get() && father != CommAddress()) {
-                    DEBUG_LOG("Information seems up to date, sending up");
+                    Logger::msg("St.RN", DEBUG, "Information seems up to date, sending up");
                     CommLayer::getInstance().sendMessage(father, msg.clone());
                 } else {
-                    DEBUG_LOG("Not enough information or no father, waiting");
+                    Logger::msg("St.RN", DEBUG, "Not enough information or no father, waiting");
                     delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
                 }
             }
@@ -436,7 +431,7 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
     // This node is the new Structure node (it should come because the ResourceNode joined the network)
     else if (state == OFFLINE) {
         // Set the transaction ID
-        DEBUG_LOG("I am the new structure node");
+        Logger::msg("St.RN", DEBUG, "I am the new structure node");
         fireStartChanges();
         transaction = msg.getTransactionId();
         txDriver = msg.getWhoNeeds();
@@ -449,7 +444,7 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
         state = START_IN;
     }
 
-    else WARNING_LOG("Offered to enter the network twice!!");
+    else Logger::msg("St.RN", WARN, "Offered to enter the network twice!!");
 }
 
 
@@ -463,14 +458,14 @@ template<> void StructureNode::handle(const CommAddress & src, const StrNodeNeed
  * @param msg The received message.
  */
 template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeMsg & msg, bool self) {
-    INFO_LOG("Handling NewStrNodeMsg from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling NewStrNodeMsg from ", src, " with transaction ID ", msg.getTransactionId());
     // Check if the transaction Id is the same as the StrNodeNeededMsg
     if (transaction == msg.getTransactionId() && state == WAIT_STR) {
         CommLayer::getInstance().cancelTimer(strNeededTimer);
         fireStartChanges();
         // If this node is the root and we have no other node offered
         if (father == CommAddress() && newFather == CommAddress()) {
-            DEBUG_LOG(src << " will be my new father, need one more node");
+            Logger::msg("St.RN", DEBUG, src, " will be my new father, need one more node");
             newFather = msg.getWhoOffers();
             // Put the node in the NoAck list
             txMembersNoAck.push_back(AddrService(msg.getWhoOffers(), false));
@@ -493,7 +488,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
 
         // Check if we must initialize the father also
         if (father == CommAddress() && newFather != CommAddress()) {
-            DEBUG_LOG("Sending the initialization message to the father");
+            Logger::msg("St.RN", DEBUG, "Sending the initialization message to the father");
             isnm_brother->setFather(newFather);
             // Initialize it
             InitStructNodeMsg * isnm_father = new InitStructNodeMsg;
@@ -506,7 +501,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             isnm_father->setLevel(level + 1);
             CommLayer::getInstance().sendMessage(newFather, isnm_father);
         } else {
-            DEBUG_LOG("Sending the new child message to the father");
+            Logger::msg("St.RN", DEBUG, "Sending the new child message to the father");
             isnm_brother->setFather(father);
             // Send the father a NewChildMsg
             NewChildMsg * ncm = new NewChildMsg;
@@ -519,7 +514,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
         }
 
         // Just split the list of children
-        DEBUG_LOG("About to Split");
+        Logger::msg("St.RN", DEBUG, "About to Split");
         // TODO: take failures into account: what if a child fails? or the father?
 
         ////// Divide into two groups
@@ -557,7 +552,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             for (zoneConstIterator it = subZones.begin(); it != subZones.end(); it++, i++)
                 zone[pos[i]] = *it;
         }
-        DEBUG_LOG("Separated " << numChildren << " branches into 2 groups");
+        Logger::msg("St.RN", DEBUG, "Separated ", numChildren, " branches into 2 groups");
 
         // Take half of the points nearest to one of them and make one group.
         // Maintain that group, send the other to the new father
@@ -565,7 +560,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             isnm_brother->addChild(zone[i]->getLink());
             // Put a null address on them
             zone[i]->resetLink();
-            DEBUG_LOG("Sending the new father message to child with address " << zone[i]->getLink());
+            Logger::msg("St.RN", DEBUG, "Sending the new father message to child with address ", zone[i]->getLink());
             // Send them a NewFatherMsg
             NewFatherMsg * nfm = new NewFatherMsg;
             nfm->setTransactionId(transaction);
@@ -592,7 +587,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
 
         // Check if we must report the father also
         if (father != CommAddress()) {
-            DEBUG_LOG("Sending the new child message to the father");
+            Logger::msg("St.RN", DEBUG, "Sending the new child message to the father");
             isnm_brother->setFather(father);
             // Send the father a NewChildMsg
             NewChildMsg * ncm = new NewChildMsg;
@@ -609,7 +604,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
             isnm_brother->addChild((*it)->getLink());
             // Put a null address on them
             (*it)->resetLink();
-            DEBUG_LOG("Sending the new father message to child with address " << (*it)->getLink());
+            Logger::msg("St.RN", DEBUG, "Sending the new father message to child with address ", (*it)->getLink());
             // Send them a NewFatherMsg
             NewFatherMsg * nfm = new NewFatherMsg;
             nfm->setTransactionId(transaction);
@@ -627,7 +622,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
     }
     // A message with a wrong transaction ID is an error or an obsolet one, rollback it
     else {
-        INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), revoking");
+        Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), revoking");
         CommLayer::getInstance().sendMessage(src, new RollbackMsg(msg.getTransactionId()));
     }
 }
@@ -646,7 +641,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewStrNodeM
  */
 template<> void StructureNode::handle(const CommAddress & src, const InitStructNodeMsg & msg, bool self) {
     // Check that the transaction Id is the same of the StrNodeNeededMsg
-    INFO_LOG("Handling InitStructNodeMsg from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling InitStructNodeMsg from ", src, " with transaction ID ", msg.getTransactionId());
     if (transaction == msg.getTransactionId() && state == START_IN) {
         // Get the address of the father node
         if (msg.isFatherValid())
@@ -660,8 +655,8 @@ template<> void StructureNode::handle(const CommAddress & src, const InitStructN
             subZones.push_back(newZone);
         }
         // No need to sort, as the new zones have no zone info yet
-        DEBUG_LOG("Ok, initialised: level " << level << ", " << msg.getNumChildren() <<
-                  " children waiting, " << (msg.isFatherValid() ? "with " : "without") << " father ");
+        Logger::msg("St.RN", DEBUG, "Ok, initialised: level ", level, ", ", msg.getNumChildren(),
+                  " children waiting, ", (msg.isFatherValid() ? "with " : "without"), " father ");
         // Notify the sender
         CommLayer::getInstance().sendMessage(src, new AckMsg(transaction));
         state = INIT;
@@ -669,7 +664,7 @@ template<> void StructureNode::handle(const CommAddress & src, const InitStructN
 
     // It is an error to receive this message with a different transaction ID, send NACK
     else {
-        INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), sending NACK");
+        Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), sending NACK");
         CommLayer::getInstance().sendMessage(src, new NackMsg(msg.getTransactionId()));
     }
 }
@@ -686,12 +681,12 @@ template<> void StructureNode::handle(const CommAddress & src, const InitStructN
  */
 template<> void StructureNode::handle(const CommAddress & src, const NewFatherMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling NewFatherMsg from " << src);
-    if (state == OFFLINE) WARNING_LOG("Trying to change father in Offline state.");
+    Logger::msg("St.RN", INFO, "Handling NewFatherMsg from ", src);
+    if (state == OFFLINE) Logger::msg("St.RN", WARN, "Trying to change father in Offline state.");
 
     // Check if we are the driver of another transaction that should finish first
     else if (state == START_IN || state == INIT || state == ADD_CHILD) {
-        DEBUG_LOG("In another transaction, delaying.");
+        Logger::msg("St.RN", DEBUG, "In another transaction, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     }
 
@@ -710,7 +705,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewFatherMs
     }
 
     else {
-        INFO_LOG("Message does not come from my father, sending NACK");
+        Logger::msg("St.RN", INFO, "Message does not come from my father, sending NACK");
         CommLayer::getInstance().sendMessage(src, new NackMsg(msg.getTransactionId()));
     }
 }
@@ -728,26 +723,26 @@ template<> void StructureNode::handle(const CommAddress & src, const NewFatherMs
  * @param self True when this message is being reprocessed.
  */
 template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg & msg, bool self) {
-    INFO_LOG("Handling NewChildMsg from " << src);
+    Logger::msg("St.RN", INFO, "Handling NewChildMsg from ", src);
     // Check if we are in another transaction
     if (transaction != NULL_TRANSACTION_ID) {
-        DEBUG_LOG("In another transaction, delaying.");
+        Logger::msg("St.RN", DEBUG, "In another transaction, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     } else if (!msg.replaces() && subZones.size() >= 2*m) {
-        DEBUG_LOG("Too many children, delaying.");
+        Logger::msg("St.RN", DEBUG, "Too many children, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     } else {
         int i = 0; // DEBUG
         // Look for the child dividing
         for (zoneMutableIterator it = subZones.begin(); it != subZones.end(); it++, i++) {
             if (src == (*it)->getLink()) {
-                DEBUG_LOG("Refers to child " << i);
+                Logger::msg("St.RN", DEBUG, "Refers to child ", i);
                 fireStartChanges();
                 // Start a new transaction
                 transaction = msg.getTransactionId();
                 txDriver = src;
                 if (msg.replaces()) {
-                    DEBUG_LOG("We have to replace it");
+                    Logger::msg("St.RN", DEBUG, "We have to replace it");
                     // Replace that child with the new one
                     (*it)->setLink(msg.getChild());
                     (*it)->setZone(boost::shared_ptr<ZoneDescription>());
@@ -755,7 +750,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
                 } else {
                     // Mark that child as changed and invalidate zone info, if it has not been updated
                     if (!(*it)->testAndSet(msg.getSequence())) {
-                        DEBUG_LOG("This child has already updated its info");
+                        Logger::msg("St.RN", DEBUG, "This child has already updated its info");
                     } else {
                         (*it)->setLink((*it)->getLink());
                         (*it)->setZone(boost::shared_ptr<ZoneDescription>());
@@ -763,7 +758,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
                     // Insert the new child in the list, without resource information
                     boost::shared_ptr<TransactionalZoneDescription> newZone(new TransactionalZoneDescription);
                     newZone->setLink(msg.getChild());
-                    DEBUG_LOG("Add the new father to the list of subZones");
+                    Logger::msg("St.RN", DEBUG, "Add the new father to the list of subZones");
                     subZones.push_front(newZone);
                     subZones.sort(compareZones);
                 }
@@ -786,7 +781,7 @@ template<> void StructureNode::handle(const CommAddress & src, const NewChildMsg
  */
 template<> void StructureNode::handle(const CommAddress & src, const AckMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling AckMessage from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling AckMessage from ", src, " with transaction ID ", msg.getTransactionId());
     if (transaction == msg.getTransactionId() && txDriver == CommLayer::getInstance().getLocalAddress()) {
         // Look for the sender in the NoAck list
         for (list<AddrService>::iterator it = txMembersNoAck.begin(); it != txMembersNoAck.end(); it++) {
@@ -805,7 +800,7 @@ template<> void StructureNode::handle(const CommAddress & src, const AckMsg & ms
             commit();
         }
     } else {
-        INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), revoking");
+        Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), revoking");
         RollbackMsg * rm = new RollbackMsg(msg.getTransactionId());
         rm->setForRN(msg.isFromRN());
         CommLayer::getInstance().sendMessage(src, rm);
@@ -822,14 +817,14 @@ template<> void StructureNode::handle(const CommAddress & src, const AckMsg & ms
  */
 template<> void StructureNode::handle(const CommAddress & src, const NackMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling NackMessage from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling NackMessage from ", src, " with transaction ID ", msg.getTransactionId());
     if (transaction == msg.getTransactionId() && txDriver == CommLayer::getInstance().getLocalAddress()) {
         rollback();
         if (state == ONLINE && zoneDesc.get()) {
             handleDelayedMsgs();
             checkFanout();
         }
-    } else INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() <<
+    } else Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(),
                         ") or not driving a transaction, discarding");
 }
 
@@ -843,11 +838,11 @@ template<> void StructureNode::handle(const CommAddress & src, const NackMsg & m
  */
 template<> void StructureNode::handle(const CommAddress & src, const CommitMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling CommitMessage from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling CommitMessage from ", src, " with transaction ID ", msg.getTransactionId());
     // Check the transaction ID
     if (msg.getTransactionId() == transaction) commit();
     // A commit with a wrong transaction ID is an error, discard it
-    else INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), discarding");
+    else Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), discarding");
 }
 
 
@@ -860,7 +855,7 @@ template<> void StructureNode::handle(const CommAddress & src, const CommitMsg &
  */
 template<> void StructureNode::handle(const CommAddress & src, const RollbackMsg & msg, bool self) {
     if (msg.isForRN()) return;
-    INFO_LOG("Handling RollbackMsg from " << src << " with transaction ID " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling RollbackMsg from ", src, " with transaction ID ", msg.getTransactionId());
     // Check the transaction ID and the sender
     if (msg.getTransactionId() == transaction && txDriver == src) {
         rollback();
@@ -870,12 +865,12 @@ template<> void StructureNode::handle(const CommAddress & src, const RollbackMsg
         }
     }
     // A rollback with a wrong transaction ID is an error, discard it
-    else INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), discarding");
+    else Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), discarding");
 }
 
 
 void StructureNode::commit() {
-    INFO_LOG("Commiting changes");
+    Logger::msg("St.RN", INFO, "Commiting changes");
 
     if (txDriver == CommLayer::getInstance().getLocalAddress()) {
         // Send a CommitMsg to everyone in the ack list
@@ -909,7 +904,7 @@ void StructureNode::commit() {
 
     // Commit the change to the father node
     if (newFather != CommAddress()) {
-        DEBUG_LOG("The father changed also");
+        Logger::msg("St.RN", DEBUG, "The father changed also");
         father = newFather;
         seq = 1;
         newFather = CommAddress();
@@ -952,7 +947,7 @@ void StructureNode::commit() {
 
 
 void StructureNode::rollback() {
-    INFO_LOG("Revoking changes");
+    Logger::msg("St.RN", INFO, "Revoking changes");
 
     if (txDriver == CommLayer::getInstance().getLocalAddress()) {
         // Send a rollback to all the Ack'ed members
@@ -961,7 +956,7 @@ void StructureNode::rollback() {
         while (!txMembersAck.empty()) {
             AddrService member = txMembersAck.front();
             txMembersAck.pop_front();
-            DEBUG_LOG("Sending Rollback msg to " << member.first << " service " << member.second);
+            Logger::msg("St.RN", DEBUG, "Sending Rollback msg to ", member.first, " service ", member.second);
             RollbackMsg * rm = new RollbackMsg(transaction);
             rm->setForRN(member.second);
             CommLayer::getInstance().sendMessage(member.first, rm);
@@ -985,7 +980,7 @@ void StructureNode::rollback() {
 
     // Rollback the change to the father node
     if (newFather != CommAddress()) {
-        DEBUG_LOG("The father changed also");
+        Logger::msg("St.RN", DEBUG, "The father changed also");
         newFather = CommAddress();
     }
     //fireCommitChanges(false, list<CommAddress>());

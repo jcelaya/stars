@@ -37,7 +37,7 @@ unsigned int DPAvailabilityInformation::numIntervals = 5;
 
 
 void DPAvailabilityInformation::MDFCluster::aggregate(const MDFCluster & l, const MDFCluster & r) {
-    LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating " << *this << " and " << r;
+    Logger::msg("Ex.RI.Aggr", DEBUG, "Aggregating ", *this, " and ", r);
     reference = l.reference;
     // Update minimums/maximums and sum up values
     uint32_t newMinM = l.minM < r.minM ? l.minM : r.minM;
@@ -138,7 +138,7 @@ void DPAvailabilityInformation::addNode(uint32_t mem, uint32_t disk, double powe
 
 void DPAvailabilityInformation::join(const DPAvailabilityInformation & r) {
     if (!r.summary.empty()) {
-        LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
+        Logger::msg("Ex.RI.Aggr", DEBUG, "Aggregating two summaries:");
 
         if (summary.empty()) {
             // operator= forbidden
@@ -178,7 +178,7 @@ void DPAvailabilityInformation::reduce() {
 
 
 void DPAvailabilityInformation::getAvailability(list<AssignmentInfo> & ai, const TaskDescription & desc) const {
-    LogMsg("Ex.RI.Comp", DEBUG) << "Looking on " << *this;
+    Logger::msg("Ex.RI.Comp", DEBUG, "Looking on ", *this);
     Time now = Time::getCurrentTime();
     if (desc.getDeadline() > now) {
         // Make a list of suitable cells

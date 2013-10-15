@@ -48,7 +48,7 @@ void NetworkManager::listen() {
     acceptor.async_accept(incoming->socket,
                           bind(&NetworkManager::handleAccept, this, net::placeholders::error));
     t.reset(new boost::thread(bind((size_t (net::io_service:: *)())(&net::io_service::run), &io)));
-    LogMsg("Net", INFO) << "Thread " << t->get_id() << " accepting connections on port " << ConfigurationManager::getInstance().getPort();
+    Logger::msg("Net", INFO, "Thread ", t->get_id(), " accepting connections on port ", ConfigurationManager::getInstance().getPort());
     // The following is needed for the test cases, it does nothing in production code
     io.dispatch(CommLayer::getInstance);
 }
@@ -65,7 +65,7 @@ unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg
     pk.pack(port);
     msg->pack(pk);
     unsigned int size = c->writeBuffer.size();
-    LogMsg("Comm", DEBUG) << "Sending " << *msg << " to " << dst;
+    Logger::msg("Comm", DEBUG, "Sending ", *msg, " to ", dst);
     c->socket.async_connect(tcp::endpoint(dst.getIP(), dst.getPort()),
             bind(&NetworkManager::handleConnect, this, net::placeholders::error, c));
     return size;
@@ -74,11 +74,11 @@ unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg
 
 void NetworkManager::handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c) {
     if (!error) {
-        LogMsg("Comm", DEBUG) << "Connection established with " << c->dst;
+        Logger::msg("Comm", DEBUG, "Connection established with ", c->dst);
         net::async_write(c->socket, c->writeBuffer.data(),
                 bind(&NetworkManager::handleWrite, this, net::placeholders::error, c));
     } else {
-        LogMsg("Comm", WARN) << "Destination unreachable: " << c->dst;
+        Logger::msg("Comm", WARN, "Destination unreachable: ", c->dst);
     }
 }
 
@@ -91,8 +91,8 @@ void NetworkManager::handleWrite(const boost::system::error_code & error, boost:
 void NetworkManager::handleAccept(const boost::system::error_code & error) {
     if (!error) {
         // Program an async_read for the data
-        LogMsg("Comm", DEBUG) << "Connection accepted between src(" << incoming->socket.remote_endpoint() <<
-        ") and dst(" << incoming->socket.local_endpoint() << ')';
+        Logger::msg("Comm", DEBUG, "Connection accepted between src(", incoming->socket.remote_endpoint(),
+                ") and dst(", incoming->socket.local_endpoint(), ')');
         net::streambuf::mutable_buffers_type bufs = incoming->readBuffer.prepare(1500);
         net::async_read(incoming->socket, bufs, net::transfer_at_least(1),
                         bind(&NetworkManager::handleRead, this, net::placeholders::error, net::placeholders::bytes_transferred, incoming));
@@ -129,10 +129,10 @@ void NetworkManager::handleRead(const boost::system::error_code & error, size_t 
             // Read message
             BasicMsg * bmsg;
             bmsg = BasicMsg::unpackMessage(pac);
-            LogMsg("Net", INFO) << "Received message " << *bmsg << " from " << src;
+            Logger::msg("Net", INFO, "Received message ", *bmsg, " from ", src);
             CommLayer::getInstance().enqueueMessage(src, boost::shared_ptr<BasicMsg>(bmsg));
         } catch (...) {
-            LogMsg("Net", ERROR) << "Failed serialization of message from " << c->socket.remote_endpoint();
+            Logger::msg("Net", ERROR, "Failed serialization of message from ", c->socket.remote_endpoint());
         }
     }
 }

@@ -46,7 +46,7 @@ void MMPAvailabilityInformation::setQueueEnd(int32_t mem, int32_t disk, int32_t 
 
 void MMPAvailabilityInformation::join(const MMPAvailabilityInformation & r) {
     if (!r.summary.empty()) {
-        LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
+        Logger::msg("Ex.RI.Aggr", DEBUG, "Aggregating two summaries:");
         // Aggregate max queue time
         if (r.maxQueue > maxQueue)
             maxQueue = r.maxQueue;

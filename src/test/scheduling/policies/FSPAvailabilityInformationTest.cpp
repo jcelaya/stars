@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
     FSPTaskList proxys(RandomQueueGenerator().createRandomQueue(1000.0));
     proxys.sortMinSlowness();
     s1.setAvailability(1024, 512, proxys, 1000.0);
-    LogMsg("Test.RI", INFO) << s1;
+    Logger::msg("Test.RI", INFO, s1);
 
     boost::shared_ptr<FSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);

@@ -114,13 +114,13 @@ int main(int argc, char * argv[]) {
         // Command line overrides config file
         if (ConfigurationManager::getInstance().loadCommandLine(argc, argv)) return 0;
         // Start logging
-        LogMsg::initLog(ConfigurationManager::getInstance().getLogConfig());
+        Logger::initLog(ConfigurationManager::getInstance().getLogConfig());
         addConsoleLogging(NULL);
         // Start io thread and listen to incoming connections
         CommLayer::getInstance().listen();
         // Get local address
         // Init CommLayer and standard services
-        LogMsg("", DEBUG) << "Creating standard services";
+        Logger::msg("", DEBUG, "Creating standard services");
 //  CommLayer::getInstance().registerService(new StructureNode(2));
 //  CommLayer::getInstance().registerService(ResourceNode(sn));
 //  CommLayer::getInstance().registerService(SubmissionNode(rn));
@@ -128,13 +128,13 @@ int main(int argc, char * argv[]) {
 //  CommLayer::getInstance().registerService(DeadlineDispatcher(sn));
 #ifdef Wt_FOUND
         // Start UI
-        LogMsg("", DEBUG) << "Starting UI web server";
+        Logger::msg("", DEBUG, "Starting UI web server");
         WtUI::getInstance().start();
 #endif
-        LogMsg("", DEBUG) << "Starting main event loop";
+        Logger::msg("", DEBUG, "Starting main event loop");
         // Start event handling
         CommLayer::getInstance().commEventLoop();
-        LogMsg("", DEBUG) << "Gracely exiting";
+        Logger::msg("", DEBUG, "Gracely exiting");
         return 0;
     } catch (std::exception & e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;

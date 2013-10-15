@@ -33,7 +33,7 @@ using namespace boost::posix_time;
 using namespace log4cpp;
 
 int main(int argc, char * argv[]) {
-    LogMsg::initLog("Ex.RI.Aggr.FSP=INFO");
+    Logger::initLog("Ex.RI.Aggr.FSP=INFO");
     OstreamAppender * console = new OstreamAppender("ConsoleAppender", &std::cout);
     PatternLayout * l = new PatternLayout();
     l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");

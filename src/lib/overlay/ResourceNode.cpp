@@ -34,10 +34,6 @@
 using namespace std;
 
 
-#define DEBUG_LOG(x) LogMsg("St.RN", DEBUG) << x
-#define INFO_LOG(x) LogMsg("St.RN", INFO) << x
-
-
 ostream & operator<<(ostream& os, const ResourceNode & e) {
     os << e.getStatus();
     os << " f=" << e.father;
@@ -73,7 +69,7 @@ ResourceNode::ResourceNode() : seq(1), transaction(NULL_TRANSACTION_ID), availab
 
 void ResourceNode::notifyFather() {
     if (father != CommAddress()) {
-        DEBUG_LOG("There were changes. Sending update to the father");
+        Logger::msg("St.RN", DEBUG, "There were changes. Sending update to the father");
         ZoneDescription zone;
         zone.setAvailableStrNodes(availableStrNodes ? 1 : 0);
         zone.setMaxAddress(CommLayer::getInstance().getLocalAddress());
@@ -93,11 +89,11 @@ void ResourceNode::availabilityChanged(bool available) {
 
 
 void ResourceNode::commit() {
-    INFO_LOG("Commiting changes");
+    Logger::msg("St.RN", INFO, "Commiting changes");
     transaction = NULL_TRANSACTION_ID;
 
     if (father == CommAddress() || father != newFather) {
-        DEBUG_LOG("Father has changed, reporting");
+        Logger::msg("St.RN", DEBUG, "Father has changed, reporting");
         father = newFather;
         newFather = CommAddress();
         seq = 1;
@@ -111,7 +107,7 @@ void ResourceNode::commit() {
 
 
 void ResourceNode::rollback() {
-    INFO_LOG("Rollback changes");
+    Logger::msg("St.RN", INFO, "Rollback changes");
     transaction = NULL_TRANSACTION_ID;
     newFather = CommAddress();
     fireFatherChanged(false);
@@ -132,10 +128,10 @@ void ResourceNode::rollback() {
  */
 template<> void ResourceNode::handle(const CommAddress & src, const NewFatherMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling NewFatherMsg from " << src);
+    Logger::msg("St.RN", INFO, "Handling NewFatherMsg from ", src);
     if (transaction != NULL_TRANSACTION_ID) {
         // If we are in the middle of a change, wait
-        DEBUG_LOG("In the middle of a transaction, delaying.");
+        Logger::msg("St.RN", DEBUG, "In the middle of a transaction, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
         // Check that the sender is our current father
     } else if (father == src) {
@@ -145,7 +141,7 @@ template<> void ResourceNode::handle(const CommAddress & src, const NewFatherMsg
         AckMsg * am = new AckMsg(transaction);
         am->setFromRN(true);
         CommLayer::getInstance().sendMessage(src, am);
-    } else INFO_LOG("It does not come from the father, discarding");
+    } else Logger::msg("St.RN", INFO, "It does not come from the father, discarding");
 }
 
 
@@ -159,18 +155,18 @@ template<> void ResourceNode::handle(const CommAddress & src, const NewFatherMsg
  */
 template<> void ResourceNode::handle(const CommAddress & src, const AckMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling AckMessage from " << src << " with transaction " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling AckMessage from ", src, " with transaction ", msg.getTransactionId());
     // Check the transaction id
     if (msg.getTransactionId() == transaction) {
         newFather = src;
         commit();
-        DEBUG_LOG("New father set to " << src);
+        Logger::msg("St.RN", DEBUG, "New father set to ", src);
         // Send a commit message to the new father
         CommitMsg * cm = new CommitMsg(msg.getTransactionId());
         CommLayer::getInstance().sendMessage(src, cm);
     }
     // If the transaction id does not match, it is not a valid ACK message, discard it
-    else INFO_LOG("Wrong transaction, discarding");
+    else Logger::msg("St.RN", INFO, "Wrong transaction, discarding");
 }
 
 
@@ -183,14 +179,14 @@ template<> void ResourceNode::handle(const CommAddress & src, const AckMsg & msg
  */
 template<> void ResourceNode::handle(const CommAddress & src, const NackMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling NackMessage from " << src << " with transaction " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling NackMessage from ", src, " with transaction ", msg.getTransactionId());
     // Check the transaction id
     if (msg.getTransactionId() == transaction) {
         rollback();
-        DEBUG_LOG("Giving up insertion... :_(");
+        Logger::msg("St.RN", DEBUG, "Giving up insertion... :_(");
     }
     // If the transaction id does not match, it is not a valid ACK message, discard it
-    else INFO_LOG("Wrong transaction, discarding");
+    else Logger::msg("St.RN", INFO, "Wrong transaction, discarding");
 }
 
 
@@ -203,13 +199,13 @@ template<> void ResourceNode::handle(const CommAddress & src, const NackMsg & ms
  */
 template<> void ResourceNode::handle(const CommAddress & src, const RollbackMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling RollbackMsg from " << src << " with transaction " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling RollbackMsg from ", src, " with transaction ", msg.getTransactionId());
     // Check the transaction id
     if (msg.getTransactionId() == transaction) {
         rollback();
     }
     // A rollback with a wrong transaction ID is an error, discard it
-    else INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), discarding");
+    else Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), discarding");
 }
 
 
@@ -222,13 +218,13 @@ template<> void ResourceNode::handle(const CommAddress & src, const RollbackMsg 
  */
 template<> void ResourceNode::handle(const CommAddress & src, const CommitMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling CommitMessage from " << src << " with transaction " << msg.getTransactionId());
+    Logger::msg("St.RN", INFO, "Handling CommitMessage from ", src, " with transaction ", msg.getTransactionId());
     // Check the transaction id
     if (msg.getTransactionId() == transaction) {
         commit();
     }
     // A commit with a wrong transaction ID is an error, discard it
-    else INFO_LOG("Wrong Transaction ID (" << transaction << " != " << msg.getTransactionId() << "), discarding");
+    else Logger::msg("St.RN", INFO, "Wrong Transaction ID (", transaction, " != ", msg.getTransactionId(), "), discarding");
 }
 
 
@@ -251,7 +247,7 @@ template<> void ResourceNode::handle(const CommAddress & src, const InsertComman
         // The first hop is always to a ResourceNode service,
         // unless the destination is the same peer.
         im->setForRN(msg.getWhere() != CommLayer::getInstance().getLocalAddress());
-        INFO_LOG("Sending InsertMsg with transaction " << transaction);
+        Logger::msg("St.RN", INFO, "Sending InsertMsg with transaction ", transaction);
         CommLayer::getInstance().sendMessage(msg.getWhere(), im);
         // TODO: Set a timeout
     }
@@ -267,18 +263,18 @@ template<> void ResourceNode::handle(const CommAddress & src, const InsertComman
  */
 template<> void ResourceNode::handle(const CommAddress & src, const InsertMsg & msg, bool self) {
     if (!msg.isForRN()) return;
-    INFO_LOG("Handling InsertMsg from " << src);
+    Logger::msg("St.RN", INFO, "Handling InsertMsg from ", src);
     if (transaction != NULL_TRANSACTION_ID) {
         // If we are in the middle of a change, wait
-        DEBUG_LOG("In the middle of a transaction, delaying.");
+        Logger::msg("St.RN", DEBUG, "In the middle of a transaction, delaying.");
         delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
     } else if (father != CommAddress()) {
-        DEBUG_LOG("Sending to the father");
+        Logger::msg("St.RN", DEBUG, "Sending to the father");
         // If we are in the network, relay the message to our father
         InsertMsg * im = msg.clone();
         im->setForRN(false);
         CommLayer::getInstance().sendMessage(father, im);
-    } else INFO_LOG("Nothing to do with it");
+    } else Logger::msg("St.RN", INFO, "Nothing to do with it");
 }
 
 

@@ -49,7 +49,7 @@ boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(int c)
 
 
 void MMPDispatcher::recomputeInfo() {
-    LogMsg("Dsp.MMP", DEBUG) << "Recomputing the branch information";
+    Logger::msg("Dsp.MMP", DEBUG, "Recomputing the branch information");
     // Recalculate info for the father
     recomputeFatherInfo();
 
@@ -92,16 +92,16 @@ struct MMPDispatcher::DecissionInfo {
 
 void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
-    LogMsg("Dsp.MMP", INFO) << "Received a TaskBagMsg from " << src;
+    Logger::msg("Dsp.MMP", INFO, "Received a TaskBagMsg from ", src);
     boost::shared_ptr<MMPAvailabilityInformation> zoneInfo =
             boost::static_pointer_cast<MMPAvailabilityInformation>(getBranchInfo());
 
     TaskDescription req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
     unsigned int nextTask = msg.getFirstTask();
-    LogMsg("Dsp.MMP", INFO) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
-    LogMsg("Dsp.MMP", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
-    LogMsg("Dsp.MMP", INFO) << "Length: " << req.getLength();
+    Logger::msg("Dsp.MMP", INFO, "Requested allocation of ", remainingTasks, " tasks with requirements:");
+    Logger::msg("Dsp.MMP", INFO, "Memory: ", req.getMaxMemory(), "   Disk: ", req.getMaxDisk());
+    Logger::msg("Dsp.MMP", INFO, "Length: ", req.getLength());
 
     std::list<MMPAvailabilityInformation::MDPTCluster *> nodeGroups;
     if (father.addr != CommAddress()) {
@@ -115,14 +115,14 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         fatherInfo = now + Duration(fatherInfo - now) * beta;
         req.setDeadline(fatherInfo);
         unsigned int tasks = zoneInfo->getAvailability(nodeGroups, req);
-        LogMsg("Dsp.MMP", DEBUG) << "Before the minimum queue (" << fatherInfo << ") there is space for " << tasks << " tasks";
+        Logger::msg("Dsp.MMP", DEBUG, "Before the minimum queue (", fatherInfo, ") there is space for ", tasks, " tasks");
 
         if (tasks < remainingTasks && (src != father.addr || msg.isFromEN())) {
             // Send it up if there are not enough nodes, we are not the root and the sender is not our father or it is a child with the same address
             TaskBagMsg * tbm = msg.clone();
             tbm->setFromEN(false);
             CommLayer::getInstance().sendMessage(father.addr, tbm);
-            LogMsg("Dsp.MMP", INFO) << "Not enough nodes, send to the father";
+            Logger::msg("Dsp.MMP", INFO, "Not enough nodes, send to the father");
             return;
         }
     }
@@ -130,13 +130,13 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // If there are enough tasks, distribute it downwards
     Time balancedQueue = zoneInfo->getAvailability(nodeGroups, remainingTasks, req);
     if (balancedQueue == Time()) {
-        LogMsg("Dsp.MMP", WARN) << "No node fulfills requirements, dropping!";
+        Logger::msg("Dsp.MMP", WARN, "No node fulfills requirements, dropping!");
         return;
     }
     req.setDeadline(balancedQueue);
     father.waitingInfo.reset(zoneInfo->clone());
     father.waitingInfo->updateAvailability(req);
-    LogMsg("Dsp.MMP", DEBUG) << "The calculated queue length is " << balancedQueue;
+    Logger::msg("Dsp.MMP", DEBUG, "The calculated queue length is ", balancedQueue);
 
     // Calculate distances
     const CommAddress & requester = msg.getRequester();
@@ -147,20 +147,20 @@ void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         if (child[c].availInfo.get()) {
             nodeGroups.clear();
             child[c].availInfo->getAvailability(nodeGroups, req);
-            LogMsg("Dsp.MMP", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from " << c << " child.";
+            Logger::msg("Dsp.MMP", DEBUG, "Obtained ", nodeGroups.size(), " groups with enough availability from ", c, " child.");
             for (std::list<MMPAvailabilityInformation::MDPTCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
-                LogMsg("Dsp.MMP", DEBUG) << (*git)->getValue() << " tasks of size availability " << req.getLength();
+                Logger::msg("Dsp.MMP", DEBUG, (*git)->getValue(), " tasks of size availability ", req.getLength());
                 groups.push_back(DecissionInfo(*git, req, c, branch.getChildDistance(c, requester)));
             }
         }
     }
-    LogMsg("Dsp.MMP", DEBUG) << groups.size() << " groups found";
+    Logger::msg("Dsp.MMP", DEBUG, groups.size(), " groups found");
     groups.sort();
 
     // Now divide the request between the zones
     std::array<unsigned int, 2> numTasks = { 0, 0 };
     for (std::list<DecissionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; it++) {
-        LogMsg("Dsp.MMP", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->numTasks << " tasks";
+        Logger::msg("Dsp.MMP", DEBUG, "Using group from ", (it->branch == 0 ? "left" : "right"), " branch and ", it->numTasks, " tasks");
         unsigned int tasksInGroup = it->numTasks;
         if (remainingTasks > tasksInGroup) {
             numTasks[it->branch] += tasksInGroup;

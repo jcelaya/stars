@@ -69,8 +69,8 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
             // Traffic
             inTraffic += ev.size;
 
-            LogMsg("Dsp.Cent", INFO) << "Request " << msg->getRequestId() << " at " << ev.t
-                    << " with " << (msg->getLastTask() - msg->getFirstTask() + 1) << " tasks of length " << msg->getMinRequirements().getLength();
+            Logger::msg("Dsp.Cent", INFO, "Request ", msg->getRequestId(), " at ", ev.t,
+                    " with ", msg->getLastTask() - msg->getFirstTask() + 1, " tasks of length ", msg->getMinRequirements().getLength());
 
             double currentMaxSlowness = maxSlowness;
 
@@ -116,7 +116,7 @@ void CentralizedScheduler::sendOneTask(unsigned int to) {
     tbm->setFirstTask(task.tid);
     tbm->setLastTask(task.tid);
     task.running = true;
-    LogMsg("Dsp.Cent", INFO) << "Finally sending a task of request" << tbm->getRequestId() << " to " << AddrIO(to) << ": " << *tbm;
+    Logger::msg("Dsp.Cent", INFO, "Finally sending a task of request", tbm->getRequestId(), " to ", AddrIO(to), ": ", *tbm);
     sim.sendMessage(sim.getNode(to).getLeaf().getFatherAddress().getIPNum(), to, tbm);
 }
 
@@ -136,7 +136,7 @@ double CentralizedScheduler::getMaxSlowness(unsigned int node) {
 
 
 void CentralizedScheduler::taskFinished(unsigned int node) {
-    LogMsg("Dsp.Cent", INFO) << "Finished a task in node " << AddrIO(node);
+    Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", AddrIO(node));
     if (!queues[node].empty()) {
         queues[node].pop_front();
         double currentMaxSlowness = getMaxSlowness(node);
@@ -156,7 +156,7 @@ void CentralizedScheduler::taskFinished(unsigned int node) {
         if (!queues[node].empty())
             sendOneTask(node);
     } else {
-        LogMsg("Dsp.Cent", ERROR) << "Error: task finished not in the queue of " << AddrIO(node);
+        Logger::msg("Dsp.Cent", ERROR, "Error: task finished not in the queue of ", AddrIO(node));
     }
 }
 
@@ -287,10 +287,10 @@ class CentralizedIBP : public CentralizedScheduler {
         TaskDesc task(msg);
         if (numTasks > usableNodes.size()) numTasks = usableNodes.size();
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
+            Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
             // Send each task to a random node which can execute it
             unsigned int node = usableNodes[task.tid - 1].n;
-            LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << node << " with availability " << usableNodes[task.tid - 1].a;
+            Logger::msg("Dsp.Cent", DEBUG, "Task allocated to node ", node, " with availability ", usableNodes[task.tid - 1].a);
             task.a = Duration(a / sim.getNode(node).getAveragePower());
             addToQueue(task, node);
             updateQueue(node);
@@ -337,11 +337,11 @@ class CentralizedMMP : public CentralizedScheduler {
 
         TaskDesc task(msg);
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
+            Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
             // Send each task where the queue is shorter
             pop_heap(queueCache.begin(), queueCache.end());
             QueueTime & best = queueCache.back();
-            LogMsg("Dsp.Cent", DEBUG) << "Task allocated to node " << best.node << " with queue time " << best.qTime;
+            Logger::msg("Dsp.Cent", DEBUG, "Task allocated to node ", best.node, " with queue time ", best.qTime);
             task.a = taskTime[best.node];
             addToQueue(task, best.node);
             updateQueue(best.node);
@@ -401,7 +401,7 @@ class CentralizedDP : public CentralizedScheduler {
                     if (deadline < end) end = deadline;
                     avail = end > start ? ((end - start).seconds() * node.getAveragePower()) : 0;
                 }
-                LogMsg("Dsp.Cent", DEBUG) << "Node " << n << " provides " << avail;
+                Logger::msg("Dsp.Cent", DEBUG, "Node ", n, " provides ", avail);
                 // If hole is enough add it
                 if (avail > a) {
                     Hole h;
@@ -415,7 +415,7 @@ class CentralizedDP : public CentralizedScheduler {
                         holeCache[lastHole++] = h;
                         cachedTasks += h.numTasks;
                         push_heap(holeCache, holeCache + lastHole);
-                        LogMsg("Dsp.Cent", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
+                        Logger::msg("Dsp.Cent", DEBUG, h.numTasks, " tasks can be held, and ", h.remaining, " remains");
                     } else if (h < holeCache[0]) {
                         // Add the hole but, eliminate the worst?
                         while (cachedTasks > 0 && cachedTasks - holeCache[0].numTasks + h.numTasks >= numTasks && h < holeCache[0]) {
@@ -425,7 +425,7 @@ class CentralizedDP : public CentralizedScheduler {
                         holeCache[lastHole++] = h;
                         cachedTasks += h.numTasks;
                         push_heap(holeCache, holeCache + lastHole);
-                        LogMsg("Dsp.Cent", DEBUG) << h.numTasks << " tasks can be held, and " << h.remaining << " remains";
+                        Logger::msg("Dsp.Cent", DEBUG, h.numTasks, " tasks can be held, and ", h.remaining, " remains");
                     }
                 }
             }
@@ -447,10 +447,10 @@ class CentralizedDP : public CentralizedScheduler {
                 ignoreTasks -= best.numTasks;
             } else {
                 unsigned int numTasks = best.numTasks - ignoreTasks;
-                LogMsg("Dsp.Cent", DEBUG) << numTasks << " tasks allocated to node " << best.node << " with room for " << best.numTasks
-                  << " tasks and still remains " << best.remaining;
+                Logger::msg("Dsp.Cent", DEBUG, numTasks, " tasks allocated to node ", best.node, " with room for ", best.numTasks,
+                        " tasks and still remains ", best.remaining);
                 for (unsigned int i = 0; i < numTasks; i++, task.tid++) {
-                    //LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
+                    //Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
                     addToQueue(task, best.node);
                 }
                 // Sort the queue
@@ -515,9 +515,9 @@ class CentralizedFSP : public CentralizedScheduler {
                         it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
                 }
 
-                //LogMsg("Dsp.Cent", DEBUG) << tasksToNode << " tasks allocated to node " << assignment[i].node << " with room for " << assignment[i].numTasks << " tasks";
+                //Logger::msg("Dsp.Cent", DEBUG, tasksToNode, " tasks allocated to node ", assignment[i].node, " with room for ", assignment[i].numTasks, " tasks");
                 for (unsigned int j = 0; j < tasksToSend; j++, task.tid++) {
-                    //LogMsg("Dsp.Cent", DEBUG) << "Allocating task " << task.tid;
+                    //Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
                     addToQueue(task, n);
                 }
                 // Sort the queue

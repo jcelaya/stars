@@ -61,7 +61,7 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         tbm->setLastTask(0);
         db.requestFromReadyTasks(appInstance, *tbm);
         if (tbm->getLastTask() == 0) {
-            LogMsg("Sb", INFO) << "No more ready tasks for app instance " << appInstance;
+            Logger::msg("Sb", INFO, "No more ready tasks for app instance ", appInstance);
             return;
         }
         int64_t reqId = tbm->getRequestId();
@@ -78,8 +78,8 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         rt->setRequestId(reqId);
         CommLayer::getInstance().setTimer(timeout, rt);
         if (db.startSearch(reqId, timeout)) {
-            LogMsg("Sb", INFO) << "Sending request with " << (tbm->getLastTask() - tbm->getFirstTask() + 1) << " tasks of length "
-                    << tbm->getMinRequirements().getLength() << " and deadline " << tbm->getMinRequirements().getDeadline();
+            Logger::msg("Sb", INFO, "Sending request with ", (tbm->getLastTask() - tbm->getFirstTask() + 1), " tasks of length ",
+                    tbm->getMinRequirements().getLength(), " and deadline ", tbm->getMinRequirements().getDeadline());
             // Send this message to the father's Dispatcher
             CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), tbm);
         }
@@ -97,10 +97,10 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
  * @param msg The command with the request information.
  */
 template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCommandMsg & msg) {
-    LogMsg("Sb", INFO) << "Handling DispatchCommandMsg to dispatch an instance of app " << msg.getAppName();
+    Logger::msg("Sb", INFO, "Handling DispatchCommandMsg to dispatch an instance of app ", msg.getAppName());
 
     if (leaf.getFatherAddress() == CommAddress()) {
-        LogMsg("Sb", ERROR) << "Trying to send an application request, but not in network...";
+        Logger::msg("Sb", ERROR, "Trying to send an application request, but not in network...");
         return;
     }
 
@@ -109,7 +109,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const DispatchCo
         remainingTasks[appId] = 0;
         sendRequest(appId, 0);
     } else
-        LogMsg("Sb", ERROR) << "Application " << msg.getAppName() << " does not exist in database.";
+        Logger::msg("Sb", ERROR, "Application ", msg.getAppName(), " does not exist in database.");
 }
 
 
@@ -129,15 +129,15 @@ void SubmissionNode::fatherChanged(bool changed) {
  * @param msg The msg with the accepted tasks identifiers.
  */
 template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTaskMsg & msg) {
-    LogMsg("Sb", INFO) << "Handling AcceptTaskMsg for request " << msg.getRequestId()
-    << ", tasks " << msg.getFirstTask() << " to " << msg.getLastTask() << " from " << src;
+    Logger::msg("Sb", INFO, "Handling AcceptTaskMsg for request ", msg.getRequestId(),
+            ", tasks ", msg.getFirstTask(), " to ", msg.getLastTask(), " from ", src);
 
     // Reject all tasks that do not belong to this request?
 //    AbortTaskMsg * atm = new AbortTaskMsg;
 //    atm->setRequestId(msg.getRequestId());
 //    for (unsigned int i = msg.getFirstTask(); i <= msg.getLastTask(); i++) {
 //        if (!db.taskInRequest(i, msg.getRequestId())) {
-//            LogMsg("Sb", DEBUG) << "Task " << i << " is not in this request, aborting";
+//            Logger::msg("Sb", DEBUG, "Task ", i, " is not in this request, aborting");
 //            atm->addTask(i);
 //        }
 //    }
@@ -162,7 +162,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
             remoteTasks[src].insert(make_pair(appId, 0)).first->second += numAccepted;
         }
     } else {
-        LogMsg("Sb", WARN) << "No application instance for request " << msg.getRequestId();
+        Logger::msg("Sb", WARN, "No application instance for request ", msg.getRequestId());
     }
 }
 
@@ -182,7 +182,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
         it->second -= db.cancelSearch(msg.getRequestId());
         if (db.getNumReady(appId) > 0
                 && prevRetries->second < ConfigurationManager::getInstance().getSubmitRetries()) {
-            LogMsg("Sb", WARN) << "Request " << msg.getRequestId() << " timed out with pending tasks.";
+            Logger::msg("Sb", WARN, "Request ", msg.getRequestId(), " timed out with pending tasks.");
             // Start a new search
             sendRequest(appId, prevRetries->second);
         } else {
@@ -197,11 +197,11 @@ template<> void SubmissionNode::handle(const CommAddress & src, const RequestTim
 
 
 template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonitorMsg & msg) {
-    LogMsg("Sb", INFO) << "Handling TaskMonitorMsg from node " << src;
+    Logger::msg("Sb", INFO, "Handling TaskMonitorMsg from node ", src);
     map<int64_t, unsigned int> & tasksPerApp = remoteTasks[src];
 
     for (unsigned int i = 0; i < msg.getNumTasks(); ++i) {
-        LogMsg("Sb", INFO) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " is in state " << msg.getTaskState(i);
+        Logger::msg("Sb", INFO, "Task ", msg.getTaskId(i), " from request ", msg.getRequestId(i), " is in state ", msg.getTaskState(i));
 
         if (!db.acceptedTasks(src, msg.getRequestId(i), msg.getTaskId(i), msg.getTaskId(i))) {
             // Task already accepted or non-existent
@@ -223,7 +223,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                         remainingTasks.erase(it);
                     }
                 } else
-                    LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
+                    Logger::msg("Sb", WARN, "Request ", msg.getRequestId(i), " or appId ", appId, " do not exist");
             }
         } else if (msg.getTaskState(i) == Task::Aborted) {
             int64_t appId = db.getInstanceId(msg.getRequestId(i));
@@ -234,9 +234,9 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
                     if (--(it->second) == 0) tasksPerApp.erase(it);
                     // Try to relaunch application
                     sendRequest(appId, 0);
-                    LogMsg("Sb", WARN) << "Task " << msg.getTaskId(i) << " from request " << msg.getRequestId(i) << " from app " << appId << " aborted by remote.";
+                    Logger::msg("Sb", WARN, "Task ", msg.getTaskId(i), " from request ", msg.getRequestId(i), " from app ", appId, " aborted by remote.");
                 } else
-                    LogMsg("Sb", WARN) << "Request " << msg.getRequestId(i) << " or appId " << appId << " do not exist";
+                    Logger::msg("Sb", WARN, "Request ", msg.getRequestId(i), " or appId ", appId, " do not exist");
             }
         }
     }
@@ -255,7 +255,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
 
 
 template<> void SubmissionNode::handle(const CommAddress & src, const HeartbeatTimeout & msg) {
-    LogMsg("Sb", WARN) << "Execution node " << msg.getExecutionNode() << " is dead, relaunching tasks";
+    Logger::msg("Sb", WARN, "Execution node ", msg.getExecutionNode(), " is dead, relaunching tasks");
     heartbeats.erase(msg.getExecutionNode());
     // Set all the tasks being executed in that node to READY
     db.deadNode(msg.getExecutionNode());

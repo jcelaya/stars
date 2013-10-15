@@ -63,7 +63,7 @@ bool FSPAvailabilityInformation::MDZCluster::far(const MDZCluster & r) const {
 
 
 void FSPAvailabilityInformation::MDZCluster::aggregate(const MDZCluster & r) {
-    LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating " << *this << " and " << r;
+    Logger::msg("Ex.RI.Aggr", DEBUG, "Aggregating ", *this, " and ", r);
     ZAFunction newMaxL;
     accumZsq += accumZsq + r.accumZsq
             + newMaxL.maxAndLoss(maxZ, r.maxZ, value, r.value, accumZmax, r.accumZmax, reference->lengthHorizon);
@@ -119,7 +119,7 @@ double FSPAvailabilityInformation::getSlowestMachine() const {
 
 void FSPAvailabilityInformation::join(const FSPAvailabilityInformation & r) {
     if (!r.summary.empty()) {
-        LogMsg("Ex.RI.Aggr", DEBUG) << "Aggregating two summaries:";
+        Logger::msg("Ex.RI.Aggr", DEBUG, "Aggregating two summaries:");
 
         if (summary.empty()) {
             // operator= forbidden
@@ -160,12 +160,12 @@ void FSPAvailabilityInformation::reduce() {
     summary.cluster(numClusters);
     boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
     long mus = (end - start).total_microseconds();
-    LogMsg("Ex.RI.Aggr.FSP", INFO) << "Clustering lasted " << mus << " us";
+    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Clustering lasted ", mus, " us");
     start = end;
     for (auto & i : summary)
         i.reduce();
     end = boost::posix_time::microsec_clock::local_time();
-    LogMsg("Ex.RI.Aggr.FSP", INFO) << "Reduction lasted " << (end - start).total_microseconds() << " us";
+    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Reduction lasted ", (end - start).total_microseconds(), " us");
 //    if (mus > 30000)
 //        saveToFile(copy);
 //    delete copy;
@@ -175,9 +175,9 @@ void FSPAvailabilityInformation::reduce() {
 void FSPAvailabilityInformation::output(std::ostream & os) const {
     os << slownessRange.getMin() << "s/i";
     if (!summary.empty()) {
-        os << LogMsg::indent << "  (" << minZ << ", " << maxZ << ") {" << LogMsg::indent;
+        os << Logger::indent << "  (" << minZ << ", " << maxZ << ") {" << Logger::indent;
         for (auto & i : summary)
-            os << "    " << i << LogMsg::indent;
+            os << "    " << i << Logger::indent;
         os << "  }";
     }
 }

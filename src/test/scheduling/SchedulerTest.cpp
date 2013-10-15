@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
 
     // Check creation
     const AvailabilityInformation & avail = sched->getAvailability();
-    LogMsg("Test.Sch", DEBUG) << "New availability: " << avail;
+    Logger::msg("Test.Sch", DEBUG, "New availability: ", avail);
     {
         Time time1 = reference;
         unsigned long int a = sched->getAvailabilityBefore(reference + Duration(1.0));

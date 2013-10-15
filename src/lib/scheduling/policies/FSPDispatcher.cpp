@@ -156,7 +156,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     std::array<double, 2> branchSlowness = {0.0, 0.0};
     for (int c : {0, 1}) {
         if (child[c].availInfo.get()) {
-            LogMsg("Dsp.FSP", DEBUG) << "Getting functions of children (" << child[c].addr << "): " << *child[c].availInfo;
+            Logger::msg("Dsp.FSP", DEBUG, "Getting functions of children (", child[c].addr, "): ", *child[c].availInfo);
             clusters[c] = std::move(child[c].availInfo->getFunctions(req));
             branchSlowness[c] = child[c].availInfo->getMinimumSlowness();
         }
@@ -164,11 +164,11 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     FunctionVector functions(clusters, branchSlowness);
     std::array<unsigned int, 2> numTasks = {0, 0};
     if (!mustGoDown(src, msg) && functions.getTotalNodes() < numTasksReq) {
-        LogMsg("Dsp.FSP", INFO) << "Not enough nodes to route this request, sending to the father.";
+        Logger::msg("Dsp.FSP", INFO, "Not enough nodes to route this request, sending to the father.");
     } else {
         functions.computeTasksPerFunction(numTasksReq, a);
         double minSlowness = functions.getMinimumSlowness(), slownessLimit = getSlownessLimit();
-        LogMsg("Dsp.FSP", INFO) << "Result minimum slowness is " << minSlowness;
+        Logger::msg("Dsp.FSP", INFO, "Result minimum slowness is ", minSlowness);
         if (mustGoDown(src, msg) || minSlowness <= slownessLimit) {
             numTasks = functions.computeTasksPerBranch();
             updateBranchSlowness(functions.getNewBranchSlowness());
@@ -183,14 +183,14 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
                 child[c].availInfo->removeClusters(clusters[c]);
             recomputeInfo();
             if (mustGoDown(src, msg)) {
-                LogMsg("Dsp.FSP", DEBUG) << "The request must go down.";
+                Logger::msg("Dsp.FSP", DEBUG, "The request must go down.");
             } else {
-                LogMsg("Dsp.FSP", DEBUG) << "The slowness is below the limit " << slownessLimit;
+                Logger::msg("Dsp.FSP", DEBUG, "The slowness is below the limit ", slownessLimit);
                 // Only notify the father if the message does not come from it
                 //notify();
             }
         } else {
-            LogMsg("Dsp.FSP", INFO) << "Not enough information to route this request, sending to the father.";
+            Logger::msg("Dsp.FSP", INFO, "Not enough information to route this request, sending to the father.");
         }
     }
     sendTasks(msg, numTasks, false);
@@ -202,12 +202,12 @@ double FSPDispatcher::getSlownessLimit() const {
             boost::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
     // Compare the slowness reached by the new application with the one in the rest of the tree,
     double slownessLimit = zoneInfo->getMaximumSlowness();
-    LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in this branch is " << slownessLimit;
+    Logger::msg("Dsp.FSP", DEBUG, "The maximum slowness in this branch is ", slownessLimit);
     if (father.availInfo.get()) {
         slownessLimit = father.availInfo->getMaximumSlowness();
-        LogMsg("Dsp.FSP", DEBUG) << "The maximum slowness in the rest of the tree is " << slownessLimit;
+        Logger::msg("Dsp.FSP", DEBUG, "The maximum slowness in the rest of the tree is ", slownessLimit);
     }
-    LogMsg("Dsp.FSP", DEBUG) << "The slowest machine in this branch would provide a slowness of " << zoneInfo->getSlowestMachine();
+    Logger::msg("Dsp.FSP", DEBUG, "The slowest machine in this branch would provide a slowness of ", zoneInfo->getSlowestMachine());
     if (zoneInfo->getSlowestMachine() > slownessLimit)
         slownessLimit = zoneInfo->getSlowestMachine();
     slownessLimit *= beta;
@@ -228,13 +228,13 @@ void FSPDispatcher::updateBranchSlowness(const std::array<double, 2> & branchSlo
 
 
 void FSPDispatcher::recomputeInfo() {
-    LogMsg("Dsp.FSP", DEBUG) << "Recomputing the branch information";
+    Logger::msg("Dsp.FSP", DEBUG, "Recomputing the branch information");
     // Recalculate info for the father
     recomputeFatherInfo();
 
     for (int c : {0, 1}) {
         if(!branch.isLeaf(c)) {
-            LogMsg("Dsp.FSP", DEBUG) << "Recomputing the information from the rest of the tree for " << c << " child.";
+            Logger::msg("Dsp.FSP", DEBUG, "Recomputing the information from the rest of the tree for ", c, " child.");
             // TODO: send full information, based on configuration switch
             if (father.availInfo.get()) {
                 double fatherMaxSlowness = father.availInfo->getMaximumSlowness();

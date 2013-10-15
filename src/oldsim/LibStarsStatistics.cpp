@@ -205,7 +205,7 @@ void LibStarsStatistics::finishedApp(StarsNode & node, int64_t appId, Time end, 
     // Show app instance information
     const SimAppDatabase::AppInstance * app = sdb.getAppInstance(appId);
     if (app == NULL) {
-        LogMsg("Sim.stat", WARN) << "Application " << appId << " at node " << node.getLocalAddress() << " does not exist";
+        Logger::msg("Sim.stat", WARN, "Application ", appId, " at node ", node.getLocalAddress(), " does not exist");
         return;
     }
     double jtt = (end - app->ctime).seconds();

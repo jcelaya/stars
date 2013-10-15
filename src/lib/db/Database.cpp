@@ -60,7 +60,7 @@ void Database::rollbackTransaction() {
     if (db) {
         // Reset all queries before calling rollback, otherwise it will fail
         if (sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL)) {
-            LogMsg("Database", ERROR) << "Rollback failed!!";
+            Logger::msg("Database", ERROR, "Rollback failed!!");
         }
     }
 }

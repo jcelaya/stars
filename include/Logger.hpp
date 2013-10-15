@@ -25,30 +25,15 @@
 #include <ostream>
 
 
-class LogMsg {
+class Logger {
 public:
-    class AbstractTypeContainer {
-    public:
-        AbstractTypeContainer() : next(NULL) {}
-        virtual ~AbstractTypeContainer() {}
-        virtual void output(std::ostream & os) const = 0;
-        friend std::ostream & operator<<(std::ostream & os, const AbstractTypeContainer & r) {
-            r.output(os);
-            return os;
-        }
-
-        AbstractTypeContainer * next;
-    };
-
     static const class Indent {
     public:
         friend std::ostream & operator<<(std::ostream & os, const Indent & r) {
-            if (active)
-                os << std::endl << currentIndent;
-            return os;
+            return active ? os << std::endl << currentIndent : os;
         }
     private:
-        friend class LogMsg;
+        friend class Logger;
         static std::string currentIndent;
         static bool active;
     } indent;
@@ -76,30 +61,8 @@ public:
         Indent::active = active;
     }
 
-    LogMsg(const char * c, int p) : first(NULL), last(NULL), category(c), priority(p) {}
-
-    ~LogMsg() {
-        if (first != NULL) {
-            log(category, priority, first);
-            while (first != NULL) {
-                AbstractTypeContainer * next = first->next;
-                delete first;
-                first = next;
-            }
-        }
-    }
-
-    template <typename T> LogMsg & operator<<(const T & value) {
-        AbstractTypeContainer * n = new TypeReference<T>(value);
-        if (first == NULL)
-            first = last = n;
-        else
-            last = last->next = n;
-        return *this;
-    }
-
     template <typename... Args>
-    static void logMsg(const char * category, int priority, const Args &... params) {
+    static void msg(const char * category, int priority, const Args &... params) {
         std::ostream * out = streamIfEnabled(category, priority);
         if (out) {
             output(*out, params...);
@@ -119,22 +82,6 @@ private:
 
     static std::ostream * streamIfEnabled(const char * category, int priority);
     static void freeStream(std::ostream * out);
-
-    template <typename T> class TypeReference : public AbstractTypeContainer {
-        const T * value;
-    public:
-        TypeReference(const T & i) : value(&i) {}
-        TypeReference(const T * i) : value(i) {}
-        void output(std::ostream & os) const {
-            os << *value;
-        }
-    };
-
-    AbstractTypeContainer * first, * last;
-    const char * category;
-    int priority;
-
-    static void log(const char * category, int priority, AbstractTypeContainer * values);
     static void setPriority(const std::string & catPrio);
 };
 

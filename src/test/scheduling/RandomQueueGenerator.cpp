@@ -28,7 +28,7 @@
 namespace stars {
 
 void RandomQueueGenerator::seed(unsigned int s) {
-    LogMsg("Test.RQG", DEBUG) << "Using seed " << s;
+    Logger::msg("Test.RQG", DEBUG, "Using seed ", s);
     theSeed = s;
     gen.seed(s);
 }

@@ -85,7 +85,7 @@ public:
 
     void postEnd() {
         std::set<unsigned int> roots = getRoots();
-        LogMsg("Sim.Tree", WARN) << roots.size() << " different trees.";
+        Logger::msg("Sim.Tree", WARN, roots.size(), " different trees.");
         showStructureTree(roots);
         checkStructureTree();
         showInfoTree(roots);
@@ -104,8 +104,8 @@ public:
                             childNode.getLeaf().getFatherAddress()
                             : childNode.getBranch().getFatherAddress()).getIPNum();
                     if (targetAddr != i) {
-                        LogMsg("Sim.Tree", ERROR) << "Link mismatch: father of " << childAddr << " is " << targetAddr
-                                << " and should be " << i;
+                        Logger::msg("Sim.Tree", ERROR, "Link mismatch: father of ",
+                                childAddr, " is ", targetAddr, " and should be ", i);
                     }
                 }
             }
@@ -128,7 +128,7 @@ public:
 
     void showStructureTree(std::set<unsigned int> & roots) {
         for (auto root : roots) {
-            LogMsg("Sim.Tree", WARN) << "Structure tree:";
+            Logger::msg("Sim.Tree", WARN, "Structure tree:");
             StarsNode & rootNode = Simulator::getInstance().getNode(root);
             if (rootNode.getBranch().inNetwork()) {
                 showRecursiveStructure(rootNode, -1, "");
@@ -138,18 +138,18 @@ public:
 
     void showRecursiveStructure(const StarsNode & node, unsigned int level, const std::string & prefix) {
         SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(node.getBranch());
-        LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress().getIPNum() << ": " << branch;
+        Logger::msg("Sim.Tree", WARN, prefix, "B@", node.getLocalAddress().getIPNum(), ": ", branch);
         if (level) {
             for (int c : {0, 1}) {
                 // Right child
                 StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
-                LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << branch.getChildZone(c);
+                Logger::msg("Sim.Tree", WARN, prefix, prefixDash[c], branch.getChildZone(c));
 
                 if (!branch.isLeaf(c)) {
                     showRecursiveStructure(child, level - 1, prefix + prefixNoDash[c]);
                 } else {
-                    LogMsg("Sim.Tree", WARN) << prefix << prefixNoDash[c] << "L@" << branch.getChildAddress(c).getIPNum() << ": "
-                            << static_cast<SimOverlayLeaf &>(child.getLeaf());
+                    Logger::msg("Sim.Tree", WARN, prefix, prefixNoDash[c], "L@", branch.getChildAddress(c).getIPNum(), ": ",
+                            static_cast<SimOverlayLeaf &>(child.getLeaf()));
                 }
             }
         }
@@ -157,8 +157,8 @@ public:
 
     void showInfoTree(std::set<unsigned int> & roots) {
         for (auto root : roots) {
-            LogMsg("Sim.Tree", WARN) << "Information tree:";
-            LogMsg::setIndentActive(false);
+            Logger::msg("Sim.Tree", WARN, "Information tree:");
+            Logger::setIndentActive(false);
             StarsNode & rootNode = Simulator::getInstance().getNode(root);
             if (rootNode.getBranch().inNetwork()) {
                 showRecursiveInfo(rootNode, -1, "");
@@ -170,23 +170,23 @@ public:
         boost::shared_ptr<AvailabilityInformation> info = node.getDisp().getBranchInfo();
         SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(node.getBranch());
         if (info.get())
-            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress() << ": " << *info;
+            Logger::msg("Sim.Tree", WARN, prefix, "B@", node.getLocalAddress(), ": ", *info);
         else
-            LogMsg("Sim.Tree", WARN) << prefix << "B@" << node.getLocalAddress() << ": " << " ?";
+            Logger::msg("Sim.Tree", WARN, prefix, "B@", node.getLocalAddress(), ": ", " ?");
         if (level) {
             for (int c : {0, 1}) {
                 StarsNode & child = Simulator::getInstance().getNode(branch.getChildAddress(c).getIPNum());
                 info = node.getDisp().getChildInfo(c);
                 if (info.get())
-                    LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << *info;
+                    Logger::msg("Sim.Tree", WARN, prefix, prefixDash[c], *info);
                 else
-                    LogMsg("Sim.Tree", WARN) << prefix << prefixDash[c] << " ?";
+                    Logger::msg("Sim.Tree", WARN, prefix, prefixDash[c], " ?");
 
                 if (!branch.isLeaf(c)) {
                     showRecursiveInfo(child, level - 1, prefix + prefixNoDash[c]);
                 } else {
-                    LogMsg("Sim.Tree", WARN) << prefix << prefixNoDash[c] << "L@" << branch.getChildAddress(c) << ": "
-                            << child << ' ' << child.getSch().getAvailability();
+                    Logger::msg("Sim.Tree", WARN, prefix, prefixNoDash[c], "L@", branch.getChildAddress(c), ": ",
+                            child, ' ', child.getSch().getAvailability());
                 }
             }
         }

@@ -229,7 +229,7 @@ struct sqdiffStep {
         // There are rounding problems that can make r < 0.0
         if (r < 0.0) {
             if (r < -0.001)
-                LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
+                Logger::msg("Ex.RI.Aggr", WARN, "Result is negative: ", r);
             r = 0.0;
         }
         result += r;
@@ -280,7 +280,7 @@ struct lossStep {
         // There are rounding problems that can make r < 0.0
         if (r < 0.0) {
             if (r < -0.001)
-                LogMsg("Ex.RI.Aggr", WARN) << "Result is negative: " << r;
+                Logger::msg("Ex.RI.Aggr", WARN, "Result is negative: ", r);
             r = 0.0;
         }
         s.result += r;

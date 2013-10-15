@@ -20,7 +20,6 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <log4cpp/Category.hh>
-#include <log4cpp/CategoryStream.hh>
 #include "Logger.hpp"
 
 
@@ -35,11 +34,11 @@ struct fix2hourdigits {
 }
 
 
-std::string LogMsg::Indent::currentIndent;
-bool LogMsg::Indent::active = true;
-const LogMsg::Indent LogMsg::indent;
+std::string Logger::Indent::currentIndent;
+bool Logger::Indent::active = true;
+const Logger::Indent Logger::indent;
 
-void LogMsg::setPriority(const std::string & catPrio) {
+void Logger::setPriority(const std::string & catPrio) {
     int pos = catPrio.find_first_of('=');
     if (pos == (int)std::string::npos) return;
     std::string category = catPrio.substr(0, pos);
@@ -55,17 +54,7 @@ void LogMsg::setPriority(const std::string & catPrio) {
 }
 
 
-void LogMsg::log(const char * category, int priority, LogMsg::AbstractTypeContainer * values) {
-    log4cpp::Category & cat = log4cpp::Category::getInstance(category);
-    if (cat.isPriorityEnabled(priority)) {
-        log4cpp::CategoryStream cs = cat.getStream(priority);
-        for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
-            cs << *it;
-    }
-}
-
-
-std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
+std::ostream * Logger::streamIfEnabled(const char * category, int priority) {
     log4cpp::Category & cat = log4cpp::Category::getInstance(category);
     if (cat.isPriorityEnabled(priority))
         return nullptr; // TODO
@@ -74,6 +63,6 @@ std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
 }
 
 
-void LogMsg::freeStream(std::ostream * out) {
+void Logger::freeStream(std::ostream * out) {
 
 }

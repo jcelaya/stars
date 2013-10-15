@@ -62,7 +62,7 @@ void FailureGenerator::bigFailure(Duration failAt, unsigned int minf, unsigned i
 
 
 void FailureGenerator::programFailure(Duration failAt, unsigned int numFailing) {
-    LogMsg("Sim.Fail", DEBUG) << "Generating new failure";
+    Logger::msg("Sim.Fail", DEBUG, "Generating new failure");
     Simulator & sim = Simulator::getInstance();
     // Simulate a random shuffle
     failingNodes.resize(numFailing);
@@ -82,7 +82,7 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
         ++numFailed;
         Simulator & sim = Simulator::getInstance();
         // nodes fail!!
-        LogMsg("Sim.Fail", DEBUG) << failingNodes.size() << " nodes FAIL at " << sim.getCurrentTime();
+        Logger::msg("Sim.Fail", DEBUG, failingNodes.size(), " nodes FAIL at ", sim.getCurrentTime());
         map<uint32_t, pair<bool, list<CommAddress> > > sneighbours;
         map<uint32_t, bool> rneighbours;
         for (unsigned int i = 0; i < failingNodes.size(); ++i) {

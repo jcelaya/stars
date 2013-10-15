@@ -58,13 +58,13 @@ public:
     void performanceTest(const std::vector<int> & numClusters, int levels)  {
         for (int j = 0; j < numClusters.size(); j++) {
             of << "# " << numClusters[j] << " clusters" << endl;
-            LogMsg("Progress", WARN) << "Testing with " << numClusters[j] << " clusters";
+            Logger::msg("Progress", WARN, "Testing with ", numClusters[j], " clusters");
             reset(numClusters[j]);
             unsigned long int initialMemory = MemoryManager::getInstance().getUsedMemory();
             for (int i = 0; i < levels; i++) {
-                LogMsg("Progress", WARN) << i << " levels";
+                Logger::msg("Progress", WARN, i, " levels");
                 test(i);
-                LogMsg("Progress", WARN) << i << " levels used " << (MemoryManager::getInstance().getUsedMemory() - initialMemory) << " bytes.";
+                Logger::msg("Progress", WARN, i, " levels used ", (MemoryManager::getInstance().getUsedMemory() - initialMemory), " bytes.");
 
                 of << "# " << (i + 1) << " levels, " << getNumNodes() << " nodes" << endl;
                 for (auto & r: results) {
@@ -242,7 +242,7 @@ private:
         ptime now = microsec_clock::universal_time();
         if (lastProgress + seconds(1) < now) {
             lastProgress = now;
-            LogMsg("Progress", WARN) << p << '%';
+            Logger::msg("Progress", WARN, p, '%');
         }
         return result;
     }

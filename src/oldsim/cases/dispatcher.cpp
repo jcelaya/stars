@@ -65,7 +65,7 @@ public:
 
         // Simulation limit
         numInstances = property("num_searches", 1);
-        LogMsg("Sim.Progress", 0) << "Performing " << numInstances << " searches.";
+        Logger::msg("Sim.Progress", 0, "Performing ", numInstances, " searches.");
 
         // Global variables
         meanTime = property("mean_time", 60.0);
@@ -138,7 +138,7 @@ public:
         // Get apps.stat of the previous run
         fs::path appsFile(property("apps_file", string("")));
         if (!fs::exists(appsFile)) {
-            LogMsg("Sim.Progress", 0) << "Apps file does not exist: " << appsFile;
+            Logger::msg("Sim.Progress", 0, "Apps file does not exist: ", appsFile);
             sim.stop();
             return;
         } else {
@@ -207,7 +207,7 @@ public:
 
         // Simulation limit
         numSearches = apps.size();
-        LogMsg("Sim.Progress", 0) << "Performing " << numSearches << " searches.";
+        Logger::msg("Sim.Progress", 0, "Performing ", numSearches, " searches.");
 
         // Send first request
         AppInstance r = apps.front();
@@ -334,7 +334,7 @@ class siteLevel : public SimulationCase {
         User & user = users[u];
         user.batchSize = batchCDF.inverse(uniform01());
         Duration when(0.0);
-        LogMsg("Sim.Site", INFO) << "User " << u << " creates a batch of size " << user.batchSize;
+        Logger::msg("Sim.Site", INFO, "User ", u, " creates a batch of size ", user.batchSize);
         for (unsigned int i = 0; i < user.batchSize; i++) {
             sim.injectMessage(u, u, sendCmd, when);
             when += Duration(interBatchTimeCDF.inverse(uniform01()));
@@ -347,11 +347,11 @@ class siteLevel : public SimulationCase {
         if (uniform01() <= 0.8 / ((0.05 * rt.seconds()) / 60.0 + 1.0)) {
             // Calculate think time
             tt = Duration(thinkTimeCDF.inverse(uniform01()));
-            LogMsg("Sim.Site", INFO) << "User " << u << " thinks for " << tt << " seconds";
+            Logger::msg("Sim.Site", INFO, "User ", u, " thinks for ", tt, " seconds");
         } else {
             // Calculate break
             tt = Duration(breakTimeCDF.inverse(uniform01()));
-            LogMsg("Sim.Site", INFO) << "User " << u << " breaks for " << tt << " seconds";
+            Logger::msg("Sim.Site", INFO, "User ", u, " breaks for ", tt, " seconds");
         }
         Simulator::getInstance().injectMessage(u, u, timer, tt);
         users[u].state = User::WAIT_TT;
@@ -362,7 +362,7 @@ class siteLevel : public SimulationCase {
         Simulator & sim = Simulator::getInstance();
         Duration wakeTime = users[u].getWakeTime(sim.getCurrentTime());
         sim.injectMessage(u, u, timer, wakeTime);
-        LogMsg("Sim.Site", INFO) << "User " << u << " sleeps until " << wakeTime;
+        Logger::msg("Sim.Site", INFO, "User ", u, " sleeps until ", wakeTime);
     }
 
     CDF thinkTimeCDF, breakTimeCDF;

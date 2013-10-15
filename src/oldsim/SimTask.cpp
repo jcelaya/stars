@@ -28,7 +28,7 @@
 SimTask::SimTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) :
         Task(o, reqId, ctid, d), timer(-1) {
     taskDuration = Duration(description.getLength() / Simulator::getInstance().getCurrentNode().getAveragePower());
-    LogMsg("Sim.Task", DEBUG) << "Created task" << taskId << ", will long " << taskDuration;
+    Logger::msg("Sim.Task", DEBUG, "Created task", taskId, ", will long ", taskDuration);
 }
 
 
@@ -47,7 +47,7 @@ void SimTask::run() {
         tfm->setNewState(Finished);
         timer = Simulator::getInstance().getCurrentNode().setTimer(taskDuration, tfm);
         finishTime = Time::getCurrentTime() + taskDuration;
-        LogMsg("Sim.Task", DEBUG) << "Running task " << taskId << " until " << finishTime;
+        Logger::msg("Sim.Task", DEBUG, "Running task ", taskId, " until ", finishTime);
     }
 }
 

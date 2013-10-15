@@ -101,7 +101,7 @@ bool init_unit_test_suite() {
     boost::filesystem::ifstream logconf(boost::filesystem::path("share/test/LibStarsTest.logconf"));
     std::string line;
     if (getline(logconf, line).good()) {
-        LogMsg::initLog(line);
+        Logger::initLog(line);
     }
     // Test log priority is always DEBUG
     Category::getInstance("Test").setPriority(DEBUG);

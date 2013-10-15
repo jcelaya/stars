@@ -121,10 +121,10 @@ public:
         unsigned int sendUpdate() {
             if (waitingInfo.get() && !(notifiedInfo.get() && *notifiedInfo == *waitingInfo)) {
                 if (!notifiedInfo.get()) {
-                    LogMsg("Dsp", DEBUG) << "No notified info";
+                    Logger::msg("Dsp", DEBUG, "No notified info");
                 } else {
-                    LogMsg("Dsp", DEBUG) << "Notified info was " << *notifiedInfo;
-                    LogMsg("Dsp.Compare", DEBUG) << "Notified info was different from waiting info";
+                    Logger::msg("Dsp", DEBUG, "Notified info was ", *notifiedInfo);
+                    Logger::msg("Dsp.Compare", DEBUG, "Notified info was different from waiting info");
                 }
                 uint32_t seq = notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1;
                 notifiedInfo = waitingInfo;
@@ -136,13 +136,13 @@ public:
                 return CommLayer::getInstance().sendMessage(addr, sendMsg);
             }
             else if (waitingInfo.get() && notifiedInfo.get())
-                LogMsg("Dsp.Compare", DEBUG) << "Notified info was equal to waiting info";
+                Logger::msg("Dsp.Compare", DEBUG, "Notified info was equal to waiting info");
             return 0;
         }
         bool update(const CommAddress & src, const T & msg) {
             if (addr == src) {
                 if (availInfo.get() && availInfo->getSeq() >= msg.getSeq()) {
-                    LogMsg("Dsp", INFO) << "Discarding old information: " << availInfo->getSeq() << " >= " << msg.getSeq();
+                    Logger::msg("Dsp", INFO, "Discarding old information: ", availInfo->getSeq(), " >= ", msg.getSeq());
                 } else {
                     // Update data
                     availInfo.reset(msg.clone());
@@ -158,7 +158,7 @@ public:
      * Calculates the availability information of this branch.
      */
     virtual void recomputeInfo() {
-        LogMsg("Dsp", DEBUG) << "Recomputing the branch information";
+        Logger::msg("Dsp", DEBUG, "Recomputing the branch information");
         // Default: Only recalculate info for the father
         recomputeFatherInfo();
     }
@@ -185,11 +185,11 @@ protected:
      * @param delayed True if the message has been delayed.
      */
     void handle(const CommAddress & src, const T & msg, bool delayed = false) {
-        LogMsg("Dsp", INFO) << "Handling AvailabilityInformation from " << src << ": " << msg;
+        Logger::msg("Dsp", INFO, "Handling AvailabilityInformation from ", src, ": ", msg);
 
         if (inChange) {
             // Delay this message
-            LogMsg("Dsp", DEBUG) << "In the middle of a change, delaying";
+            Logger::msg("Dsp", DEBUG, "In the middle of a change, delaying");
             delayedUpdates.push_back(AddrMsg(src, boost::shared_ptr<T>(msg.clone())));
         } else if ((!msg.isFromSch() && father.update(src, msg)) || child[0].update(src, msg) || child[1].update(src, msg)) {
             // Check if the resulting zone changes
@@ -200,7 +200,7 @@ protected:
                 notify();
             }
         } else {
-            LogMsg("Dsp", INFO) << "Comes from unknown node, maybe old info?";
+            Logger::msg("Dsp", INFO, "Comes from unknown node, maybe old info?");
         }
     }
 
@@ -213,7 +213,7 @@ protected:
      * @param msg UpdateTimer message.
      */
     void handle(const CommAddress & src, const UpdateTimer & msg) {
-        LogMsg("Dsp", INFO) << "Handling UpdateTimer";
+        Logger::msg("Dsp", INFO, "Handling UpdateTimer");
         updateTimer = 0;
         notify();
     }
@@ -225,7 +225,7 @@ protected:
     void notify() {
         static boost::shared_ptr<UpdateTimer> upMsg(new UpdateTimer);
         if (nextUpdate > Time::getCurrentTime() || updateTimer != 0) {
-            LogMsg("Dsp", DEBUG) << "Wait a bit...";
+            Logger::msg("Dsp", DEBUG, "Wait a bit...");
             if (updateTimer == 0) {
                 // Program the update timer
                 updateTimer = CommLayer::getInstance().setTimer(nextUpdate, upMsg);
@@ -237,7 +237,7 @@ protected:
                 if (father.addr != CommAddress()) {
                     unsigned int s = father.sendUpdate();
                     if (s > 0)
-                        LogMsg("Dsp", DEBUG) << "There were changes for the father, sending update";
+                        Logger::msg("Dsp", DEBUG, "There were changes for the father, sending update");
                     sentSize += s;
                 }
                 // Notify the children
@@ -245,7 +245,7 @@ protected:
                     if (!branch.isLeaf(c)) {
                         unsigned int s = child[c].sendUpdate();
                         if (s > 0)
-                            LogMsg("Dsp", DEBUG) << "There were changes for the " << childName(c) << " child, sending update";
+                            Logger::msg("Dsp", DEBUG, "There were changes for the ", childName(c), " child, sending update");
                         sentSize += s;
                     }
                 }
@@ -271,7 +271,7 @@ protected:
 
         for (int c : {0, 1}) {
             if (numTasks[c] > 0) {
-                LogMsg("Dsp", INFO) << "Sending " << numTasks[c] << " tasks to the " << childName(c) << " child (" << child[c].addr << ')';
+                Logger::msg("Dsp", INFO, "Sending ", numTasks[c], " tasks to the ", childName(c), " child (", child[c].addr, ')');
                 TaskBagMsg * tbm = msg.getSubRequest(nextTask, nextTask + numTasks[c] - 1);
                 tbm->setInfoSequenceUsed(child[c].availInfo->getSeq());
                 tbm->setForEN(branch.isLeaf(c));
@@ -282,28 +282,28 @@ protected:
 
         // If this branch cannot execute all the tasks, send the request to the father
         if (nextTask <= msg.getLastTask()) {
-            LogMsg("Dsp", DEBUG) << "There are " << (msg.getLastTask() - (nextTask - 1)) << " remaining tasks for the father (" << father.addr << ')';
+            Logger::msg("Dsp", DEBUG, "There are ", msg.getLastTask() - (nextTask - 1), " remaining tasks for the father (", father.addr, ')');
             if (branch.getFatherAddress() != CommAddress()) {
                 if (dontSendToFather) {
-                    LogMsg("Dsp", DEBUG) << "But came from the father.";
+                    Logger::msg("Dsp", DEBUG, "But came from the father.");
                 } else {
                     TaskBagMsg * tbm = msg.getSubRequest(nextTask, msg.getLastTask());
                     tbm->setInfoSequenceUsed(availInfo->getSeq());
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {
-                LogMsg("Dsp", DEBUG) << "But we are the root";
+                Logger::msg("Dsp", DEBUG, "But we are the root");
             }
         }
     }
 
     bool checkState() const {
         if (!branch.inNetwork()) {
-            LogMsg("Dsp", WARN) << "Not in network.";
+            Logger::msg("Dsp", WARN, "Not in network.");
             return false;
         }
         if (!father.waitingInfo.get() && !father.notifiedInfo.get()) {
-            LogMsg("Dsp", WARN) << "No availability information.";
+            Logger::msg("Dsp", WARN, "No availability information.");
             return false;
         }
         return true;
@@ -311,15 +311,15 @@ protected:
 
     void showMsgSource(const CommAddress & src, const TaskBagMsg & msg) const {
         if (!msg.isFromEN() && src == father.addr) {
-            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (father)";
+            Logger::msg("Dsp", INFO, "Received a TaskBagMsg from ", src, " (father)");
         } else {
-            LogMsg("Dsp", INFO) << "Received a TaskBagMsg from " << src << " (" << childName(src == child[0].addr ? 0 : 1) << " child)";
+            Logger::msg("Dsp", INFO, "Received a TaskBagMsg from ", src, " (", childName(src == child[0].addr ? 0 : 1), " child)");
         }
         const TaskDescription & req = msg.getMinRequirements();
         unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
         uint64_t a = req.getLength();
-        LogMsg("Dsp.FSP", INFO) << "Request " << msg.getRequestId() << " from " << msg.getRequester() << " with " << numTasksReq << " tasks with requirements:";
-        LogMsg("Dsp.FSP", INFO) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk() << "   Length: " << a;
+        Logger::msg("Dsp.FSP", INFO, "Request ", msg.getRequestId(), " from ", msg.getRequester(), " with ", numTasksReq, " tasks with requirements:");
+        Logger::msg("Dsp.FSP", INFO, "Memory: ", req.getMaxMemory(), "   Disk: ", req.getMaxDisk(), "   Length: ", a);
     }
 
     void recomputeFatherInfo() {
@@ -328,10 +328,10 @@ protected:
                 father.waitingInfo.reset(child[0].availInfo->clone());
                 if (child[1].availInfo.get())
                     father.waitingInfo->join(*child[1].availInfo);
-                LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+                Logger::msg("Dsp", DEBUG, "The result is ", *father.waitingInfo);
             } else if (child[1].availInfo.get()) {
                 father.waitingInfo.reset(child[1].availInfo->clone());
-                LogMsg("Dsp", DEBUG) << "The result is " << *father.waitingInfo;
+                Logger::msg("Dsp", DEBUG, "The result is ", *father.waitingInfo);
             } else
                 father.waitingInfo.reset();
         }

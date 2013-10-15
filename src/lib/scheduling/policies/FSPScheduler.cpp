@@ -37,7 +37,7 @@ void FSPScheduler::reschedule() {
     for (auto & i: proxys) {
         tasks.push_back(i.origin);
     }
-    LogMsg("Ex.Sch.MS", DEBUG) << "Minimum slowness " << proxys.getSlowness();
+    Logger::msg("Ex.Sch.MS", DEBUG, "Minimum slowness ", proxys.getSlowness());
 
     info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
             proxys, backend.impl->getAveragePower());
@@ -57,7 +57,7 @@ void FSPScheduler::reschedule() {
 unsigned int FSPScheduler::acceptable(const TaskBagMsg & msg) {
     // Always accept new tasks
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
-    LogMsg("Ex.Sch.MS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
+    Logger::msg("Ex.Sch.MS", INFO, "Accepting ", numAccepted, " tasks from ", msg.getRequester());
     return numAccepted;
 }
 

@@ -79,7 +79,7 @@ template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(c
         double aggrAvailBeforeIt = aggrAvail.getAvailabilityBefore(i) - minAvailBeforeIt;
         double accuracy = totalAvailBeforeIt > 0.0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 100.0;
         if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
-            LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
+            Logger::msg("test", ERROR, "total availability is lower than aggregated... (", totalAvailBeforeIt, " < ", aggrAvailBeforeIt, ')');
         meanAccuracy += (prevAccuracy + accuracy) * (i - prevTime).seconds();
         prevAccuracy = accuracy;
         prevTime = i;

@@ -52,42 +52,7 @@ bool Simulator::isLogEnabled(const std::string & category, int priority) {
 }
 
 
-void LogMsg::log(const char * category, int priority, AbstractTypeContainer * values) {
-    Simulator & sim = Simulator::getInstance();
-    if (category == std::string("Sim.Progress")) {
-        boost::iostreams::filtering_ostream & pstream = sim.getProgressStream();
-        pstream << '#' << getpid() << ": ";
-        for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
-            pstream << *it;
-        pstream << endl;
-    }
-    else {
-        if (sim.isLogEnabled(category, priority)) {
-            boost::iostreams::filtering_ostream & debugArchive = sim.getDebugStream();
-            Duration realTime(sim.getRealTime().total_microseconds());
-            Time curTime = sim.getCurrentTime();
-            if (!sim.isLastLogMoment()) {
-                debugArchive << endl << realTime << ' ' << curTime << ' ';
-                if(sim.inEvent())
-                    debugArchive << sim.getCurrentNode().getLocalAddress() << ' ';
-                else
-                    debugArchive << "sim.control ";
-                debugArchive << endl;
-            }
-            ostringstream oss;
-            oss << "    " << category << '(' << priority << ')' << ' ';
-            debugArchive << oss.str();
-            LogMsg::setIndent(oss.tellp());
-
-            for (AbstractTypeContainer * it = values; it != NULL; it = it->next)
-                debugArchive << *it;
-
-            debugArchive << endl;
-        }
-    }
-}
-
-std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
+std::ostream * Logger::streamIfEnabled(const char * category, int priority) {
     Simulator & sim = Simulator::getInstance();
     if (category == std::string("Sim.Progress")) {
         boost::iostreams::filtering_ostream & pstream = sim.getProgressStream();
@@ -108,7 +73,7 @@ std::ostream * LogMsg::streamIfEnabled(const char * category, int priority) {
         ostringstream oss;
         oss << "    " << category << '(' << priority << ')' << ' ';
         debugArchive << oss.str();
-        LogMsg::setIndent(oss.tellp());
+        Logger::setIndent(oss.tellp());
         return &debugArchive;
     } else return nullptr;
 }
@@ -188,7 +153,7 @@ int main(int argc, char * argv[]) {
             sim.getPerfStats().startEvent("Prepare simulation case");
             sim.getSimulationCase()->preStart();
             sim.getPerfStats().endEvent("Prepare simulation case");
-            LogMsg::logMsg("Sim.Progress", 0, MemoryManager::getInstance().getMaxUsedMemory(), " bytes to prepare simulation case.");
+            Logger::msg("Sim.Progress", 0, MemoryManager::getInstance().getMaxUsedMemory(), " bytes to prepare simulation case.");
             if (property("profile_heap", false))
                 HeapProfilerStart((sim.getResultDir() / "hprof").native().c_str());
             sim.run();
@@ -197,7 +162,7 @@ int main(int argc, char * argv[]) {
             sim.finish();
             ptime end = microsec_clock::local_time();
             size_t mem = MemoryManager::getInstance().getMaxUsedMemory();
-            LogMsg("Sim.Progress", 0) << "Ending test at " << end << ". Lasted " << (end - start) << " and used " << mem << " bytes.";
+            Logger::msg("Sim.Progress", 0, "Ending test at ", end, ". Lasted ", (end - start), " and used ", mem, " bytes.");
             if (property("profile_heap", false))
                 HeapProfilerStop();
         }
@@ -241,7 +206,7 @@ void Simulator::finish() {
 
 
 void Simulator::showInformation() {
-    LogMsg("Sim.Progress", 0) << getSimulationCase()->getProperties();
+    Logger::msg("Sim.Progress", 0, getSimulationCase()->getProperties());
 }
 
 
@@ -268,7 +233,7 @@ void Simulator::setProperties(Properties & property) {
     simCase = CaseFactory::getInstance().createCase(property("case_name", string("")), property);
     if (!simCase.get()) {
         // If no simulation case exists with that name, return
-        LogMsg("Sim.Progress", 0) << "ERROR: No test exists with name \"" << property("case_name", string("")) << '"';
+        Logger::msg("Sim.Progress", 0, "ERROR: No test exists with name \"", property("case_name", string("")), '"');
         doStop = true;
         return;
     }
@@ -278,11 +243,11 @@ void Simulator::setProperties(Properties & property) {
     if (!fs::exists(resultDir)) fs::create_directories(resultDir);
     fs::path logFile("execution.log");
     if (fs::exists(resultDir / logFile) && !property("overwrite", false) && checkLogFile(resultDir / logFile)) {
-        LogMsg("Sim.Progress", 0) << "Log file exists at " << (resultDir / logFile);
+        Logger::msg("Sim.Progress", 0, "Log file exists at ", resultDir / logFile);
         doStop = true;
         return;
     }
-    LogMsg("Sim.Progress", 0) << "Logging to " << (resultDir / logFile);
+    Logger::msg("Sim.Progress", 0, "Logging to ", resultDir / logFile);
 
     progressFile.open(resultDir / logFile);
     if (progressFile.is_open()) {
@@ -294,8 +259,8 @@ void Simulator::setProperties(Properties & property) {
         debugStream.push(boost::iostreams::gzip_compressor());
         debugStream.push(debugFile);
     }
-    LogMsg::initLog(property("log_conf_string", string("")));
-    LogMsg("Sim.Progress", 0) << "Running simulation test at " << microsec_clock::local_time() << ": " << property;
+    Logger::initLog(property("log_conf_string", string("")));
+    Logger::msg("Sim.Progress", 0, "Running simulation test at ", microsec_clock::local_time(), ": ", property);
 
     pstats.openFile(resultDir);
     pstats.startEvent("Prepare simulation network");
@@ -354,7 +319,7 @@ void Simulator::setProperties(Properties & property) {
 //	interEventHandlers.push_back(shared_ptr<InterEventHandler>(new AvailabilityStatistics()));
 
     pstats.endEvent("Prepare simulation network");
-    LogMsg("Sim.Progress", 0) << MemoryManager::getInstance().getMaxUsedMemory() << " bytes to prepare simulation network.";
+    Logger::msg("Sim.Progress", 0, MemoryManager::getInstance().getMaxUsedMemory(), " bytes to prepare simulation network.");
 }
 
 
@@ -395,14 +360,9 @@ void Simulator::stepForward() {
 
         // Deal with the event
         numEvents++;
-        LogMsg("Sim.Event", INFO) << "";
-        LogMsg("Sim.Event", INFO) << "###################################";
-//        LogMsg("Sim.Event", INFO) << "Event #" << numEvents
-//            << ": " << *p->msg
-//            << " at " << time
-//            << " from " << AddrIO(p->from)
-//            << " to " << AddrIO(p->to);
-        LogMsg::logMsg("Sim.Event", INFO, "Event #", numEvents, ": ", *p->msg,
+        Logger::msg("Sim.Event", INFO, "");
+        Logger::msg("Sim.Event", INFO, "###################################");
+        Logger::msg("Sim.Event", INFO, "Event #", numEvents, ": ", *p->msg,
                 " at ", time, " from ", AddrIO(p->from), " to ", AddrIO(p->to));
         pstats.endEvent("Event selection");
         pstats.startEvent("Before event");
@@ -436,13 +396,13 @@ void Simulator::run() {
     while (!events.empty() && !doStop && simCase->doContinue()) {
         ptime currentTime = microsec_clock::local_time();
         if (maxRealTime > seconds(0) && currentTime - realStart >= maxRealTime) {
-            LogMsg("Sim.Progress", 0) << "Maximum real time limit reached: " << maxRealTime;
+            Logger::msg("Sim.Progress", 0, "Maximum real time limit reached: ", maxRealTime);
             break;
         } else if (maxSimTime > Duration(0.0) && time - Time() >= maxSimTime) {
-            LogMsg("Sim.Progress", 0) << "Maximum simulation time limit reached: " << maxSimTime;
+            Logger::msg("Sim.Progress", 0, "Maximum simulation time limit reached: ", maxSimTime);
             break;
         } else if (maxMemUsage && numEvents % 1000 == 0 && (MemoryManager::getInstance().getMaxUsedMemory() >> 20) > maxMemUsage) {
-            LogMsg("Sim.Progress", 0) << "Maximum memory usage limit reached: " << maxMemUsage;
+            Logger::msg("Sim.Progress", 0, "Maximum memory usage limit reached: ", maxMemUsage);
             break;
         }
         stepForward();
@@ -456,12 +416,12 @@ void Simulator::run() {
             lastNumEvents = numEvents;
             start = end;
             // Show statistics
-            LogMsg("Sim.Progress", 0) << realTimeText.str() << " (" << time << ")   "
-                << numEvents << " ev (" << speed << " ev/s)   "
-                << MemoryManager::getInstance().getUsedMemory() << " mem   "
-                << simCase->getCompletedPercent() << "%   "
-                << sstats.getExistingTasks() << " tasks, "
-                << sstats.getRunningTasks() << " running";
+            Logger::msg("Sim.Progress", 0, realTimeText.str(), " (", time, ")   ",
+                numEvents, " ev (", speed, " ev/s)   ",
+                MemoryManager::getInstance().getUsedMemory(), " mem   ",
+                simCase->getCompletedPercent(), "%   ",
+                sstats.getExistingTasks(), " tasks, ",
+                sstats.getRunningTasks(), " running");
             pstats.savePartialStatistics();
         }
     }
@@ -546,12 +506,12 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_
 void Simulator::showStatistics() {
     // Show statistics
     double real_duration = real_time.total_microseconds() / 1000000.0;
-    LogMsg("Sim.Progress", 0) << real_time
-        << " (" << time << ", " << (time.getRawDate() / 1000000.0 / real_duration) << " sims/s)   "
-        << numEvents << " ev (" << (numEvents / real_duration) << " ev/s)   "
-        << totalBytesSent << " trf (" << numMsgSent << " msg, " << ((double)totalBytesSent / numMsgSent) << " B/msg, "
-        << ((totalBytesSent / (time.getRawDate() / 1000000.0)) / routingTable.size()) << " Bps/node)   "
-        << MemoryManager::getInstance().getUsedMemory() << " mem   100%";
+    Logger::msg("Sim.Progress", 0, real_time,
+        " (", time, ", ", time.getRawDate() / 1000000.0 / real_duration, " sims/s)   ",
+        numEvents, " ev (", numEvents / real_duration, " ev/s)   ",
+        totalBytesSent, " trf (", numMsgSent, " msg, ", (double)totalBytesSent / numMsgSent, " B/msg, ",
+        (totalBytesSent / (time.getRawDate() / 1000000.0)) / routingTable.size(), " Bps/node)   ",
+        MemoryManager::getInstance().getUsedMemory(), " mem   100%");
     sstats.saveTotalStatistics();
     pstats.saveTotalStatistics();
     tstats.saveTotalStatistics();

@@ -26,12 +26,12 @@
 
 void IBPScheduler::reschedule() {
     if (tasks.empty()) {
-        LogMsg("Ex.Sch.Simple", DEBUG) << "Simple@" << this << ": No tasks";
+        Logger::msg("Ex.Sch.Simple", DEBUG, "Simple@", this, ": No tasks");
         info.reset();
         info.addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk());
     } else {
         Time estimatedFinish = Time::getCurrentTime() + tasks.front()->getEstimatedDuration();
-        LogMsg("Ex.Sch.Simple", DEBUG) << "Simple@" << this << ": One task, finishes at " << estimatedFinish;
+        Logger::msg("Ex.Sch.Simple", DEBUG, "Simple@", this, ": One task, finishes at ", estimatedFinish);
         // If the first task is not running, start it!
         if (tasks.front()->getStatus() == Task::Prepared) {
             tasks.front()->run();
@@ -46,10 +46,10 @@ void IBPScheduler::reschedule() {
 unsigned int IBPScheduler::acceptable(const TaskBagMsg & msg) {
     // Only accept one task
     if (tasks.empty() && msg.getLastTask() >= msg.getFirstTask()) {
-        LogMsg("Ex.Sch.Simple", INFO) << "Accepting 1 task from " << msg.getRequester();
+        Logger::msg("Ex.Sch.Simple", INFO, "Accepting 1 task from ", msg.getRequester());
         return 1;
     } else {
-        LogMsg("Ex.Sch.Simple", INFO) << "Rejecting 1 task from " << msg.getRequester();
+        Logger::msg("Ex.Sch.Simple", INFO, "Rejecting 1 task from ", msg.getRequester());
         return 0;
     }
 }

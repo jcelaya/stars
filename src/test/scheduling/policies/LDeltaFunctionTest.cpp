@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(LDeltaFunction_create) {
         BOOST_CHECK_GE(piece.second, lastAvail);
         lastAvail = piece.second;
     }
-    LogMsg("Test.RI", INFO) << "Random Function: " << f;
+    Logger::msg("Test.RI", INFO, "Random Function: ", f);
 }
 
 
@@ -117,10 +117,10 @@ BOOST_AUTO_TEST_CASE(LDeltaFunction_operations) {
     LDeltaFunction::setNumPieces(8);
 
     // Min/max and sum of several functions
-    LogMsg("Test.RI", INFO) << "";
+    Logger::msg("Test.RI", INFO, "");
     ofstream of("af_test.stat");
     for (int i = 0; i < 100; i++) {
-        LogMsg("Test.RI", INFO) << "Functions " << i;
+        Logger::msg("Test.RI", INFO, "Functions ", i);
 
         double f11power = rqg.getRandomPower(),
                f12power = rqg.getRandomPower(),

@@ -110,7 +110,7 @@ int64_t TaskBagAppDatabase::createAppInstance(const std::string & name, Time dea
             }
         }
     }
-    LogMsg("Database.App", WARN) << "No instance created for application " << name;
+    Logger::msg("Database.App", WARN, "No instance created for application ", name);
     db->rollbackTransaction();
     return -1;
 }
@@ -176,7 +176,7 @@ int64_t TaskBagAppDatabase::getInstanceId(int64_t rid) {
     if (getId.par(rid).fetchNextRow())
         return getId.getInt();
     else {
-        LogMsg("Database.App", WARN) << "No request with id " << rid;
+        Logger::msg("Database.App", WARN, "No request with id ", rid);
         return -1;
     }
 }
@@ -244,7 +244,7 @@ bool TaskBagAppDatabase::finishedTask(const CommAddress & src, int64_t rid, unsi
                         "app_instance = (select app_instance from tb_request where rid = ?1)").par(rid).par(rtid).fetchNextRow()) {
         Database::Query getTid(*db, "select tid from tb_task_request where rid = ? and rtid = ?");
         getTid.par(rid).par(rtid).fetchNextRow();
-        LogMsg("Database.App", WARN) << "Task " << getTid.getInt() << " already finished in app instance " << getInstanceId(rid);
+        Logger::msg("Database.App", WARN, "Task ", getTid.getInt(), " already finished in app instance ", getInstanceId(rid));
         return false;
     }
     Database::Query(*db, "update tb_task set state = 'FINISHED', ftime = ? where host_IP = ? and host_port = ? and "

@@ -38,7 +38,7 @@ static void intTrap(int) {
 
 CommLayer::CommLayer() : nm(new NetworkManager), exitSignaled(false) {
     localAddress = nm->getLocalAddress();
-    LogMsg("Comm", DEBUG) << "Local address is " << localAddress;
+    Logger::msg("Comm", DEBUG, "Local address is ", localAddress);
     signal(SIGINT, intTrap);
 }
 
@@ -73,14 +73,14 @@ void CommLayer::processNextMessage() {
 
     // Look for all the registered components
     bool isHandled = false;
-    LogMsg("Comm", DEBUG) << "Processing message " << *msg;
+    Logger::msg("Comm", DEBUG, "Processing message ", *msg);
     for (std::vector<Service *>::iterator it = services.begin(); it != services.end(); it++) {
         isHandled |= (*it)->receiveMessage(src, *msg);
     }
 
     if (!isHandled && src != localAddress) {
         // It's not critical to receive a message with no handler
-        LogMsg("Comm", WARN) << "No handler for message of type " << msg->getName();
+        Logger::msg("Comm", WARN, "No handler for message of type ", msg->getName());
     }
 }
 
@@ -123,7 +123,7 @@ void CommLayer::cancelTimer(int timerId) {
     // Erase timer in hashmap and list
     for (std::list<Timer>::iterator it = timerList.begin(); it != timerList.end(); it++) {
         if (it->id == timerId) {
-            LogMsg("Time", DEBUG) << "Erasing timer with id " << timerId;
+            Logger::msg("Time", DEBUG, "Erasing timer with id ", timerId);
             timerList.erase(it);
             break;
         }

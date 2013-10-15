@@ -83,7 +83,7 @@ template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(
         double aggrAvailBeforeIt = maxAvailBeforeIt - aggrAvail.getSlowness(a);
         double accuracy = totalAvailBeforeIt > 0.0 ? (aggrAvailBeforeIt * 100.0) / totalAvailBeforeIt : 100.0;
         if (totalAvailBeforeIt + 1 < aggrAvailBeforeIt)
-            LogMsg("test", ERROR) << "total availability is lower than aggregated... (" << totalAvailBeforeIt << " < " << aggrAvailBeforeIt << ')';
+            Logger::msg("test", ERROR, "total availability is lower than aggregated... (", totalAvailBeforeIt, " < ", aggrAvailBeforeIt, ')');
         meanAccuracy += (prevAccuracy + accuracy) * (a - prevA);
         prevAccuracy = accuracy;
         prevA = a;

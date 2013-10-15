@@ -78,7 +78,7 @@ public:
      * Starts running this task.
      */
     void run() {
-        LogMsg("Unix", DEBUG) << "Running task " << taskId;
+        Logger::msg("Unix", DEBUG, "Running task ", taskId);
         runlock.unlock();
     }
 
@@ -107,11 +107,11 @@ void UnixProcess::prepareAndRun() {
     TaskStateChgMsg tscm;
     tscm.setTaskId(taskId);
 
-    LogMsg("Unix", DEBUG) << "Preparing task " << taskId;
+    Logger::msg("Unix", DEBUG, "Preparing task ", taskId);
 
     //Donwload input and executable files
 
-    LogMsg("Unix", DEBUG) << "Updating execution state to PREPARED";
+    Logger::msg("Unix", DEBUG, "Updating execution state to PREPARED");
     tscm.setOldState(status);
     status = Prepared;
     tscm.setNewState(status);
@@ -140,7 +140,7 @@ void UnixProcess::prepareAndRun() {
 // chdir(pathTask.c_str());
 // string execCall = "exec " + command;
     if ((pid = fork())) {
-        LogMsg("Unix", DEBUG) << "Updating execution state to RUNNING";
+        Logger::msg("Unix", DEBUG, "Updating execution state to RUNNING");
         tscm.setOldState(status);
         status = Running;
         tscm.setNewState(status);
@@ -148,13 +148,13 @@ void UnixProcess::prepareAndRun() {
         // Wait termination
         int retval;
         if (waitpid(pid, &retval, 0) < 0 || !WIFEXITED(retval) || WEXITSTATUS(retval) != 0) {
-            LogMsg("Unix", WARN) << "Aborted task " << taskId;
+            Logger::msg("Unix", WARN, "Aborted task ", taskId);
             tscm.setOldState(status);
             status = Aborted;
             tscm.setNewState(status);
             CommLayer::getInstance().sendLocalMessage(tscm.clone());
         } else {
-            LogMsg("Unix", INFO) << "Finished task " << taskId;
+            Logger::msg("Unix", INFO, "Finished task ", taskId);
             tscm.setOldState(status);
             status = Finished;
             tscm.setNewState(status);
@@ -168,7 +168,7 @@ void UnixProcess::prepareAndRun() {
 
     //Upload results
     //cxf.upload(df.getResult());
-    LogMsg("Unix", DEBUG) << "End execution thread";
+    Logger::msg("Unix", DEBUG, "End execution thread");
 }
 
 

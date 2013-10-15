@@ -37,7 +37,7 @@ static bool compareCreation(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r
 
 void MMPScheduler::reschedule() {
     Time estimatedFinish = Time::getCurrentTime();
-    LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Rescheduling, now is " << estimatedFinish;
+    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Rescheduling, now is ", estimatedFinish);
     info.reset();
 
     if (!tasks.empty()) {
@@ -49,7 +49,7 @@ void MMPScheduler::reschedule() {
             // Increment the estimatedStart value
             estimatedFinish += (*i)->getEstimatedDuration();
         }
-        LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Queue finishes at " << estimatedFinish;
+        Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Queue finishes at ", estimatedFinish);
 
         // If the first task is not running, start it!
         if (tasks.front()->getStatus() == Task::Prepared) {
@@ -61,12 +61,12 @@ void MMPScheduler::reschedule() {
     info.setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
                      backend.impl->getAveragePower(), estimatedFinish);
     info.setMaxQueueLength(estimatedFinish);
-    LogMsg("Ex.Sch.FCFS", DEBUG) << "FCFS@" << this << ": Resulting info is " << info;
+    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Resulting info is ", info);
 }
 
 
 unsigned int MMPScheduler::acceptable(const TaskBagMsg & msg) {
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
-    LogMsg("Ex.Sch.FCFS", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
+    Logger::msg("Ex.Sch.FCFS", INFO, "Accepting ", numAccepted, " tasks from ", msg.getRequester());
     return numAccepted;
 }

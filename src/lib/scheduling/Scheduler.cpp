@@ -62,9 +62,8 @@ static boost::shared_ptr<RescheduleTimer> reschTmr(new RescheduleTimer);
  */
 template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg & msg) {
     if (src == CommLayer::getInstance().getLocalAddress()) {
-        LogMsg("Ex.Sch", INFO) << "Received a TaskStateChgMsg from task " << msg.getTaskId();
-        LogMsg("Ex.Sch", DEBUG) << "   Task " << msg.getTaskId() << " changed state from " << msg.getOldState() << " to "
-        << msg.getNewState();
+        Logger::msg("Ex.Sch", INFO, "Received a TaskStateChgMsg from task ", msg.getTaskId());
+        Logger::msg("Ex.Sch", DEBUG, "   Task ", msg.getTaskId(), " changed state from ", msg.getOldState(), " to ", msg.getNewState());
         switch (msg.getNewState()) {
         case Task::Finished:
             ++tasksExecuted;
@@ -86,7 +85,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
                     tasks.erase(i);
                     break;
                 }
-            if (notFound) LogMsg("Ex.Sch", ERROR) << "Trying to remove a non-existent task!!";
+            if (notFound) Logger::msg("Ex.Sch", ERROR, "Trying to remove a non-existent task!!");
             break;
         }
         case Task::Inactive:
@@ -110,13 +109,13 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
 template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // Check it is for us
     if (msg.isForEN()) {
-        LogMsg("Ex.Sch", INFO) << "Handling TaskBagMsg from " << src;
+        Logger::msg("Ex.Sch", INFO, "Handling TaskBagMsg from ", src);
         unsigned int numTasks = msg.getLastTask() - msg.getFirstTask() + 1;
         unsigned int numAccepted = 0;
         if (checkStaticRequirements(msg.getMinRequirements())) {
             // Take the TaskDescription object and try to accept it
-            LogMsg("Ex.Sch", INFO) << "Accepting " << numTasks << " tasks from request "
-                    << msg.getRequestId() << " for " << msg.getRequester();
+            Logger::msg("Ex.Sch", INFO, "Accepting ", numTasks, " tasks from request ",
+                    msg.getRequestId(), " for ", msg.getRequester());
             numAccepted = accept(msg);
             if (numAccepted > 0) {
                 notifySchedule();
@@ -136,18 +135,18 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskBagMsg & ms
             if (numAccepted == numTasks) return;
         }
         // If control reaches this point, there are tasks which were not accepted.
-        LogMsg("Ex.Sch", WARN) << (numTasks - numAccepted) << " tasks rejected.";
+        Logger::msg("Ex.Sch", WARN, (numTasks - numAccepted), " tasks rejected.");
     }
 }
 
 
 bool Scheduler::checkStaticRequirements(const TaskDescription & req) {
     if (req.getMaxMemory() > backend.impl->getAvailableMemory()) {
-        LogMsg("Ex.Sch", WARN) << "Not enough memory to execute the task: "
-                << req.getMaxMemory() << " > " << backend.impl->getAvailableMemory();
+        Logger::msg("Ex.Sch", WARN, "Not enough memory to execute the task: ",
+                req.getMaxMemory(), " > ", backend.impl->getAvailableMemory());
     } else if (req.getMaxDisk() > backend.impl->getAvailableDisk()) {
-        LogMsg("Ex.Sch", WARN) << "Not enough disk to execute the task: "
-                << req.getMaxDisk() << " > " << backend.impl->getAvailableDisk();
+        Logger::msg("Ex.Sch", WARN, "Not enough disk to execute the task: ",
+                req.getMaxDisk(), " > ", backend.impl->getAvailableDisk());
     } else return true;
     return false;
 }
@@ -180,7 +179,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
                 tasks.erase(it);
                 break;
             }
-        if (notFound) LogMsg("Ex.Sch", ERROR) << "Failed to remove non-existent task " << msg.getTask(i) << " from request " << msg.getRequestId();
+        if (notFound) Logger::msg("Ex.Sch", ERROR, "Failed to remove non-existent task ", msg.getTask(i), " from request ", msg.getRequestId());
     }
     reschedule();
     notifySchedule();
@@ -189,7 +188,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
 
 template<> void Scheduler::handle(const CommAddress & src, const MonitorTimer & msg) {
     if (!tasks.empty()) {
-        LogMsg("Ex.Sch", INFO) << "Sending monitoring reminders";
+        Logger::msg("Ex.Sch", INFO, "Sending monitoring reminders");
         map<CommAddress, TaskMonitorMsg *> dsts;
         for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
             map<CommAddress, TaskMonitorMsg *>::iterator tmm =
@@ -235,20 +234,20 @@ boost::shared_ptr<Task> Scheduler::getTask(unsigned int id) {
     // Check that the id exists
     for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
         if ((*i)->getTaskId() == id) return *i;
-    LogMsg("Ex.Sch", ERROR) << "Trying to get a non-existent task!!";
+    Logger::msg("Ex.Sch", ERROR, "Trying to get a non-existent task!!");
     return boost::shared_ptr<Task>();
 }
 
 
 void Scheduler::notifySchedule() {
-    LogMsg("Ex.Sch", DEBUG) << "Setting attributes to " << getAvailability();
+    Logger::msg("Ex.Sch", DEBUG, "Setting attributes to ", getAvailability());
     if (!inChange && leaf.getFatherAddress() != CommAddress()) {
         AvailabilityInformation * msg = getAvailability().clone();
         msg->setSeq(++seqNum);
         CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
         dirty = false;
     } else {
-        LogMsg("Ex.Sch", DEBUG) << "Delayed sending info to father";
+        Logger::msg("Ex.Sch", DEBUG, "Delayed sending info to father");
         dirty = true;
     }
 }

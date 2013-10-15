@@ -58,7 +58,7 @@ public:
         clientVar = DiscreteUniformVariable(0, sim.getNumNodes() - 1);
 
         numSearches = property("num_searches", 1);
-        LogMsg("Sim.Progress", WARN) << "Performing " << numSearches << " searches.";
+        Logger::msg("Sim.Progress", WARN, "Performing ", numSearches, " searches.");
 
         // Prepare the application
         minReq.setLength(property("task_length", 600000)); // 10 minutes for a power of 1000

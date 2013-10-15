@@ -48,7 +48,7 @@ void DPScheduler::reschedule() {
     // For each task, check whether it is going to finish in time or not.
     for (list<shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
      if (((*i)->getDescription().getDeadline() - estimatedStart) < (*i)->getEstimatedDuration()) {
-      LogMsg("Ex.Sch.EDF", DEBUG) << "Task " << (*i)->getTaskId() << " aborted because it does not finish on time.";
+      Logger::msg("Ex.Sch.EDF", DEBUG, "Task ", (*i)->getTaskId(), " aborted because it does not finish on time.");
       // If not, delete from the list
       TaskMonitorMsg tmm;
       tmm.addTask((*i)->getClientRequestId(), (*i)->getClientTaskId(), Task::Aborted);
@@ -80,7 +80,7 @@ void DPScheduler::calculateAvailability() {
     info.reset();
     info.addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
                  backend.impl->getAveragePower(), tasks);
-    LogMsg("Ex.Sch.EDF", DEBUG) << "Function is " << info;
+    Logger::msg("Ex.Sch.EDF", DEBUG, "Function is ", info);
 }
 
 
@@ -116,18 +116,18 @@ unsigned int DPScheduler::acceptable(const TaskBagMsg & msg) {
     unsigned int numSlots = available / msg.getMinRequirements().getLength();
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
     if (numSlots < numAccepted) {
-        LogMsg("Ex.Sch.EDF", INFO) << "Rejecting " << (numAccepted - numSlots) << " tasks from " << msg.getRequester() << ", reason:";
-        LogMsg("Ex.Sch.EDF", DEBUG) << "Deadline: " << msg.getMinRequirements().getDeadline()
-                << "   Lenght: " << msg.getMinRequirements().getLength()
-                << " (" << Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()) << ')';
-        LogMsg("Ex.Sch.EDF", DEBUG) << "Available: " << available << ", " << numSlots << " slots";
-        LogMsg("Ex.Sch.EDF", DEBUG) << "Info: " << info;
-        LogMsg("Ex.Sch.EDF", DEBUG) << "Task queue:";
-        for (list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); ++t)
-            LogMsg("Ex.Sch.EDF", DEBUG) << "   " << (*t)->getEstimatedDuration() << " l" << (*t)->getDescription().getLength() << " d" << (*t)->getDescription().getDeadline();
+        Logger::msg("Ex.Sch.EDF", INFO, "Rejecting ", (numAccepted - numSlots), " tasks from ", msg.getRequester(), ", reason:");
+        Logger::msg("Ex.Sch.EDF", DEBUG, "Deadline: ", msg.getMinRequirements().getDeadline(),
+                "   Lenght: ", msg.getMinRequirements().getLength(),
+                " (", Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()), ')');
+        Logger::msg("Ex.Sch.EDF", DEBUG, "Available: ", available, ", ", numSlots, " slots");
+        Logger::msg("Ex.Sch.EDF", DEBUG, "Info: ", info);
+        Logger::msg("Ex.Sch.EDF", DEBUG, "Task queue:");
+        for (auto & t : tasks)
+            Logger::msg("Ex.Sch.EDF", DEBUG, "   ", t->getEstimatedDuration(), " l", t->getDescription().getLength(), " d", t->getDescription().getDeadline());
         unsigned int available = getAvailabilityBefore(msg.getMinRequirements().getDeadline());
         numAccepted = numSlots;
     }
-    LogMsg("Ex.Sch.EDF", INFO) << "Accepting " << numAccepted << " tasks from " << msg.getRequester();
+    Logger::msg("Ex.Sch.EDF", INFO, "Accepting ", numAccepted, " tasks from ", msg.getRequester());
     return numAccepted;
 }

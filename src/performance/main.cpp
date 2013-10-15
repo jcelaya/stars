@@ -47,7 +47,7 @@ int main(int argc, char * argv[]) {
         numClusters.push_back(clustersValue);
     }
 
-    LogMsg::initLog("root=WARN");
+    Logger::initLog("root=WARN");
     OstreamAppender * console = new OstreamAppender("ConsoleAppender", &std::cout);
     PatternLayout * l = new PatternLayout();
     l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");

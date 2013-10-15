@@ -220,8 +220,8 @@ void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
         while (!timerList.empty()) {
             if (timerList.front().timeout <= ct) {
                 if (timerList.front().timeout < ct)
-                    LogMsg("Sim.Progress", WARN) << "Timer arriving " << (ct - timerList.front().timeout).seconds() << " seconds late: "
-                    << *timerList.front().msg;
+                    Logger::msg("Sim.Progress", WARN, "Timer arriving ", (ct - timerList.front().timeout).seconds(), " seconds late: ",
+                            *timerList.front().msg);
                 Simulator::getInstance().sendMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
                 timerList.pop_front();
             } else {
@@ -256,7 +256,7 @@ void StarsNode::finish() {
 
 
 void StarsNode::fail() {
-    LogMsg("Sim.Fail", DEBUG) << "Fails node " << localAddress;
+    Logger::msg("Sim.Fail", DEBUG, "Fails node ", localAddress);
 
     // Stop running task at failed node
     if (!getSch().getTasks().empty())
@@ -465,32 +465,32 @@ unsigned int StarsNode::getBranchLevel() const {
 //                father = &static_cast<SimOverlayBranch &>(Simulator::getInstance().getNode(fatherIP).getBranch());
 //            } else {
 //                // This may be an error...
-//                LogMsg("Sim.Tree", WARN) << "Leaf node without father???: L@" << localAddress;
+//                Logger::msg("Sim.Tree", WARN, "Leaf node without father???: L@", localAddress);
 //                return;
 //            }
 //        }
 //
 //        if (father != NULL) {
-//            LogMsg("Sim.Tree", prio) << "B@" << Simulator::getInstance().getNode(fatherIP).getLocalAddress() << ": " << *father;
+//            Logger::msg("Sim.Tree", prio, "B@", Simulator::getInstance().getNode(fatherIP).getLocalAddress(), ": ", *father);
 //            // Right child
-//            LogMsg("Sim.Tree", prio) << "  |- " << father->getRightZone();
+//            Logger::msg("Sim.Tree", prio, "  |- ", father->getRightZone();
 //            CommAddress childAddr = father->getRightAddress();
 //            StarsNode & rightChild = Simulator::getInstance().getNode(childAddr.getIPNum());
 //            if (!father->isRightLeaf()) {
 //                rightChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "  |  ");
 //            } else {
-//                LogMsg("Sim.Tree", prio) << "  |  " << "L@" << rightChild.localAddress << ": "
+//                Logger::msg("Sim.Tree", prio, "  |  ", "L@", rightChild.localAddress, ": "
 //                        << static_cast<SimOverlayLeaf &>(rightChild.getLeaf());
 //            }
 //
 //            // Left child
-//            LogMsg("Sim.Tree", prio) << "  \\- " << father->getLeftZone();
+//            Logger::msg("Sim.Tree", prio, "  \\- ", father->getLeftZone();
 //            childAddr = father->getLeftAddress();
 //            StarsNode & leftChild = Simulator::getInstance().getNode(childAddr.getIPNum());
 //            if (!father->isLeftLeaf()) {
 //                leftChild.showRecursive(prio, childAddr == localAddress ? 1 : 0, "     ");
 //            } else {
-//                LogMsg("Sim.Tree", prio) << "     " << "L@" << leftChild.localAddress << ": "
+//                Logger::msg("Sim.Tree", prio, "     ", "L@", leftChild.localAddress, ": "
 //                        << static_cast<SimOverlayLeaf &>(leftChild.getLeaf());
 //            }
 //        }

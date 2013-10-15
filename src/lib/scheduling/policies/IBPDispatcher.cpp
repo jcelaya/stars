@@ -49,16 +49,16 @@ struct IBPDispatcher::DecisionInfo {
 
 void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN()) return;
-    LogMsg("Dsp.Simple", INFO) << "Received a TaskBagMsg from " << src;
+    Logger::msg("Dsp.Simple", INFO, "Received a TaskBagMsg from ", src);
     if (!branch.inNetwork()) {
-        LogMsg("Dsp.Simple", WARN) << "TaskBagMsg received but not in network";
+        Logger::msg("Dsp.Simple", WARN, "TaskBagMsg received but not in network");
         return;
     }
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;
-    LogMsg("Dsp.Simple", DEBUG) << "Requested allocation of " << remainingTasks << " tasks with requirements:";
-    LogMsg("Dsp.Simple", DEBUG) << "Memory: " << req.getMaxMemory() << "   Disk: " << req.getMaxDisk();
-    LogMsg("Dsp.Simple", DEBUG) << "Length: " << req.getLength() << "   Deadline: " << req.getDeadline();
+    Logger::msg("Dsp.Simple", DEBUG, "Requested allocation of ", remainingTasks, " tasks with requirements:");
+    Logger::msg("Dsp.Simple", DEBUG, "Memory: ", req.getMaxMemory(), "   Disk: ", req.getMaxDisk());
+    Logger::msg("Dsp.Simple", DEBUG, "Length: ", req.getLength(), "   Deadline: ", req.getDeadline());
 
     // Distribute it downwards
 
@@ -69,7 +69,7 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         if ((msg.isFromEN() || child[c].addr != src) && child[c].availInfo.get()) {
             std::list<IBPAvailabilityInformation::MDCluster *> nodeGroups;
             child[c].availInfo->getAvailability(nodeGroups, req);
-            LogMsg("Dsp.Simple", DEBUG) << "Obtained " << nodeGroups.size() << " groups with enough availability from left child.";
+            Logger::msg("Dsp.Simple", DEBUG, "Obtained ", nodeGroups.size(), " groups with enough availability from left child.");
             for (std::list<IBPAvailabilityInformation::MDCluster *>::iterator git = nodeGroups.begin(); git != nodeGroups.end(); git++) {
                 groups.push_back(DecisionInfo(**git, req.getMaxMemory(), req.getMaxDisk(), c, branch.getChildDistance(c, msg.getRequester())));
             }
@@ -77,12 +77,12 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     }
 
     groups.sort();
-    LogMsg("Dsp.Simple", DEBUG) << groups.size() << " groups found";
+    Logger::msg("Dsp.Simple", DEBUG, groups.size(), " groups found");
 
     // Now divide the request between the zones
     std::array<unsigned int, 2> numTasks = {0, 0};
     for (std::list<DecisionInfo>::iterator it = groups.begin(); it != groups.end() && remainingTasks; ++it) {
-        LogMsg("Dsp.Simple", DEBUG) << "Using group from " << (it->branch == 0 ? "left" : "right") << " branch and " << it->cluster.getValue() << " nodes, availability is " << it->availability;
+        Logger::msg("Dsp.Simple", DEBUG, "Using group from ", (it->branch == 0 ? "left" : "right"), " branch and ", it->cluster.getValue(), " nodes, availability is ", it->availability);
         uint32_t numTaken = remainingTasks - it->cluster.takeUpToNodes(remainingTasks);
         numTasks[it->branch] += numTaken;
         remainingTasks -= numTaken;

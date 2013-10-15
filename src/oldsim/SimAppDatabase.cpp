@@ -38,7 +38,7 @@ bool SimAppDatabase::findAppInstance(int64_t appId) {
     if (instanceCache.first != appId) {
         map<int64_t, AppInstance>::iterator it = instances.find(appId);
         if (it == instances.end()) {
-            LogMsg("Database.Sim", ERROR) << "Error getting data for app " << appId;
+            Logger::msg("Database.Sim", ERROR, "Error getting data for app ", appId);
             return false;
         }
         instanceCache = make_pair(appId, &it->second);
@@ -64,17 +64,17 @@ bool SimAppDatabase::findRequest(int64_t rid) {
 
 
 void SimAppDatabase::appInstanceFinished(int64_t appId) {
-    LogMsg("Database.Sim", DEBUG) << "Instance finished " << appId;
+    Logger::msg("Database.Sim", DEBUG, "Instance finished ", appId);
     map<int64_t, AppInstance>::iterator inst = instances.find(appId);
     if (inst == instances.end()) {
-        LogMsg("Database.Sim", ERROR) << "Error getting data for app " << appId;
+        Logger::msg("Database.Sim", ERROR, "Error getting data for app ", appId);
         return;
     }
     for (list<Request>::iterator it = inst->second.requests.begin(); it != inst->second.requests.end(); ++it) {
-//        LogMsg("Database.Sim", DEBUG) << "Checking request " << it->first << ": " << it->second;
+//        Logger::msg("Database.Sim", DEBUG, "Checking request ", it->first, ": ", it->second);
         totalRequests--;
         totalRequestsMemory -= sizeof(Request) + it->tasks.size() * sizeof(RemoteTask *);
-//            LogMsg("Database.Sim", DEBUG) << "This request belongs to intance " << appId << ", erasing.";
+//            Logger::msg("Database.Sim", DEBUG, "This request belongs to intance ", appId, ", erasing.");
     }
     totalInstances--;
     totalInstancesMemory -= sizeof(AppInstance) + inst->second.tasks.size() * sizeof(RemoteTask);
@@ -98,7 +98,7 @@ int64_t TaskBagAppDatabase::createAppInstance(const std::string & name, Time dea
 
     // Create instance
     sdb.lastInstance++;
-    LogMsg("Database.Sim", DEBUG) << "Creating instance " << sdb.lastInstance << " for application " << name;
+    Logger::msg("Database.Sim", DEBUG, "Creating instance ", sdb.lastInstance, " for application ", name);
     SimAppDatabase::AppInstance & inst = sdb.instances[sdb.lastInstance];
     inst.req = sdb.nextApp;
     inst.req.setDeadline(deadline);
@@ -133,7 +133,7 @@ void TaskBagAppDatabase::requestFromReadyTasks(int64_t appId, TaskBagMsg & msg) 
                 r.tasks.push_back(&(*t));
         }
         r.remainingTasks = r.tasks.size();
-        LogMsg("Database.Sim", DEBUG) << "Created request " << r.rid;
+        Logger::msg("Database.Sim", DEBUG, "Created request ", r.rid);
 
         sdb.requestCache = make_pair(rid, &r);
 
@@ -161,7 +161,7 @@ bool TaskBagAppDatabase::startSearch(int64_t rid, Time timeout) {
     if (sdb.findRequest(rid)) {
         SimAppDatabase::Request * request = sdb.requestCache.second;
         request->rtime = request->stime = Time::getCurrentTime();
-        LogMsg("Database.Sim", DEBUG) << "Submitting request " << rid;
+        Logger::msg("Database.Sim", DEBUG, "Submitting request ", rid);
         for (vector<SimAppDatabase::RemoteTask *>::iterator t = request->tasks.begin(); t != request->tasks.end(); ++t)
             (*t)->state = SimAppDatabase::RemoteTask::SEARCHING;
         return true;
@@ -185,7 +185,7 @@ unsigned int TaskBagAppDatabase::cancelSearch(int64_t rid) {
                 --request->remainingTasks;
             }
     }
-    LogMsg("Database.Sim", DEBUG) << "Canceled " << readyTasks << " tasks from request " << rid;
+    Logger::msg("Database.Sim", DEBUG, "Canceled ", readyTasks, " tasks from request ", rid);
     return readyTasks;
 }
 
@@ -195,13 +195,13 @@ unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t 
     unsigned int accepted = 0;
     if (sdb.findRequest(rid)) {
         SimAppDatabase::Request * request = sdb.requestCache.second;
-        LogMsg("Database.Sim", DEBUG) << src << " accepts " << (lastRtid - firstRtid + 1) << " tasks from request " << rid;
+        Logger::msg("Database.Sim", DEBUG, src, " accepts ", (lastRtid - firstRtid + 1), " tasks from request ", rid);
         // Check all tasks are in this request
         for (unsigned int t = firstRtid - 1; t < lastRtid; ++t) {
             if (t >= request->tasks.size() || request->tasks[t] == NULL) {
-                LogMsg("Database.Sim", INFO) << "No task " << t << " in request with id " << rid;
+                Logger::msg("Database.Sim", INFO, "No task ", t, " in request with id ", rid);
             } else if (request->tasks[t]->state != SimAppDatabase::RemoteTask::SEARCHING) {
-                LogMsg("Database.Sim", INFO) << "Task " << t << " in request " << rid << " not in searching state.";
+                Logger::msg("Database.Sim", INFO, "Task ", t, " in request ", rid, " not in searching state.");
             } else {
                 ++accepted;
                 ++request->acceptedTasks;
@@ -212,7 +212,7 @@ unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t 
         if (accepted) {
             // Update last search time
             request->stime = Time::getCurrentTime();
-            LogMsg("Database.Sim", DEBUG) << "Update search time to " << (request->stime - request->rtime).seconds() << " seconds";
+            Logger::msg("Database.Sim", DEBUG, "Update search time to ", (request->stime - request->rtime).seconds(), " seconds");
         }
     }
     return accepted;
@@ -222,7 +222,7 @@ unsigned int TaskBagAppDatabase::acceptedTasks(const CommAddress & src, int64_t 
 bool TaskBagAppDatabase::taskInRequest(unsigned int tid, int64_t rid) {
     tid--;
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
-    LogMsg("Database.Sim", DEBUG) << "Checking if task " << tid << " is in request " << rid;
+    Logger::msg("Database.Sim", DEBUG, "Checking if task ", tid, " is in request ", rid);
     if (sdb.findRequest(rid))
         return sdb.requestCache.second->tasks.size() > tid && sdb.requestCache.second->tasks[tid] != NULL;
     return false;
@@ -234,10 +234,10 @@ bool TaskBagAppDatabase::finishedTask(const CommAddress & src, int64_t rid, unsi
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
     if (sdb.findRequest(rid)) {
         SimAppDatabase::Request * request = sdb.requestCache.second;
-        LogMsg("Database.Sim", DEBUG) << "Finished task " << rtid << " from request " << rid;
+        Logger::msg("Database.Sim", DEBUG, "Finished task ", rtid, " from request ", rid);
         if (request->tasks.size() <= rtid) return false;
         else if (request->tasks[rtid] == NULL) {
-            LogMsg("Database.Sim", WARN) << "Task " << rtid << " of request " << rid << " already finished";
+            Logger::msg("Database.Sim", WARN, "Task ", rtid, " of request ", rid, " already finished");
             return false;
         } else {
             request->tasks[rtid]->state = SimAppDatabase::RemoteTask::FINISHED;
@@ -254,7 +254,7 @@ bool TaskBagAppDatabase::abortedTask(const CommAddress & src, int64_t rid, unsig
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
     if (sdb.findRequest(rid)) {
         SimAppDatabase::Request * request = sdb.requestCache.second;
-        LogMsg("Database.Sim", DEBUG) << src << " aborts task " << rtid << " from request " << rid;
+        Logger::msg("Database.Sim", DEBUG, src, " aborts task ", rtid, " from request ", rid);
         if (request->tasks.size() <= rtid || request->tasks[rtid] == NULL) {
             return false;
         }
@@ -269,7 +269,7 @@ bool TaskBagAppDatabase::abortedTask(const CommAddress & src, int64_t rid, unsig
 void TaskBagAppDatabase::deadNode(const CommAddress & fail) {
     SimAppDatabase & sdb = SimAppDatabase::getCurrentDatabase();
     // Make a list of all tasks that where executing in that node
-    LogMsg("Database.Sim", DEBUG) << "Node " << fail << " fails, looking for its tasks:";
+    Logger::msg("Database.Sim", DEBUG, "Node ", fail, " fails, looking for its tasks:");
     for (map<int64_t, SimAppDatabase::AppInstance>::iterator instance = sdb.instances.begin(); instance != sdb.instances.end(); ++instance)
         for (list<SimAppDatabase::Request>::iterator request = instance->second.requests.begin();
                 request != instance->second.requests.end(); ++request)

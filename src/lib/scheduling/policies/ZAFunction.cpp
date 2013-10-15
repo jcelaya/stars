@@ -34,13 +34,13 @@ unsigned int ZAFunction::reductionQuality = 10;
 ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
     // Trivial case
     if (curTasks.empty()) {
-        LogMsg("Ex.RI.Aggr", DEBUG) << "Creating availability info for empty queue and power " << power;
+        Logger::msg("Ex.RI.Aggr", DEBUG, "Creating availability info for empty queue and power ", power);
         pieces.push_back(SubFunction(minTaskLength, 0.0, 0.0, 1.0 / power, 0.0));
         return;
     }
 
     // General case
-    LogMsg("Ex.RI.Aggr", DEBUG) << "Creating availability info for " << curTasks.size() << " tasks and power " << power;
+    Logger::msg("Ex.RI.Aggr", DEBUG, "Creating availability info for ", curTasks.size(), " tasks and power ", power);
 
     // The new task
     curTasks.push_back(TaskProxy(minTaskLength, power, Time::getCurrentTime()));
