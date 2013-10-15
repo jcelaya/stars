@@ -179,16 +179,20 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
                    clusters[func.child].push_back(func.cluster);
                 }
             }
-            for (int c : {0, 1})
-                child[c].availInfo->removeClusters(clusters[c]);
+            for (int c : {0, 1}) {
+                if (!clusters[c].empty()) {
+                    child[c].availInfo->removeClusters(clusters[c]);
+                    child[c].hasNewInformation = true;
+                }
+            }
             recomputeInfo();
             if (mustGoDown(src, msg)) {
                 Logger::msg("Dsp.FSP", DEBUG, "The request must go down.");
             } else {
                 Logger::msg("Dsp.FSP", DEBUG, "The slowness is below the limit ", slownessLimit);
                 // Only notify the father if the message does not come from it
-                //notify();
             }
+            notify();
         } else {
             Logger::msg("Dsp.FSP", INFO, "Not enough information to route this request, sending to the father.");
         }
@@ -227,11 +231,8 @@ void FSPDispatcher::updateBranchSlowness(const std::array<double, 2> & branchSlo
 }
 
 
-void FSPDispatcher::recomputeInfo() {
+void FSPDispatcher::recomputeChildrenInfo() {
     Logger::msg("Dsp.FSP", DEBUG, "Recomputing the branch information");
-    // Recalculate info for the father
-    recomputeFatherInfo();
-
     for (int c : {0, 1}) {
         if(!branch.isLeaf(c)) {
             Logger::msg("Dsp.FSP", DEBUG, "Recomputing the information from the rest of the tree for ", c, " child.");

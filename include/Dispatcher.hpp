@@ -157,10 +157,11 @@ public:
     /**
      * Calculates the availability information of this branch.
      */
-    virtual void recomputeInfo() {
+    void recomputeInfo() {
         Logger::msg("Dsp", DEBUG, "Recomputing the branch information");
-        // Default: Only recalculate info for the father
         recomputeFatherInfo();
+        recomputeChildrenInfo();
+        father.hasNewInformation = child[0].hasNewInformation = child[1].hasNewInformation = false;
     }
 
 protected:
@@ -195,7 +196,6 @@ protected:
             // Check if the resulting zone changes
             if (!delayed) {
                 recomputeInfo();
-                father.hasNewInformation = child[0].hasNewInformation = child[1].hasNewInformation = false;
                 informationUpdated();
                 notify();
             }
@@ -322,7 +322,7 @@ protected:
         Logger::msg("Dsp.FSP", INFO, "Memory: ", req.getMaxMemory(), "   Disk: ", req.getMaxDisk(), "   Length: ", a);
     }
 
-    void recomputeFatherInfo() {
+    virtual void recomputeFatherInfo() {
         if (child[0].hasNewInformation || child[1].hasNewInformation) {
             if (child[0].availInfo.get()) {
                 father.waitingInfo.reset(child[0].availInfo->clone());
@@ -336,6 +336,8 @@ protected:
                 father.waitingInfo.reset();
         }
     }
+
+    virtual void recomputeChildrenInfo() {}
 
     static const char * childName(int i) {
         static const char * name[2] = { "left", "right" };
@@ -362,10 +364,7 @@ private:
                 it != delayedUpdates.end(); it++)
             handle(it->first, *it->second, true);
         delayedUpdates.clear();
-        // Recompute info
         recomputeInfo();
-        father.hasNewInformation = child[0].hasNewInformation = child[1].hasNewInformation = false;
-        // Notify
         notify();
     }
 };

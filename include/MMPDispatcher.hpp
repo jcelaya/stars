@@ -40,9 +40,6 @@ public:
      */
     MMPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
-
     static void setBeta(double b) { beta = b; }
 
     boost::shared_ptr<MMPAvailabilityInformation> getChildWaitingInfo(int c) const {
@@ -56,6 +53,9 @@ private:
 
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
+
+    // This is documented in Dispatcher.
+    virtual void recomputeChildrenInfo();
 
     boost::shared_ptr<MMPAvailabilityInformation> getChildInfo(int c);
 };

@@ -42,9 +42,6 @@ public:
      */
     FSPDispatcher(OverlayBranch & b) : Dispatcher(b) {}
 
-    // This is documented in Dispatcher.
-    virtual void recomputeInfo();
-
     static void setBeta(double b) { beta = b; }
 
     boost::shared_ptr<FSPAvailabilityInformation> getChildWaitingInfo(int c) const {
@@ -54,6 +51,9 @@ public:
 private:
     static double beta;
     std::list<TaskBagMsg *> delayedRequests;
+
+    // This is documented in Dispatcher.
+    virtual void recomputeChildrenInfo();
 
     double getSlownessLimit() const;
 

@@ -130,8 +130,10 @@ void DPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
     // Update the availability information
     for (int c : {0, 1})
-        if (child[c].availInfo.get())
+        if (child[c].availInfo.get()) {
             child[c].availInfo->update(assign[c], req);
+            child[c].hasNewInformation = true;
+        }
     // Send the result to the father
     recomputeInfo();
     notify();

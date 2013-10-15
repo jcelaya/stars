@@ -48,11 +48,8 @@ boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(int c)
 }
 
 
-void MMPDispatcher::recomputeInfo() {
+void MMPDispatcher::recomputeChildrenInfo() {
     Logger::msg("Dsp.MMP", DEBUG, "Recomputing the branch information");
-    // Recalculate info for the father
-    recomputeFatherInfo();
-
     for (int c : {0, 1}) {
         if(!branch.isLeaf(c)) {
             child[c].waitingInfo = getChildInfo(c);

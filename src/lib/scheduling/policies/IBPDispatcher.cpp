@@ -88,8 +88,12 @@ void IBPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         remainingTasks -= numTaken;
     }
     for (int c : {0, 1})
-        if (child[c].availInfo.get())
+        if (numTasks[c]) {
             child[c].availInfo->updated();
+            child[c].hasNewInformation = true;
+        }
+    recomputeInfo();
+    notify();
 
     // Now create and send the messages
     sendTasks(msg, numTasks, branch.getFatherAddress() == src);
