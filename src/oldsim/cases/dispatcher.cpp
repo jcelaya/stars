@@ -44,6 +44,66 @@ using namespace boost::gregorian;
 class HeartbeatTimeout;
 
 
+class uniformProcess : public SimulationCase {
+    unsigned int numInstances, nextInstance, remainingApps;
+    Duration period;
+    RequestGenerator rg;
+    bool generateTraceOnly;
+    DiscreteUniformVariable clientVar;
+
+public:
+    uniformProcess(const Properties & p) : SimulationCase(p), rg(p), clientVar(0, 1) {
+        // Prepare the properties
+    }
+
+    static const string getName() { return string("uniformProcess"); }
+
+    void preStart() {
+        Simulator & sim = Simulator::getInstance();
+        // Before running simulation
+        clientVar = DiscreteUniformVariable(0, sim.getNumNodes() - 1);
+
+        // Simulation limit
+        numInstances = property("num_searches", 1);
+        Logger::msg("Sim.Progress", 0, "Submitting ", numInstances, " applications.");
+
+        // Global variables
+        period = Duration(property("submission_period", 60.0));
+        generateTraceOnly = property("generate_trace_only", false);
+
+        // Send first request
+        uint32_t client = clientVar();
+        boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), Time()));
+        // Send this message to the client
+        sim.injectMessage(client, client, dcm, Duration());
+        nextInstance = 1;
+        remainingApps = 0;
+    }
+
+    void beforeEvent(uint32_t src, uint32_t dst, const BasicMsg & msg) {
+        if (typeid(msg) == typeid(DispatchCommandMsg) && nextInstance < numInstances) {
+            // Calculate next send
+            Simulator & sim = Simulator::getInstance();
+            uint32_t client = clientVar();
+            boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(sim.getNode(client), sim.getCurrentTime() + period));
+            // Send this message to the client
+            sim.injectMessage(client, client, dcm, period);
+            nextInstance++;
+        }
+    }
+
+    virtual void finishedApp(int64_t appId) {
+        Simulator::getInstance().getCurrentNode().getDatabase().appInstanceFinished(appId);
+        percent = (remainingApps++) * 100.0 / numInstances;
+    }
+
+    bool doContinue() const {
+        return remainingApps < numInstances;
+    }
+};
+REGISTER_SIMULATION_CASE(uniformProcess);
+
+
 class poissonProcess : public SimulationCase {
     unsigned int numInstances, nextInstance, remainingApps;
     double meanTime;
@@ -65,7 +125,7 @@ public:
 
         // Simulation limit
         numInstances = property("num_searches", 1);
-        Logger::msg("Sim.Progress", 0, "Performing ", numInstances, " searches.");
+        Logger::msg("Sim.Progress", 0, "Submitting ", numInstances, " applications.");
 
         // Global variables
         meanTime = property("mean_time", 60.0);
@@ -207,7 +267,7 @@ public:
 
         // Simulation limit
         numSearches = apps.size();
-        Logger::msg("Sim.Progress", 0, "Performing ", numSearches, " searches.");
+        Logger::msg("Sim.Progress", 0, "Submitting ", numSearches, " applications.");
 
         // Send first request
         AppInstance r = apps.front();
@@ -297,7 +357,7 @@ class siteLevel : public SimulationCase {
             perceivedSpeed = p;
         }
 
-        bool isWtime(Time now) const {
+        bool isWorkTime(Time now) const {
             greg_weekday today = now.to_posix_time().date().day_of_week();
             if (today == Saturday || today == Sunday) {
                 if (weekdays) return false;
@@ -395,7 +455,7 @@ public:
         users.resize(sim.getNumNodes());
         for (uint32_t u = 0; u < users.size(); u++) {
             users[u].setup(sim.getNode(u).getAveragePower());
-            if (users[u].isWtime(sim.getCurrentTime())) {
+            if (users[u].isWorkTime(sim.getCurrentTime())) {
                 generateThinkTime(u, Duration(0.0));
             } else {
                 sleep(u);
@@ -415,7 +475,7 @@ public:
                 generateWorkload(dst);
             } else {
                 // Only WAIT_TT possible
-                if (u.isWtime(Time::getCurrentTime())) {
+                if (u.isWorkTime(Time::getCurrentTime())) {
                     generateWorkload(dst);
                 } else {
                     sleep(dst);
@@ -445,7 +505,7 @@ public:
             if (ref < min) ref = min;
             if (ref > max) ref = max;
             Time deadline = now + Duration(ref);
-            if (!u.isWtime(deadline))
+            if (!u.isWorkTime(deadline))
                 deadline = now + u.getWakeTime(deadline);
             dcm->setDeadline(deadline);
             sim.injectMessage(dst, dst, dcm);
@@ -473,7 +533,7 @@ public:
         u.perceivedSpeed += 0.2 * sdb.getAppInstance(appId)->req.getAppLength() / rt.seconds();
         if (--u.batchSize == 0) {
             // Batch is finished
-            if (u.isWtime(sim.getCurrentTime())) {
+            if (u.isWorkTime(sim.getCurrentTime())) {
                 generateThinkTime(dst, rt);
             } else {
                 sleep(dst);

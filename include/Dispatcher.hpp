@@ -126,10 +126,9 @@ public:
                     Logger::msg("Dsp", DEBUG, "Notified info was ", *notifiedInfo);
                     Logger::msg("Dsp.Compare", DEBUG, "Notified info was different from waiting info");
                 }
-                uint32_t seq = notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1;
+                updateSequenceNumber();
                 notifiedInfo = waitingInfo;
                 waitingInfo.reset();
-                notifiedInfo->setSeq(seq);
                 notifiedInfo->setFromSch(false);
                 T * sendMsg = notifiedInfo->clone();
                 sendMsg->reduce();
@@ -138,6 +137,10 @@ public:
             else if (waitingInfo.get() && notifiedInfo.get())
                 Logger::msg("Dsp.Compare", DEBUG, "Notified info was equal to waiting info");
             return 0;
+        }
+        void updateSequenceNumber() {
+            if (waitingInfo.get())
+                waitingInfo->setSeq(notifiedInfo.get() ? notifiedInfo->getSeq() + 1 : 1);
         }
         bool update(const CommAddress & src, const T & msg) {
             if (addr == src) {
@@ -328,9 +331,11 @@ protected:
                 father.waitingInfo.reset(child[0].availInfo->clone());
                 if (child[1].availInfo.get())
                     father.waitingInfo->join(*child[1].availInfo);
+                father.updateSequenceNumber();
                 Logger::msg("Dsp", DEBUG, "The result is ", *father.waitingInfo);
             } else if (child[1].availInfo.get()) {
                 father.waitingInfo.reset(child[1].availInfo->clone());
+                father.updateSequenceNumber();
                 Logger::msg("Dsp", DEBUG, "The result is ", *father.waitingInfo);
             } else
                 father.waitingInfo.reset();

@@ -108,8 +108,8 @@ void CDF::addValue(double bin, double value) {
 
 double CDF::inverse(double x) {
     if (cdf.empty()) return 0.0;
-    else if (cdf.size() == 1) return cdf.back().first;
     else if (x <= cdf.front().second) return cdf.front().first;
+    else if (x >= cdf.back().second) return cdf.back().first;
     // Implemented with a binary search
     unsigned int min = 0, max = cdf.size() - 1;
     while (min + 1 < max) {
@@ -118,9 +118,8 @@ double CDF::inverse(double x) {
         else max = med;
     }
     // Interpolate
-    //double a = (cdf[max].first - cdf[min].first) / (cdf[max].second - cdf[min].second);
-    //return cdf[min].first + (x - cdf[min].second) * a;
-    return cdf[max].first;
+    double m = (cdf[max].first - cdf[min].first) / (cdf[max].second - cdf[min].second);
+    return cdf[min].first + (x - cdf[min].second) * m;
 }
 
 

@@ -148,6 +148,14 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
     showMsgSource(src, msg);
 
+//    if (!msg.isFromEN() && src == father.addr) {
+//        boost::shared_ptr<FSPAvailabilityInformation> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+//        if (msg.getInfoSequenceUsed() + 1 < availInfo->getSeq()) {
+//            Logger::msg("Dsp.FSP", WARN, "Outdated information used: ", msg.getInfoSequenceUsed(), " != ", availInfo->getSeq());
+//            return;
+//        }
+//    }
+
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
@@ -191,8 +199,8 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             } else {
                 Logger::msg("Dsp.FSP", DEBUG, "The slowness is below the limit ", slownessLimit);
                 // Only notify the father if the message does not come from it
+                notify();
             }
-            notify();
         } else {
             Logger::msg("Dsp.FSP", INFO, "Not enough information to route this request, sending to the father.");
         }
