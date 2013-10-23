@@ -541,20 +541,6 @@ public:
         }
         sdb.appInstanceFinished(appId);
     }
-
-//    bool blockMessage(uint32_t src, uint32_t dst, const boost::shared_ptr<BasicMsg> & msg) {
-//        // Ignore fail tolerance
-//        if (msg->getName() == "HeartbeatTimeout") return true;
-//        else if (msg->getName() == "MonitorTimer") return true;
-//        return false;
-//    }
-//
-    void postEnd() {
-//		// Dump memory database to disk
-//		fs::path statDir(property("results_dir", std::string("./results")));
-//		if (property("memory_db", true))
-//			saveDb(TaskBagAppDatabase::getInstance().getDatabase().getDatabase(), (statDir / fs::path("stars.db")).file_string().c_str());
-    }
 };
 REGISTER_SIMULATION_CASE(siteLevel);
 

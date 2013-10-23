@@ -49,42 +49,26 @@ ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
     const vector<double> & boundaries = curTasks.getBoundaries();
 
     while(true) {
-        // Order the queue and calculate minimum slowness
+        vector<double> curBoundaries(boundaries);
         // The new task is at the end of the queue
-        vector<double> svCur(boundaries);
-        if (!svCur.empty()) {
-            // Add order change values for the new task
-            for (auto i = ++curTasks.begin(); i != curTasks.end(); ++i) {
-                // The new task is the last in the vector
-                if (i->a != curTasks.back().a) {
-                    double l = i->r / (curTasks.back().a - i->a);
-                    if (l > svCur.front())
-                        svCur.push_back(l);
-                }
-            }
-            std::sort(svCur.begin(), svCur.end());
-            // Remove duplicate values
-            svCur.erase(std::unique(svCur.begin(), svCur.end()), svCur.end());
-
-            // Sort tasks to minimize the maximum slowness
-            curTasks.sortMinSlowness(svCur);
-        }
+        curTasks.addBoundaryValues(curTasks.back(), curBoundaries);
+        curTasks.sortMinSlowness(curBoundaries);
 
         // Update the index of the task that sets maximum slowness
         FSPTaskList::iterator tn, tm = curTasks.begin();
         // For each task, calculate its slowness and its tendency
-        double e = curTasks.front().t, maxSlowness = (e - curTasks.front().r) / curTasks.front().a, maxTendency = 0.0;
-        curTasks.front().tsum = curTasks.front().t;
+        double e = 0.0, tsum = 0.0, maxSlowness = 0.0, maxTendency = 0.0;
         bool beforeNewTask = true, minBeforeNew = true;
-        for (FSPTaskList::iterator i = curTasks.begin(), prev = i++; i != curTasks.end(); prev = i++) {
+        for (FSPTaskList::iterator i = curTasks.begin(); i != curTasks.end(); ++i) {
             double tendency = beforeNewTask ? 0.0 : 1.0 / i->a;
             if (i->id == (unsigned int)-1) {
                 tn = i;
                 tendency = -1.0;
-                i->tsum = prev->tsum;
                 beforeNewTask = false;
-            } else
-                i->tsum = prev->tsum + i->t;
+            } else {
+                tsum += i->t;
+            }
+            i->tsum = tsum;
             e += i->t;
             double slowness = (e - i->r) / i->a;
             if (slowness > maxSlowness || (slowness == maxSlowness && tendency > maxTendency)) {
@@ -136,10 +120,10 @@ ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
 //            }
 
             // See at which value of a other tasks change order
-            if (!svCur.empty() && svCur.front() < maxSlowness) {
-                size_t i = svCur.size() - 1;
-                while (svCur[i] >= maxSlowness) --i;
-                a = tm->tsum / (svCur[i] - 1.0 / power);
+            if (!curBoundaries.empty() && curBoundaries.front() < maxSlowness) {
+                size_t i = curBoundaries.size() - 1;
+                while (curBoundaries[i] >= maxSlowness) --i;
+                a = tm->tsum / (curBoundaries[i] - 1.0 / power);
                 if (a > curA && a < minA) minA = a;
             }
         }
@@ -208,10 +192,10 @@ ZAFunction::ZAFunction(FSPTaskList curTasks, double power) {
             }
 
             // See at which value of a other tasks change order
-            if (!svCur.empty() && svCur.back() > maxSlowness) {
+            if (!curBoundaries.empty() && curBoundaries.back() > maxSlowness) {
                 size_t i = 0;
-                while (svCur[i] <= maxSlowness) ++i;
-                a = (svCur[i] * tm->a - tm->tsum + tm->r) * power;
+                while (curBoundaries[i] <= maxSlowness) ++i;
+                a = (curBoundaries[i] * tm->a - tm->tsum + tm->r) * power;
                 if (a > curA && a < minA) minA = a;
             }
         }

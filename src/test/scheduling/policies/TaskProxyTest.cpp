@@ -95,25 +95,27 @@ BOOST_AUTO_TEST_CASE(FSPTaskList_meetDeadlines) {
 BOOST_AUTO_TEST_CASE(FSPTaskList_addTasks) {
     FSPTaskList l = getTestList();
     const std::vector<double> & boundaries = l.getBoundaries();
-    BOOST_REQUIRE_EQUAL(boundaries.size(), 7);
-    BOOST_CHECK_EQUAL(boundaries[0], 0.004);
-    BOOST_CHECK_EQUAL(boundaries[1], 0.025);
-    BOOST_CHECK_EQUAL(boundaries[2], 0.0375);
-    BOOST_CHECK_EQUAL(boundaries[3], 0.05);
-    BOOST_CHECK_EQUAL(boundaries[4], 875.0/15000.0);
-    BOOST_CHECK_EQUAL(boundaries[5], 0.075);
-    BOOST_CHECK_EQUAL(boundaries[6], 0.1);
+    BOOST_REQUIRE_EQUAL(boundaries.size(), 6);
+    int i = 0;
+    //BOOST_CHECK_EQUAL(boundaries[i++], 0.004);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.025);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.0375);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.05);
+    BOOST_CHECK_EQUAL(boundaries[i++], 875.0/15000.0);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.075);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.1);
 }
 
 BOOST_AUTO_TEST_CASE(FSPTaskList_removeTask_computeBoundaries) {
     FSPTaskList l = getTestList();
     l.removeTask(5);
     const std::vector<double> & boundaries = l.getBoundaries();
-    BOOST_REQUIRE_EQUAL(boundaries.size(), 4);
-    BOOST_CHECK_EQUAL(boundaries[0], 0.004);
-    BOOST_CHECK_EQUAL(boundaries[1], 0.0375);
-    BOOST_CHECK_EQUAL(boundaries[2], 875.0/15000.0);
-    BOOST_CHECK_EQUAL(boundaries[3], 0.1);
+    BOOST_REQUIRE_EQUAL(boundaries.size(), 3);
+    int i = 0;
+    //BOOST_CHECK_EQUAL(boundaries[i++], 0.004);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.0375);
+    BOOST_CHECK_EQUAL(boundaries[i++], 875.0/15000.0);
+    BOOST_CHECK_EQUAL(boundaries[i++], 0.1);
 }
 
 void checkMinSlownessOrder(FSPTaskList proxys) {

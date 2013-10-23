@@ -31,6 +31,10 @@ namespace stars {
 
 class FSPTaskList : public std::list<TaskProxy> {
 public:
+    static void setPreemptive(bool p) {
+        preemptive = p;
+    }
+
     FSPTaskList() : std::list<TaskProxy>(), dirty(false) {}
 
     explicit FSPTaskList(const std::list<boost::shared_ptr<Task> > & queue) : dirty(false) {
@@ -39,6 +43,8 @@ public:
     }
 
     void addTasks(const TaskProxy & task, unsigned int n = 1);
+
+    void addBoundaryValues(const TaskProxy& task, std::vector<double> & altBoundaries);
 
     void removeTask(unsigned int id);
 
@@ -63,6 +69,8 @@ public:
     void updateReleaseTime();
 
 private:
+    static bool preemptive;
+
     void computeBoundaries();
 
     std::vector<double> boundaries;

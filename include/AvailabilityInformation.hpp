@@ -35,7 +35,6 @@
 class AvailabilityInformation : public BasicMsg {
 public:
     AvailabilityInformation() : sequenceNumber(0), fromSch(true) {}
-    virtual ~AvailabilityInformation() {}
 
     // This is described in BasicMsg
     virtual AvailabilityInformation * clone() const = 0;

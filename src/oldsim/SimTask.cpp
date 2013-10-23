@@ -52,6 +52,20 @@ void SimTask::run() {
 }
 
 
+void SimTask::pause() {
+    if (timer != -1 && finishTime > Time::getCurrentTime()) {
+        Simulator::getInstance().getCurrentNode().cancelTimer(timer);
+        taskDuration = getEstimatedDuration();
+        timer = -1;
+    }
+}
+
+
+bool SimTask::isPaused() {
+    return timer == -1 && finishTime != Time();
+}
+
+
 void SimTask::abort() {
     // Cancel timer only if the task is running
     if (timer != -1 && finishTime > Time::getCurrentTime()) {

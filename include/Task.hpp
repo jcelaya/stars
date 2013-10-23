@@ -53,6 +53,10 @@ public:
      */
     virtual void run() = 0;
 
+    virtual void pause() = 0;
+
+    virtual bool isPaused() = 0;
+
     /**
      * Aborts the execution of a task.
      */

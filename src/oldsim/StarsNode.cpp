@@ -192,6 +192,9 @@ void StarsNode::libStarsConfigure(const Properties & property) {
     stars::ZAFunction::setReductionQuality(property("fsp_reduction_quality", 10U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
     FSPDispatcher::setBeta(property("fsp_beta", 2.0));
+    FSPDispatcher::discard = property("fsp_discard", false);
+    FSPDispatcher::discardRatio = property("fsp_discard_ratio", 2.0);
+    stars::FSPTaskList::setPreemptive(property("fsp_preemptive", true));
     SimAppDatabase::reset();
     StarsNode::Configuration::getInstance().setup(property);
 }

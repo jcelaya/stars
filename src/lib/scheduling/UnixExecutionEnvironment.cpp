@@ -78,9 +78,16 @@ public:
      * Starts running this task.
      */
     void run() {
-        Logger::msg("Unix", DEBUG, "Running task ", taskId);
-        runlock.unlock();
+        if (status == Prepared) {
+            Logger::msg("Unix", DEBUG, "Running task ", taskId);
+            runlock.unlock();
+        }
     }
+
+    // TODO
+    void pause() {}
+
+    bool isPaused() { return false; }
 
     /**
      * Aborts the execution of a task.

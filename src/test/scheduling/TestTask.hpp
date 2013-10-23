@@ -41,6 +41,12 @@ public:
         // Send a finished message to the backend
     }
 
+    void pause() {
+        status = Prepared;
+    }
+
+    bool isPaused() { return false; }
+
     void abort() {}
 
     Duration getEstimatedDuration() const {

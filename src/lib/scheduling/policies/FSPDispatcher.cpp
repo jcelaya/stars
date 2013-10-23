@@ -22,11 +22,15 @@
 #include "FSPDispatcher.hpp"
 #include "Time.hpp"
 #include "ConfigurationManager.hpp"
+#include "FSPTaskBagMsg.hpp"
 using std::vector;
 using stars::ZAFunction;
 
 double FSPDispatcher::beta = 0.4;
 
+namespace stars {
+REGISTER_MESSAGE(FSPTaskBagMsg);
+}
 
 struct FunctionInfo {
     FSPAvailabilityInformation::MDZCluster * cluster;
@@ -36,7 +40,7 @@ struct FunctionInfo {
 };
 
 
-class FunctionVector : public std::vector<FunctionInfo> {
+class FSPDispatcher::FunctionVector : public std::vector<FunctionInfo> {
 public:
     FunctionVector(std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2], const std::array<double, 2> & bs)
             : std::vector<FunctionInfo>(clusters[0].size() + clusters[1].size()),
@@ -143,22 +147,43 @@ void FSPDispatcher::informationUpdated() {
 }
 
 
+void FSPDispatcher::removeUsedClusters(const FunctionVector& functions) {
+    std::list<FSPAvailabilityInformation::MDZCluster*> clusters[2];
+    for (auto & func : functions) {
+        if (func.tasks) {
+            clusters[func.child].push_back(func.cluster);
+        }
+    }
+    for (int c : { 0, 1 }) {
+        if (!clusters[c].empty()) {
+            child[c].availInfo->removeClusters(clusters[c]);
+            child[c].hasNewInformation = true;
+        }
+    }
+}
+
+
+// TODO: Provisional
+bool FSPDispatcher::discard = false;
+double FSPDispatcher::discardRatio = 2.0;
+
+
 void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // TODO: Check that we are not in a change
     if (msg.isForEN() || !checkState()) return;
     showMsgSource(src, msg);
 
-//    if (!msg.isFromEN() && src == father.addr) {
-//        boost::shared_ptr<FSPAvailabilityInformation> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
-//        if (msg.getInfoSequenceUsed() + 1 < availInfo->getSeq()) {
-//            Logger::msg("Dsp.FSP", WARN, "Outdated information used: ", msg.getInfoSequenceUsed(), " != ", availInfo->getSeq());
-//            return;
-//        }
-//    }
-
     const TaskDescription & req = msg.getMinRequirements();
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
+
+    std::unique_ptr<stars::FSPTaskBagMsg> tmp;
+    const stars::FSPTaskBagMsg * castedMsg = dynamic_cast<const stars::FSPTaskBagMsg *>(&msg);
+    if (castedMsg) {
+        tmp.reset(castedMsg->clone());
+    } else {
+        tmp.reset(new stars::FSPTaskBagMsg(msg));
+    }
 
     std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2];
     std::array<double, 2> branchSlowness = {0.0, 0.0};
@@ -177,35 +202,42 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
         functions.computeTasksPerFunction(numTasksReq, a);
         double minSlowness = functions.getMinimumSlowness(), slownessLimit = getSlownessLimit();
         Logger::msg("Dsp.FSP", INFO, "Result minimum slowness is ", minSlowness);
+
         if (mustGoDown(src, msg) || minSlowness <= slownessLimit) {
-            numTasks = functions.computeTasksPerBranch();
-            updateBranchSlowness(functions.getNewBranchSlowness());
-            clusters[0].clear();
-            clusters[1].clear();
-            for (auto & func : functions) {
-                if (func.tasks) {
-                   clusters[func.child].push_back(func.cluster);
-                }
+
+            if (msg.isFromEN() || src != father.addr) {
+                Logger::msg("Dsp.FSP", WARN, "Setting the slowness of the request to ", minSlowness);
+                tmp->setEstimatedSlowness(minSlowness);
             }
-            for (int c : {0, 1}) {
-                if (!clusters[c].empty()) {
-                    child[c].availInfo->removeClusters(clusters[c]);
-                    child[c].hasNewInformation = true;
+
+            Logger::msg("Dsp.FSP", WARN, "Estimation difference: ", minSlowness, ' ', tmp->getEstimatedSlowness());
+            if (minSlowness > tmp->getEstimatedSlowness() * discardRatio) {
+                if (discard) {
+                    Logger::msg("Dsp.FSP", WARN, "Discard tasks, because slowness is much greater than expected: ",
+                            minSlowness, " >> ", tmp->getEstimatedSlowness());
+                    return;
+                } else {
+                    Logger::msg("Dsp.FSP", WARN, "Return tasks up, because slowness is much greater than expected: ",
+                            minSlowness, " >> ", tmp->getEstimatedSlowness());
                 }
-            }
-            recomputeInfo();
-            if (mustGoDown(src, msg)) {
-                Logger::msg("Dsp.FSP", DEBUG, "The request must go down.");
             } else {
-                Logger::msg("Dsp.FSP", DEBUG, "The slowness is below the limit ", slownessLimit);
-                // Only notify the father if the message does not come from it
-                notify();
+                numTasks = functions.computeTasksPerBranch();
+                updateBranchSlowness(functions.getNewBranchSlowness());
+                removeUsedClusters(functions);
+                recomputeInfo();
+                if (mustGoDown(src, msg)) {
+                    Logger::msg("Dsp.FSP", DEBUG, "The request must go down.");
+                } else {
+                    Logger::msg("Dsp.FSP", DEBUG, "The slowness is below the limit ", slownessLimit);
+                    // Only notify the father if the message does not come from it
+                    notify();
+                }
             }
         } else {
             Logger::msg("Dsp.FSP", INFO, "Not enough information to route this request, sending to the father.");
         }
     }
-    sendTasks(msg, numTasks, false);
+    sendTasks(*tmp, numTasks, false);
 }
 
 

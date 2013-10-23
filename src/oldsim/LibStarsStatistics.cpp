@@ -180,11 +180,13 @@ void LibStarsStatistics::saveCPUStatistics() {
     os << std::setprecision(6) << std::fixed;
 
     uint16_t port = ConfigurationManager::getInstance().getPort();
-    os << "# Node, tasks exec'd" << std::endl;
+    os << "# Node, tasks exec'd, max queue, max paused, power, mem, disk" << std::endl;
     for (unsigned long int addr = 0; addr < sim.getNumNodes(); ++addr) {
         StarsNode & node = sim.getNode(addr);
         unsigned int executedTasks = node.getSch().getExecutedTasks();
         os << CommAddress(addr, port) << ',' << executedTasks << ','
+                << node.getSch().getMaxQueueLength() << ','
+                << node.getSch().getMaxPausedTasks() << ','
                 << node.getAveragePower() << ',' << node.getAvailableMemory() << ',' << node.getAvailableDisk() << std::endl;
     }
 }

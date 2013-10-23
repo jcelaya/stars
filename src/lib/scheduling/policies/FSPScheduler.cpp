@@ -44,6 +44,9 @@ void FSPScheduler::reschedule() {
 
     // Start first task if it is not executing yet.
     if (!tasks.empty()) {
+        for (auto it = ++tasks.begin(); it != tasks.end(); ++it)
+            (*it)->pause();
+
         if (tasks.front()->getStatus() == Task::Prepared) {
             tasks.front()->run();
             startedTaskEvent(*tasks.front());

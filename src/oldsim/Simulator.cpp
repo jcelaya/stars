@@ -431,10 +431,19 @@ void Simulator::run() {
 
 
 unsigned long int Simulator::getMsgSize(boost::shared_ptr<BasicMsg> msg) {
-    ostringstream oss;
-    msgpack::packer<std::ostream> pk(&oss);
+    static struct CountBuffer : public std::streambuf {
+        streamsize count;
+        CountBuffer() : streambuf(), count(0) {}
+        streamsize xsputn (const char* s, streamsize n) {
+            count += n;
+            return n;
+        }
+    } buf;
+    static ostream os(&buf);
+    buf.count = 0;
+    msgpack::packer<std::ostream> pk(&os);
     msg->pack(pk);
-    return oss.tellp();
+    return buf.count;
 }
 
 
@@ -465,7 +474,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_pt
         }
         Duration txTime(size / (srcIface.outBW < dstIface.inBW ? srcIface.outBW : dstIface.inBW));
         Duration delay(netDelay());
-//        if (msg->getName() == "FSPAvailabilityInformation" || msg->getName() == "TaskBagMsg") {
+//        if (msg->getName() == "FSPAvailabilityInformation") {
 //            delay = Duration(0.0);
 //        }
         event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, delay, msg, size);

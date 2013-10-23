@@ -48,9 +48,14 @@ public:
         return child[c].waitingInfo;
     }
 
+    // TODO: Provisional
+    static bool discard;
+    static double discardRatio;
+
 private:
     static double beta;
     std::list<TaskBagMsg *> delayedRequests;
+    class FunctionVector;
 
     // This is documented in Dispatcher.
     virtual void recomputeChildrenInfo();
@@ -74,6 +79,8 @@ private:
 
     // This is documented in Dispatcher.
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
+
+    void removeUsedClusters(const FunctionVector& functions);
 };
 
 #endif /* FSPDISPATCHER_H_ */

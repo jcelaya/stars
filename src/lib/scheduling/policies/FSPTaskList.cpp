@@ -22,20 +22,28 @@
 
 namespace stars {
 
+bool FSPTaskList::preemptive = true;
+
+
+void FSPTaskList::addBoundaryValues(const TaskProxy& task, std::vector<double> & altBoundaries) {
+    for (auto it = preemptive ? begin() : ++begin(); it != end(); ++it)
+        if (it->a != task.a) {
+            double l = (task.rabs - it->rabs).seconds() / (it->a - task.a);
+            if (l > 0.0) {
+                altBoundaries.push_back(l);
+            }
+        }
+    std::sort(altBoundaries.begin(), altBoundaries.end());
+    // Remove duplicate values
+    altBoundaries.erase(std::unique(altBoundaries.begin(), altBoundaries.end()), altBoundaries.end());
+}
+
+
 void FSPTaskList::addTasks(const TaskProxy & task, unsigned int n) {
     // Calculate bounds with the rest of the tasks, except the first
     if (!empty()) {
-        for (auto it = ++begin(); it != end(); ++it)
-            if (it->a != task.a) {
-                double l = (task.rabs - it->rabs).seconds() / (it->a - task.a);
-                if (l > boundaries.front()) {
-                    boundaries.push_back(l);
-                }
-            }
-        std::sort(boundaries.begin(), boundaries.end());
-        // Remove duplicate values
-        boundaries.erase(std::unique(boundaries.begin(), boundaries.end()), boundaries.end());
-    } else {
+        addBoundaryValues(task, boundaries);
+    } else if (!preemptive) {
         // Minimum switch value is first task slowness
         Time firstTaskEndTime = Time::getCurrentTime() + Duration(task.t);
         boundaries.push_back((firstTaskEndTime - task.rabs).seconds() / task.a);
@@ -74,13 +82,14 @@ double FSPTaskList::getSlowness() const {
 
 void FSPTaskList::sortBySlowness(double slowness) {
     if (size() > 1) {
-        // Sort the vector, leaving the first task as is
         std::list<TaskProxy> tmp;
-        tmp.splice(tmp.begin(), *this, begin());
+        if (!preemptive)
+            tmp.splice(tmp.begin(), *this, begin());
         for (iterator i = begin(); i != end(); ++i)
             i->setSlowness(slowness);
         sort();
-        splice(begin(), tmp, tmp.begin());
+        if (!preemptive)
+            splice(begin(), tmp, tmp.begin());
     }
 }
 
@@ -98,15 +107,17 @@ void FSPTaskList::computeBoundaries() {
         dirty = false;
         boundaries.clear();
         if (!empty()) {
-            // Minimum switch value is first task slowness
-            Time firstTaskEndTime = Time::getCurrentTime() + Duration(front().t);
-            boundaries.push_back((firstTaskEndTime - front().rabs).seconds() / front().a);
+            if (!preemptive) {
+                // Minimum switch value is first task slowness
+                Time firstTaskEndTime = Time::getCurrentTime() + Duration(front().t);
+                boundaries.push_back((firstTaskEndTime - front().rabs).seconds() / front().a);
+            }
             // Calculate bounds with the rest of the tasks, except the first
-            for (const_iterator it = ++begin(); it != end(); ++it) {
-                for (const_iterator jt = it; jt != end(); ++jt) {
+            for (auto it = preemptive ? begin() : ++begin(); it != end(); ++it) {
+                for (auto jt = it; jt != end(); ++jt) {
                     if (it->a != jt->a) {
                         double l = (jt->rabs - it->rabs).seconds() / (it->a - jt->a);
-                        if (l > boundaries.front()) {
+                        if (l > 0.0) {
                             boundaries.push_back(l);
                         }
                     }
@@ -121,29 +132,33 @@ void FSPTaskList::computeBoundaries() {
 
 
 void FSPTaskList::sortMinSlowness(const std::vector<double> & altBoundaries) {
-    if (empty()) return;
-    Time now = Time::getCurrentTime();
-    // Trivial case, first switch value is minimum slowness so that first task meets deadline
-    if (altBoundaries.size() == 1) {
-        sortBySlowness(altBoundaries.front() + 1.0);
-        return;
+    if (!empty()) {
+        Time now = Time::getCurrentTime();
+        if (altBoundaries.empty()) {
+            sortBySlowness(1.0);
+        } else if (altBoundaries.size() == 1) {
+            sortBySlowness(altBoundaries.front() / 2.0);
+            if (!meetDeadlines(altBoundaries.front(), now))
+                sortBySlowness(altBoundaries.front() + 1.0);
+        } else {
+            unsigned int minLi = 0, maxLi = altBoundaries.size() - 1;
+            // Calculate interval by binary search
+            while (maxLi > minLi + 1) {
+                unsigned int medLi = (minLi + maxLi) >> 1;
+                sortBySlowness((altBoundaries[medLi] + altBoundaries[medLi + 1]) / 2.0);
+                // For each app, check whether it is going to finish in time or not.
+                if (meetDeadlines(altBoundaries[medLi], now))
+                    maxLi = medLi;
+                else
+                    minLi = medLi;
+            }
+            // Sort them one last time
+            sortBySlowness((altBoundaries[minLi] + altBoundaries[minLi + 1]) / 2.0);
+            // If maxLi is still size-1, check interval lBounds[maxLi]-infinite
+            if (maxLi == altBoundaries.size() - 1 && !meetDeadlines(altBoundaries.back(), now))
+                sortBySlowness(altBoundaries.back() + 1.0);
+        }
     }
-    // Calculate interval by binary search
-    unsigned int minLi = 0, maxLi = altBoundaries.size() - 1;
-    while (maxLi > minLi + 1) {
-        unsigned int medLi = (minLi + maxLi) >> 1;
-        sortBySlowness((altBoundaries[medLi] + altBoundaries[medLi + 1]) / 2.0);
-        // For each app, check whether it is going to finish in time or not.
-        if (meetDeadlines(altBoundaries[medLi], now))
-            maxLi = medLi;
-        else
-            minLi = medLi;
-    }
-    // Sort them one last time
-    sortBySlowness((altBoundaries[minLi] + altBoundaries[minLi + 1]) / 2.0);
-    // If maxLi is still size-1, check interval lBounds[maxLi]-infinite
-    if (maxLi == altBoundaries.size() - 1 && !meetDeadlines(altBoundaries.back(), now))
-        sortBySlowness(altBoundaries.back() + 1.0);
 }
 
 void FSPTaskList::updateReleaseTime() {

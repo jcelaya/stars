@@ -70,7 +70,7 @@ public:
 
     // This is documented in Service.
     bool receiveMessage(const CommAddress & src, const BasicMsg & msg) {
-        if (typeid(msg) == typeid(TaskBagMsg)) {
+        if (dynamic_cast<const TaskBagMsg *>(&msg)) {
             handle(src, static_cast<const TaskBagMsg &>(msg));
             return true;
         } else if (typeid(msg) == typeid(UpdateTimer)) {
@@ -295,7 +295,7 @@ protected:
                     CommLayer::getInstance().sendMessage(branch.getFatherAddress(), tbm);
                 }
             } else {
-                Logger::msg("Dsp", DEBUG, "But we are the root");
+                Logger::msg("Dsp", WARN, "Discarding ", msg.getLastTask() - (nextTask - 1), " because we are the root");
             }
         }
     }

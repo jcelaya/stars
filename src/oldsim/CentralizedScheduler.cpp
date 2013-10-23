@@ -39,12 +39,9 @@ using namespace stars;
 
 
 CentralizedScheduler::CentralizedScheduler() : sim(Simulator::getInstance()), queues(sim.getNumNodes()),
-        maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue),
-        maxSlowness(0.0), nodeMaxSlowness(sim.getNumNodes(), 0.0), inTraffic(0), outTraffic(0) {
+        maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue), inTraffic(0), outTraffic(0) {
     queueos.open(sim.getResultDir() / fs::path("cent_queue_length.stat"));
     queueos << "# Time, max" << endl << setprecision(3) << fixed;
-    slowos.open(sim.getResultDir() / fs::path("cent_slowness.stat"));
-    slowos << "# Time, maximum slowness" << std::fixed << std::endl;
 }
 
 
@@ -72,17 +69,8 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
             Logger::msg("Dsp.Cent", INFO, "Request ", msg->getRequestId(), " at ", ev.t,
                     " with ", msg->getLastTask() - msg->getFirstTask() + 1, " tasks of length ", msg->getMinRequirements().getLength());
 
-            double currentMaxSlowness = maxSlowness;
-
             // Reschedule
             newApp(msg);
-
-            if (currentMaxSlowness != maxSlowness) {
-                slowos << std::setprecision(3) << (Time::getCurrentTime().getRawDate() / 1000000.0) << ','
-                    << std::setprecision(8) << currentMaxSlowness << std::endl;
-                slowos << std::setprecision(3) << (Time::getCurrentTime().getRawDate() / 1000000.0) << ','
-                    << std::setprecision(8) << maxSlowness << std::endl;
-            }
 
             sim.getPerfStats().endEvent("Centralized scheduling");
 
@@ -121,38 +109,10 @@ void CentralizedScheduler::sendOneTask(unsigned int to) {
 }
 
 
-double CentralizedScheduler::getMaxSlowness(unsigned int node) {
-    // Calculate queue end and maximum slowness
-    Time queueEnd = queueEnds[node];
-    double currentMaxSlowness = 0.0;
-    std::list<TaskDesc> & tasks = queues[node];
-    for (std::list<TaskDesc>::reverse_iterator it = tasks.rbegin(); it != tasks.rend(); ++it) {
-        double slowness = (queueEnd - it->r).seconds() / it->msg->getMinRequirements().getLength();
-        queueEnd -= it->a;
-        if (currentMaxSlowness < slowness) currentMaxSlowness = slowness;
-    }
-    return currentMaxSlowness;
-}
-
-
 void CentralizedScheduler::taskFinished(unsigned int node) {
     Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", AddrIO(node));
     if (!queues[node].empty()) {
         queues[node].pop_front();
-        double currentMaxSlowness = getMaxSlowness(node);
-        if (nodeMaxSlowness[node] == maxSlowness) {
-            Time now = Time::getCurrentTime();
-            nodeMaxSlowness[node] = currentMaxSlowness;
-            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-                << std::setprecision(8) << maxSlowness << std::endl;
-            maxSlowness = 0.0;
-            for (uint32_t i = 0; i < sim.getNumNodes(); ++i)
-                if (maxSlowness < nodeMaxSlowness[i])
-                    maxSlowness = nodeMaxSlowness[i];
-            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-                << std::setprecision(8) << maxSlowness << std::endl;
-        } else
-            nodeMaxSlowness[node] = currentMaxSlowness;
         if (!queues[node].empty())
             sendOneTask(node);
     } else {
@@ -189,16 +149,6 @@ void CentralizedScheduler::updateQueue(unsigned int node) {
         maxQueue = queueEnds[node];
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
     }
-    double currentMaxSlowness = getMaxSlowness(node);
-    // Record maximum slowness
-    nodeMaxSlowness[node] = currentMaxSlowness;
-    if (maxSlowness < currentMaxSlowness) {
-        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << maxSlowness << std::endl;
-        maxSlowness = currentMaxSlowness;
-        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << maxSlowness << std::endl;
-    }
 }
 
 
@@ -208,9 +158,6 @@ CentralizedScheduler::~CentralizedScheduler() {
     queueos << "#Centralized scheduler would consume (just with request traffic):" << endl;
     queueos << "#  " << inTraffic << " in bytes, " << outTraffic << " out bytes" << endl;
     queueos.close();
-    slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-        << std::setprecision(8) << maxSlowness << std::endl;
-    slowos.close();
 }
 
 

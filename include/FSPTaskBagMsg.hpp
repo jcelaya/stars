@@ -18,32 +18,30 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMTASK_H_
-#define SIMTASK_H_
+#ifndef FSPTASKBAGMSG_H_
+#define FSPTASKBAGMSG_H_
 
-#include "Task.hpp"
-class TaskDescription;
+#include "TaskBagMsg.hpp"
 
+namespace stars {
 
-class SimTask : public Task {
-    int timer;
-    Duration taskDuration;
-    Time finishTime;
-
+class FSPTaskBagMsg: public TaskBagMsg {
 public:
-    SimTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d);
+    FSPTaskBagMsg() : slowness(0.0) {}
+    FSPTaskBagMsg(const TaskBagMsg & copy) : TaskBagMsg(copy), slowness(0.0) {}
+    FSPTaskBagMsg(const FSPTaskBagMsg & copy) : TaskBagMsg(copy), slowness(copy.slowness) {}
 
-    int getStatus() const;
+    MESSAGE_SUBCLASS(FSPTaskBagMsg);
 
-    void run();
+    double getEstimatedSlowness() const { return slowness; }
+    void setEstimatedSlowness(double s) { slowness = s; }
 
-    void pause();
+    MSGPACK_DEFINE((TaskBagMsg &)*this, slowness);
 
-    bool isPaused();
-
-    void abort();
-
-    Duration getEstimatedDuration() const;
+private:
+    double slowness;
 };
 
-#endif /*SIMTASK_H_*/
+} /* namespace stars */
+
+#endif /* FSPTASKBAGMSG_H_ */

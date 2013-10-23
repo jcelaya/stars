@@ -70,7 +70,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         case Task::Aborted: {
             // Remove the task from the queue
             bool notFound = true;
-            for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); ++i)
+            for (auto i = tasks.begin(); i != tasks.end() && notFound; ++i)
                 if ((*i)->getTaskId() == msg.getTaskId()) {
                     notFound = false;
                     // For statistics purpose
@@ -94,6 +94,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
             break;
         }
         reschedule();
+        countPausedTasks();
         notifySchedule();
     }
 }
@@ -159,6 +160,7 @@ bool Scheduler::checkStaticRequirements(const TaskDescription & req) {
 template<> void Scheduler::handle(const CommAddress & src, const RescheduleTimer & msg) {
     rescheduleTimer = 0;
     reschedule();
+    countPausedTasks();
     notifySchedule();
 }
 
@@ -171,7 +173,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
     for (unsigned int i = 0; i < msg.getNumTasks(); i++) {
         // Check that the id exists
         bool notFound = true;
-        for (list<boost::shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); ++it)
+        for (auto it = tasks.begin(); it != tasks.end() && notFound; ++it)
             if ((*it)->getClientRequestId() == msg.getRequestId() && (*it)->getClientTaskId() == msg.getTask(i)) {
                 notFound = false;
                 finishedTaskEvent(**it, (*it)->getStatus(), Task::Aborted);
@@ -182,6 +184,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
         if (notFound) Logger::msg("Ex.Sch", ERROR, "Failed to remove non-existent task ", msg.getTask(i), " from request ", msg.getRequestId());
     }
     reschedule();
+    countPausedTasks();
     notifySchedule();
 }
 
@@ -208,8 +211,8 @@ template<> void Scheduler::handle(const CommAddress & src, const MonitorTimer & 
 
 #define HANDLE_MESSAGE(x) if (typeid(msg) == typeid(x)) { handle(src, static_cast<const x &>(msg)); return true; }
 bool Scheduler::receiveMessage(const CommAddress & src, const BasicMsg & msg) {
+    if (dynamic_cast<const TaskBagMsg *>(&msg)) { handle(src, static_cast<const TaskBagMsg &>(msg)); return true; }
     HANDLE_MESSAGE(TaskStateChgMsg)
-    HANDLE_MESSAGE(TaskBagMsg)
     HANDLE_MESSAGE(RescheduleTimer)
     HANDLE_MESSAGE(AbortTaskMsg)
     HANDLE_MESSAGE(MonitorTimer)

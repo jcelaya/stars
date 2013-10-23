@@ -81,7 +81,7 @@ public:
     };
 
     Scheduler(OverlayLeaf & l) : leaf(l), seqNum(0), currentTbm(NULL), inChange(false), dirty(false),
-            rescheduleTimer(0), monitorTimer(0), tasksExecuted(0) {
+            rescheduleTimer(0), monitorTimer(0), tasksExecuted(0), maxQueueLength(0), maxPausedTasks(0) {
         leaf.registerObserver(this);
     }
 
@@ -114,7 +114,12 @@ public:
                     msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
             acceptTask(tasks.back());
         }
-        if (numAccepted) reschedule();
+        if (tasks.size() > maxQueueLength)
+            maxQueueLength = tasks.size();
+        if (numAccepted) {
+            reschedule();
+            countPausedTasks();
+        }
         currentTbm = NULL;
         return numAccepted;
     }
@@ -135,6 +140,14 @@ public:
 
     unsigned long int getExecutedTasks() const {
         return tasksExecuted;
+    }
+
+    unsigned int getMaxQueueLength() const {
+        return maxQueueLength;
+    }
+
+    unsigned int getMaxPausedTasks() const {
+        return maxPausedTasks;
     }
 
 protected:
@@ -187,6 +200,15 @@ protected:
     void addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted);
     void startedTaskEvent(const Task & t);
     void finishedTaskEvent(const Task & t, int oldState, int newState);
+    void countPausedTasks() {
+        unsigned int numPaused = 0;
+        for (auto & task : tasks) {
+            if (task->isPaused())
+                ++numPaused;
+        }
+        if (maxPausedTasks < numPaused)
+            maxPausedTasks = numPaused;
+    }
 
 private:
     bool inChange;         ///< States whether the father of the ResourceNode is changing.
@@ -197,6 +219,8 @@ private:
     // Statistics
     unsigned long int tasksExecuted;   ///< Number of executed tasks since the peer started
     Duration timeRunning;              ///< Amount of time not idle
+    unsigned int maxQueueLength;
+    unsigned int maxPausedTasks;
 
     // This is documented in OverlayLeafObserver
     void fatherChanging() {
