@@ -74,7 +74,7 @@ public:
      * Returns the number of seconds that are expected until next heartbeat.
      * @return ID of task.
      */
-    uint32_t getHeartbeat() const {
+    int32_t getHeartbeat() const {
         return heartbeat;
     }
 
@@ -82,7 +82,7 @@ public:
      * Sets the number of seconds that are expected until next heartbeat.
      * @param n ID of task.
      */
-    void setHeartbeat(uint32_t n) {
+    void setHeartbeat(int32_t n) {
         heartbeat = n;
     }
 
@@ -93,7 +93,7 @@ public:
 private:
     std::vector<std::pair<int64_t, uint32_t> > tasks;
     std::vector<int32_t> states;
-    uint32_t heartbeat;     ///< seconds until next monitoring report
+    int32_t heartbeat;     ///< seconds until next monitoring report
 };
 
 #endif /* TASKMONITORMSG_H_ */

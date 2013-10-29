@@ -43,7 +43,7 @@ class ConfigurationManager {
     uint16_t uiPort;          ///< TCP port for UI connections
     std::string logString;    ///< Logging configuration string
     int submitRetries;        ///< Number of retries of a failing submission
-    unsigned int heartbeat;   ///< Number of seconds between heartbeat signals from scheduler to submission nodes
+    int heartbeat;   ///< Number of seconds between heartbeat signals from scheduler to submission nodes
     unsigned int availMemory;       ///< Available memory for tasks
     unsigned int availDisk;         ///< Available disk for tasks
     boost::filesystem::path dbPath;
@@ -176,14 +176,14 @@ public:
     /**
      * Returns the number of seconds between heartbeat signals from scheduler to submission nodes
      */
-    unsigned int getHeartbeat() const {
+    int getHeartbeat() const {
         return heartbeat;
     }
 
     /**
      * Sets the number of seconds between heartbeat signals from scheduler to submission nodes
      */
-    void setHeartbeat(unsigned int h) {
+    void setHeartbeat(int h) {
         heartbeat = h;
     }
 

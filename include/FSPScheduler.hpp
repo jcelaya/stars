@@ -33,7 +33,7 @@ namespace stars {
  * This scheduler calculates the minimum stretch that can be assigned to all applications,
  * by calculating the deadlines so that they are all met.
  */
-class FSPScheduler: public Scheduler {
+class FSPScheduler : public Scheduler {
 public:
     /**
      * Creates a new MinStretchScheduler with an empty list and an empty availability function.

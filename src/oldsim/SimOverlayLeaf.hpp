@@ -32,6 +32,10 @@ public:
 
     void setFatherAddress(const CommAddress & addr) { father = addr; }
 
+    void simulateFatherChange() {
+        fireFatherChanging();
+    }
+
     friend std::ostream & operator<<(std::ostream& os, const SimOverlayLeaf & l) {
         os << "f=" << l.father;
         return os;

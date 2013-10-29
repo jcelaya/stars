@@ -145,7 +145,9 @@ public:
 
     // This is documented in BasicMsg
     void output(std::ostream& os) const {
-        os << "Request " << requestId << " from " << requester << " (" << (fromEN ? "RN" : "SN") << "->" << (forEN ? "RN" : "SN") << "), (" << firstTask << ',' << lastTask << ")";
+        os << "Request " << requestId << " from " << requester
+                << " (" << (fromEN ? "RN" : "SN") << "->" << (forEN ? "RN" : "SN") << ')'
+                << ", (" << firstTask << ',' << lastTask << ")";
         // os << *minRequirements;
     }
 

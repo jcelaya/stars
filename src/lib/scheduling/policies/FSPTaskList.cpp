@@ -22,10 +22,10 @@
 
 namespace stars {
 
-bool FSPTaskList::preemptive = true;
+bool FSPTaskList::preemptive = false;
 
 
-void FSPTaskList::addBoundaryValues(const TaskProxy& task, std::vector<double> & altBoundaries) {
+void FSPTaskList::addBoundaryValues(const TaskProxy & task, std::vector<double> & altBoundaries) {
     for (auto it = preemptive ? begin() : ++begin(); it != end(); ++it)
         if (it->a != task.a) {
             double l = (task.rabs - it->rabs).seconds() / (it->a - task.a);

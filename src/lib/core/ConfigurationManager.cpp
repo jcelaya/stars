@@ -62,7 +62,7 @@ ConfigurationManager::ConfigurationManager() : description("Allowed options") {
     ("disk,d", value<unsigned int>(&availDisk), "available disk for tasks")
     ("update_bw,u", value<double>(&updateBW), "update bandwidth limit")
     ("retries,r", value<int>(&submitRetries), "automatic submission retries")
-    ("heartbeat,h", value<unsigned int>(&heartbeat), "task heartbeat period")
+    ("heartbeat,h", value<int>(&heartbeat), "task heartbeat period")
     ;
 }
 
