@@ -48,12 +48,9 @@ public:
     virtual unsigned int acceptable(const TaskBagMsg & msg);
 
     // This is documented in Scheduler
-    virtual const FSPAvailabilityInformation * getAvailability() const {
-        return &info;
-    }
+    virtual FSPAvailabilityInformation * getAvailability() const;
 
 private:
-    FSPAvailabilityInformation info;
     stars::FSPTaskList proxys;
 
     // This is documented in Scheduler

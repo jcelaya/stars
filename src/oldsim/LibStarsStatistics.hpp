@@ -37,9 +37,6 @@ public:
 
     /// Open the statistics file at the given directory.
     void openStatsFiles(const boost::filesystem::path & statDir);
-    void setNumNodes(unsigned int n) {
-        nodeMaxSlowness.resize(n, 0.0);
-    }
 
     void saveTotalStatistics() {
         saveCPUStatistics();
@@ -81,14 +78,10 @@ private:
 
     // App statistics
     void finishAppStatistics();
-    Time updateCurMaxSlowness();
     boost::filesystem::ofstream appos;
     boost::filesystem::ofstream reqos;
-    boost::filesystem::ofstream slowos;
     unsigned int unfinishedApps;
     unsigned int totalApps;
-    double maxSlowness;
-    std::vector<double> nodeMaxSlowness;
 };
 
 #endif /* LIBSTARSSTATISTICS_H_ */

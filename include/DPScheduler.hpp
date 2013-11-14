@@ -32,14 +32,6 @@
  * by its deadline, so that tasks with earlier deadline are executed first.
  */
 class DPScheduler : public Scheduler {
-    DPAvailabilityInformation info;   ///< Current availability function
-
-    /**
-     * Calculates the availability function from the list of tasks,
-     * and updates the availability summary of Scheduler
-     */
-    void calculateAvailability();
-
     // This is documented in Scheduler
     void reschedule();
 
@@ -49,7 +41,6 @@ public:
      * @param resourceNode Resource node associated with this scheduler.
      */
     DPScheduler(OverlayLeaf & l) : Scheduler(l) {
-        calculateAvailability();
         notifySchedule();
     }
 
@@ -60,9 +51,7 @@ public:
     unsigned long int getAvailabilityBefore(Time d);
 
     // This is documented in Scheduler
-    virtual const DPAvailabilityInformation * getAvailability() const {
-        return &info;
-    }
+    virtual DPAvailabilityInformation * getAvailability() const;
 };
 
 #endif /* DPSCHEDULER_H_ */

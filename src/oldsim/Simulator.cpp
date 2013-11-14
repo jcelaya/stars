@@ -292,7 +292,6 @@ void Simulator::setProperties(Properties & property) {
 
     // Statistics
     sstats.openStatsFiles(resultDir);
-    sstats.setNumNodes(numNodes);
     tstats.setNumNodes(numNodes);
 
     // Node creation
@@ -526,4 +525,6 @@ void Simulator::showStatistics() {
     sstats.saveTotalStatistics();
     pstats.saveTotalStatistics();
     tstats.saveTotalStatistics();
+    if (cs.get())
+        cs->showStatistics();
 }

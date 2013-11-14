@@ -39,9 +39,6 @@ void FSPScheduler::reschedule() {
     }
     Logger::msg("Ex.Sch.MS", DEBUG, "Minimum slowness ", proxys.getSlowness());
 
-    info.setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
-            proxys, backend.impl->getAveragePower());
-
     // Start first task if it is not executing yet.
     if (!tasks.empty()) {
         for (auto it = ++tasks.begin(); it != tasks.end(); ++it)
@@ -57,6 +54,14 @@ void FSPScheduler::reschedule() {
 }
 
 
+FSPAvailabilityInformation * FSPScheduler::getAvailability() const {
+    FSPAvailabilityInformation * info = new FSPAvailabilityInformation;
+    info->setAvailability(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
+            proxys, backend.impl->getAveragePower());
+    return info;
+}
+
+
 unsigned int FSPScheduler::acceptable(const TaskBagMsg & msg) {
     // Always accept new tasks
     unsigned int numAccepted = msg.getLastTask() - msg.getFirstTask() + 1;
@@ -64,4 +69,4 @@ unsigned int FSPScheduler::acceptable(const TaskBagMsg & msg) {
     return numAccepted;
 }
 
-}
+} // namespace stars

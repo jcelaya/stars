@@ -28,7 +28,7 @@
 
 
 LibStarsStatistics::LibStarsStatistics() : existingTasks(0), runningTasks(0), partialFinishedTasks(0), totalFinishedTasks(0),
-        partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0), maxSlowness(0.0) {}
+        partialComputation(0), totalComputation(0), unfinishedApps(0), totalApps(0) {}
 
 
 void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir) {
@@ -46,8 +46,6 @@ void LibStarsStatistics::openStatsFiles(const boost::filesystem::path & statDir)
     appos << "# App. ID, src node, num tasks, task size, task mem, task disk, release date, deadline, num finished, JTT, sequential time at src, slowness" << std::endl;
     reqos.open(statDir / fs::path("requests.stat"));
     reqos << "# Req. ID, App. ID, num tasks, num nodes, num accepted, release date, search time" << std::endl;
-    slowos.open(statDir / fs::path("slowness.stat"));
-    slowos << "# Time, maximum slowness" << std::fixed << std::endl;
 
     lastTSample = Simulator::getInstance().getCurrentTime();
 }
@@ -69,47 +67,15 @@ void Scheduler::finishedTaskEvent(const Task & t, int oldState, int newState) {
 }
 
 
-Time LibStarsStatistics::updateCurMaxSlowness() {
-    Simulator & sim = Simulator::getInstance();
-    // Calculate queue end and maximum slowness
-    Time queueEnd = sim.getCurrentTime(), now = queueEnd;
-    double & curMaxSlowness = nodeMaxSlowness[sim.getCurrentNodeNum()], prevMaxSlowness = curMaxSlowness;
-    curMaxSlowness = 0.0;
-    std::list<boost::shared_ptr<Task> > & tasks = sim.getCurrentNode().getSch().getTasks();
-    for (std::list<boost::shared_ptr<Task> >::iterator it = tasks.begin(); it != tasks.end(); it++) {
-        queueEnd += (*it)->getEstimatedDuration();
-        double slowness = (queueEnd - (*it)->getCreationTime()).seconds() / (*it)->getDescription().getLength();
-        if (curMaxSlowness < slowness) curMaxSlowness = slowness;
-    }
-
-    // Record maximum slowness
-    if (curMaxSlowness > maxSlowness) {
-        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << maxSlowness << std::endl;
-        maxSlowness = curMaxSlowness;
-        slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-            << std::setprecision(8) << maxSlowness << std::endl;
-    } else if (prevMaxSlowness == maxSlowness) {
-        maxSlowness = 0.0;
-        for (uint32_t i = 0; i < sim.getNumNodes(); ++i)
-            if (maxSlowness < nodeMaxSlowness[i])
-                maxSlowness = nodeMaxSlowness[i];
-        if (maxSlowness < prevMaxSlowness) {
-            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-                << std::setprecision(8) << prevMaxSlowness << std::endl;
-            slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-                << std::setprecision(8) << maxSlowness << std::endl;
-        }
-    }
-
-    return queueEnd;
-}
-
-
 void LibStarsStatistics::addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted) {
+    Simulator & sim = Simulator::getInstance();
     existingTasks += numAccepted;
-    CommAddress a = Simulator::getInstance().getCurrentNode().getLocalAddress();
-    Time now = Simulator::getInstance().getCurrentTime(), queueEnd = updateCurMaxSlowness();
+    CommAddress a = sim.getCurrentNode().getLocalAddress();
+    Time now = sim.getCurrentTime(), queueEnd = now;
+    auto & tasks = sim.getCurrentNode().getSch().getTasks();
+    for (auto it = tasks.begin(); it != tasks.end(); it++) {
+        queueEnd += (*it)->getEstimatedDuration();
+    }
     // Record maximum queue length
     if (maxQueue < queueEnd) {
         queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds()
@@ -149,8 +115,6 @@ void LibStarsStatistics::taskFinished(const Task & t, int oldState, int newState
     --existingTasks;
     if (oldState == Task::Running)
         --runningTasks;
-    // Calculate current maximum slowness, and record it
-    updateCurMaxSlowness();
     // Record throughput
     if (newState == Task::Finished) {
         Time now = Time::getCurrentTime();
@@ -255,48 +219,25 @@ void LibStarsStatistics::finishAppStatistics() {
     // Calculate expected end time and remaining tasks of each application in course
     std::vector<std::map<int64_t, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
     boost::shared_ptr<CentralizedScheduler> ps = sim.getCentralizedScheduler();
-    if (ps.get()) {
-        for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
-            // Get the task queue
-            const std::list<CentralizedScheduler::TaskDesc> & tasks = ps->getQueue(n);
-            Time end = now;
-            // For each task...
-            for (std::list<CentralizedScheduler::TaskDesc>::const_iterator t = tasks.begin(); t != tasks.end(); t++) {
-                // Get its app, add a finished task and check its finish time
-                end += t->a;
-                uint32_t origin = t->msg->getRequester().getIPNum();
-                int64_t appId = SimAppDatabase::getAppId(t->msg->getRequestId());
-                std::map<int64_t, std::pair<Time, int> >::iterator j = unfinishedAppsPerNode[origin].find(appId);
-                if (j == unfinishedAppsPerNode[origin].end())
-                    unfinishedAppsPerNode[origin][appId] = std::make_pair(end, 1);
-                else {
-                    if (j->second.first < end) j->second.first = end;
-                    ++(j->second.second);
-                }
-            }
+    for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
+        int tasksInCentral = ps.get() ? ps->getUnfinishedTasks(n, unfinishedAppsPerNode) : 0;
+        // Get the task queue
+        std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
+        Time end = now;
+        // For each task, but the tasks in the centralized scheduler...
+        auto t = tasks.begin();
+        while (tasksInCentral-- > 0) ++t;
+        for (; t != tasks.end(); ++t) {
+            // Get its app, add a finished task and check its finish time
+            end += (*t)->getEstimatedDuration();
+            uint32_t origin = (*t)->getOwner().getIPNum();
+            int64_t appId = SimAppDatabase::getAppId((*t)->getClientRequestId());
+            auto & unfinishedTasks = unfinishedAppsPerNode[origin][appId];
+            if (unfinishedTasks.first < end)
+                unfinishedTasks.first = end;
+            ++unfinishedTasks.second;
         }
-    } else {
-        for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
-            // Get the task queue
-            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
-            Time end = now;
-            // For each task...
-            for (std::list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); t++) {
-                // Get its app, add a finished task and check its finish time
-                end += (*t)->getEstimatedDuration();
-                uint32_t origin = (*t)->getOwner().getIPNum();
-                int64_t appId = SimAppDatabase::getAppId((*t)->getClientRequestId());
-                std::map<int64_t, std::pair<Time, int> >::iterator j = unfinishedAppsPerNode[origin].find(appId);
-                if (j == unfinishedAppsPerNode[origin].end())
-                    unfinishedAppsPerNode[origin][appId] = std::make_pair(end, 1);
-                else {
-                    if (j->second.first < end) j->second.first = end;
-                    ++(j->second.second);
-                }
-            }
-        }
-     }
-    // Take into account centralized scheduler queues
+    }
 
     // Reorder unfinished apps
     std::list<UnfinishedApp> sortedApps;
@@ -316,8 +257,4 @@ void LibStarsStatistics::finishAppStatistics() {
     appos << "# " << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
         << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl;
     //appos << "# " << FSPDispatcher::estimations << " total estimations (if FSP)." << std::endl;
-
-    slowos << std::setprecision(3) << (now.getRawDate() / 1000000.0) << ','
-        << std::setprecision(8) << maxSlowness << std::endl;
-    slowos.close();
 }

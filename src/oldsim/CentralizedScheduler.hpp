@@ -22,8 +22,10 @@
 #define CENTRALIZEDSCHEDULER_H_
 
 #include <vector>
+#include <map>
 #include <list>
 #include <string>
+#include <utility>
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
 #include "Time.hpp"
@@ -45,11 +47,14 @@ public:
         }
     };
 
-    virtual ~CentralizedScheduler();
+    virtual ~CentralizedScheduler() {}
     virtual bool blockEvent(const Simulator::Event & ev);
     virtual bool blockMessage(const boost::shared_ptr<BasicMsg> & msg);
 
     const std::list<TaskDesc> & getQueue(int n) const { return queues[n]; }
+
+    int getUnfinishedTasks(unsigned int node, std::vector<std::map<int64_t, std::pair<Time, int> > > & unfinishedAppsPerNode) const;
+    void showStatistics();
 
     static boost::shared_ptr<CentralizedScheduler> createScheduler(const std::string & type);
 

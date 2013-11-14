@@ -41,7 +41,7 @@ public:
     SlaveLocalScheduler(OverlayLeaf & l) : Scheduler(l) {}
 
     // This is documented in Scheduler
-    virtual const AvailabilityInformation * getAvailability() const {
+    virtual AvailabilityInformation * getAvailability() const {
         return nullptr;
     }
 };

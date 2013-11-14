@@ -27,8 +27,6 @@
 void IBPScheduler::reschedule() {
     if (tasks.empty()) {
         Logger::msg("Ex.Sch.Simple", DEBUG, "Simple@", this, ": No tasks");
-        info.reset();
-        info.addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk());
     } else {
         Time estimatedFinish = Time::getCurrentTime() + tasks.front()->getEstimatedDuration();
         Logger::msg("Ex.Sch.Simple", DEBUG, "Simple@", this, ": One task, finishes at ", estimatedFinish);
@@ -37,9 +35,16 @@ void IBPScheduler::reschedule() {
             tasks.front()->run();
             startedTaskEvent(*tasks.front());
         }
-
-        info.reset();
     }
+}
+
+
+IBPAvailabilityInformation * IBPScheduler::getAvailability() const {
+    IBPAvailabilityInformation * info = new IBPAvailabilityInformation;
+    if (tasks.empty()) {
+        info->addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk());
+    }
+    return info;
 }
 
 

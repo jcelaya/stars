@@ -133,8 +133,28 @@ void CentralizedScheduler::updateQueue(unsigned int node) {
 }
 
 
-CentralizedScheduler::~CentralizedScheduler() {
+void CentralizedScheduler::showStatistics() {
     Logger::msg("Sim.Progress", 0, "Centralized request traffic: ", inTraffic, "B in, ", outTraffic, "B out");
+}
+
+
+int CentralizedScheduler::getUnfinishedTasks(unsigned int node,
+        std::vector<std::map<int64_t, std::pair<Time, int> > > & unfinishedAppsPerNode) const {
+    // Get the task queue
+    auto & tasks = queues[node];
+    Time end = sim.getCurrentTime();
+    // For each task...
+    for (auto t = tasks.begin(); t != tasks.end(); ++t) {
+        // Get its app, add a finished task and check its finish time
+        end += t->a;
+        uint32_t origin = t->msg->getRequester().getIPNum();
+        int64_t appId = SimAppDatabase::getAppId(t->msg->getRequestId());
+        auto & unfinishedTasks = unfinishedAppsPerNode[origin][appId];
+        if (unfinishedTasks.first < end)
+            unfinishedTasks.first = end;
+        ++unfinishedTasks.second;
+    }
+    return tasks.size();
 }
 
 

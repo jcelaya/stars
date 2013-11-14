@@ -68,19 +68,18 @@ void DPScheduler::reschedule() {
         startedTaskEvent(*tasks.front());
     }
 
-    calculateAvailability();
-
     // Program a timer
     if (!tasks.empty())
         rescheduleAt(Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRescheduleTimeout()));
 }
 
 
-void DPScheduler::calculateAvailability() {
-    info.reset();
-    info.addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
+DPAvailabilityInformation * DPScheduler::getAvailability() const {
+    DPAvailabilityInformation * info = new DPAvailabilityInformation;
+    info->addNode(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
                  backend.impl->getAveragePower(), tasks);
-    Logger::msg("Ex.Sch.EDF", DEBUG, "Function is ", info);
+    Logger::msg("Ex.Sch.EDF", DEBUG, "Function is ", *info);
+    return info;
 }
 
 
@@ -121,7 +120,6 @@ unsigned int DPScheduler::acceptable(const TaskBagMsg & msg) {
                 "   Lenght: ", msg.getMinRequirements().getLength(),
                 " (", Duration(msg.getMinRequirements().getLength() / backend.impl->getAveragePower()), ')');
         Logger::msg("Ex.Sch.EDF", DEBUG, "Available: ", available, ", ", numSlots, " slots");
-        Logger::msg("Ex.Sch.EDF", DEBUG, "Info: ", info);
         Logger::msg("Ex.Sch.EDF", DEBUG, "Task queue:");
         for (auto & t : tasks)
             Logger::msg("Ex.Sch.EDF", DEBUG, "   ", t->getEstimatedDuration(), " l", t->getDescription().getLength(), " d", t->getDescription().getDeadline());

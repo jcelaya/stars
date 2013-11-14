@@ -32,8 +32,6 @@
  * It only reports if it is free or not.
  */
 class IBPScheduler : public Scheduler {
-    IBPAvailabilityInformation info;
-
     // This is documented in Scheduler
     void reschedule();
 
@@ -51,9 +49,7 @@ public:
     }
 
     // This is documented in Scheduler
-    virtual const IBPAvailabilityInformation * getAvailability() const {
-        return &info;
-    }
+    virtual IBPAvailabilityInformation * getAvailability() const;
 };
 
 #endif /* IBPCHEDULER_H_ */

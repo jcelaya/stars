@@ -32,8 +32,6 @@
  * inserted at the end, so it is very simple to check if it will finish in time or not.
  */
 class MMPScheduler : public Scheduler {
-    MMPAvailabilityInformation info;   ///< Current availability function
-
     // This is documented in Scheduler
     void reschedule();
 
@@ -51,9 +49,7 @@ public:
     }
 
     // This is documented in Scheduler
-    virtual const MMPAvailabilityInformation * getAvailability() const {
-        return &info;
-    }
+    virtual MMPAvailabilityInformation * getAvailability() const;
 };
 
 #endif /* MMPSCHEDULER_H_ */

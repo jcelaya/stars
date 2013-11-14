@@ -36,20 +36,11 @@ static bool compareCreation(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r
 
 
 void MMPScheduler::reschedule() {
-    Time estimatedFinish = Time::getCurrentTime();
-    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Rescheduling, now is ", estimatedFinish);
-    info.reset();
+    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Rescheduling");
 
     if (!tasks.empty()) {
         // Order the tasks by creation time
         tasks.sort(compareCreation);
-
-        // Calculate queue length
-        for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++) {
-            // Increment the estimatedStart value
-            estimatedFinish += (*i)->getEstimatedDuration();
-        }
-        Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Queue finishes at ", estimatedFinish);
 
         // If the first task is not running, start it!
         if (tasks.front()->getStatus() == Task::Prepared) {
@@ -58,10 +49,22 @@ void MMPScheduler::reschedule() {
         }
     }
 
-    info.setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
-                     backend.impl->getAveragePower(), estimatedFinish);
-    info.setMaxQueueLength(estimatedFinish);
-    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Resulting info is ", info);
+}
+
+
+MMPAvailabilityInformation * MMPScheduler::getAvailability() const {
+    MMPAvailabilityInformation * info = new MMPAvailabilityInformation;
+    Time estimatedFinish = Time::getCurrentTime();
+    // Calculate queue length
+    for (auto i = tasks.begin(); i != tasks.end(); i++) {
+        estimatedFinish += (*i)->getEstimatedDuration();
+    }
+    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Queue finishes at ", estimatedFinish);
+    info->setQueueEnd(backend.impl->getAvailableMemory(), backend.impl->getAvailableDisk(),
+                      backend.impl->getAveragePower(), estimatedFinish);
+    info->setMaxQueueLength(estimatedFinish);
+    Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Resulting info is ", *info);
+    return info;
 }
 
 
