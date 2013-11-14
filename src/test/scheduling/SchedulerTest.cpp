@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     msg.setNewState(Task::Finished);
 
     // Check creation
-    const AvailabilityInformation & avail = sched->getAvailability();
+    const AvailabilityInformation & avail = *sched->getAvailability();
     Logger::msg("Test.Sch", DEBUG, "New availability: ", avail);
     {
         Time time1 = reference;
@@ -316,7 +316,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     msg.setNewState(Task::Finished);
 
     // Check creation
-    BOOST_CHECK_EQUAL(sched->getAvailability().getMinimumSlowness(), 0.0);
+    BOOST_CHECK_EQUAL(sched->getAvailability()->getMinimumSlowness(), 0.0);
 
     // Add three of tasks
     TaskDescription task1desc, task2desc, task3desc;
@@ -360,7 +360,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.0055, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability()->getMinimumSlowness(), 0.0055, 0.01);
     }
 
     sched->receiveMessage(addr, msg);
@@ -373,7 +373,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.0015, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability()->getMinimumSlowness(), 0.0015, 0.01);
     }
 
     task3desc.setLength(50000);
@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
         BOOST_CHECK((*it)->getStatus() == Task::Prepared);
         it++;
         BOOST_CHECK(it == tasks.end());
-        BOOST_CHECK_CLOSE(sched->getAvailability().getMinimumSlowness(), 0.005, 0.01);
+        BOOST_CHECK_CLOSE(sched->getAvailability()->getMinimumSlowness(), 0.005, 0.01);
     }
 }
 

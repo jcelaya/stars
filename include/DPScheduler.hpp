@@ -60,8 +60,8 @@ public:
     unsigned long int getAvailabilityBefore(Time d);
 
     // This is documented in Scheduler
-    virtual const DPAvailabilityInformation & getAvailability() const {
-        return info;
+    virtual const DPAvailabilityInformation * getAvailability() const {
+        return &info;
     }
 };
 

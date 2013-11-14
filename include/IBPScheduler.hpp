@@ -51,8 +51,8 @@ public:
     }
 
     // This is documented in Scheduler
-    virtual const IBPAvailabilityInformation & getAvailability() const {
-        return info;
+    virtual const IBPAvailabilityInformation * getAvailability() const {
+        return &info;
     }
 };
 

@@ -230,6 +230,7 @@ static bool checkLogFile(const fs::path & logFile) {
 void Simulator::setProperties(Properties & property) {
     static unsigned int defaultSeed = 12345;
 
+    progressStream.push(cout);
     simCase = CaseFactory::getInstance().createCase(property("case_name", string("")), property);
     if (!simCase.get()) {
         // If no simulation case exists with that name, return
@@ -251,9 +252,10 @@ void Simulator::setProperties(Properties & property) {
 
     progressFile.open(resultDir / logFile);
     if (progressFile.is_open()) {
+        progressStream.reset();
         progressStream.push(boost::iostreams::tee_filter<fs::ofstream>(progressFile));
+        progressStream.push(cout);
     }
-    progressStream.push(cout);
     debugFile.open(resultDir / "debug.log.gz");
     if (debugFile.is_open()) {
         debugStream.push(boost::iostreams::gzip_compressor());
@@ -303,7 +305,7 @@ void Simulator::setProperties(Properties & property) {
     debugNode = property.count("debug_node") ? &routingTable[0] + property("debug_node", 0) : NULL;
 
     // Centralized scheduler
-    cs = CentralizedScheduler::createScheduler(property("cent_scheduler", string("")));
+    cs = StarsNode::Configuration::getInstance().getPolicy()->getCentScheduler();
 
     // Failure generator
     if (property.count("median_session")) {

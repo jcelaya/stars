@@ -21,11 +21,10 @@
 #include <algorithm>
 #include <assert.h>
 #include "CentralizedScheduler.hpp"
-#include "RescheduleTimer.hpp"
-#include "AvailabilityInformation.hpp"
 #include "TaskBagMsg.hpp"
 #include "TaskMonitorMsg.hpp"
 #include "AcceptTaskMsg.hpp"
+#include "AvailabilityInformation.hpp"
 #include "Time.hpp"
 #include "Logger.hpp"
 #include "Scheduler.hpp"
@@ -33,26 +32,18 @@
 #include "ResourceNode.hpp"
 #include "Simulator.hpp"
 using namespace std;
-//using namespace boost;
 using namespace boost::posix_time;
 using namespace stars;
 
 
-CentralizedScheduler::CentralizedScheduler() : sim(Simulator::getInstance()), queues(sim.getNumNodes()),
-        maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue), inTraffic(0), outTraffic(0) {
-    queueos.open(sim.getResultDir() / fs::path("cent_queue_length.stat"));
-    queueos << "# Time, max" << endl << setprecision(3) << fixed;
-}
+CentralizedScheduler::CentralizedScheduler() :
+        sim(Simulator::getInstance()), queues(sim.getNumNodes()), inTraffic(0), outTraffic(0) {}
 
 
 bool CentralizedScheduler::blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
-    // Block AvailabilityInformation, RescheduleTimer and AcceptTaskMsg
-    if (typeid(*msg) == typeid(RescheduleTimer) || dynamic_pointer_cast<AvailabilityInformation>(msg).get() || typeid(*msg) == typeid(AcceptTaskMsg))
+    // Block AcceptTaskMsg
+    if (typeid(*msg) == typeid(AcceptTaskMsg))
         return true;
-    // Ignore fail tolerance
-    if (msg->getName() == "HeartbeatTimeout") return true;
-    else if (msg->getName() == "MonitorTimer") return true;
-
     return false;
 }
 
@@ -86,9 +77,6 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
 
         // When a task finishes, send a new one
         unsigned int n = ev.from;
-        size_t queuesCount = queues[n].size();
-        bool correct = queuesCount && queues[n].front().tid == static_cast<TaskMonitorMsg &>(*ev.msg).getTaskId(0);
-        unsigned int nt = static_cast<TaskMonitorMsg &>(*ev.msg).getNumTasks();
         taskFinished(n);
     }
     return false;
@@ -111,12 +99,13 @@ void CentralizedScheduler::sendOneTask(unsigned int to) {
 
 void CentralizedScheduler::taskFinished(unsigned int node) {
     Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", AddrIO(node));
-    if (!queues[node].empty()) {
-        queues[node].pop_front();
-        if (!queues[node].empty())
+    list<TaskDesc> & queue = queues[node];
+    if (!queue.empty()) {
+        queue.pop_front();
+        if (!queue.empty())
             sendOneTask(node);
     } else {
-        Logger::msg("Dsp.Cent", ERROR, "Error: task finished not in the queue of ", AddrIO(node));
+        Logger::msg("Dsp.Cent", ERROR, "Error: ", queue.size(), " tasks at ", AddrIO(node));
     }
 }
 
@@ -125,14 +114,11 @@ void CentralizedScheduler::addToQueue(const TaskDesc & task, unsigned int node) 
     Time now = sim.getCurrentTime();
     list<TaskDesc> & queue = queues[node];
     queue.push_back(task);
-    if (queueEnds[node] < now)
-        queueEnds[node] = now;
-    queueEnds[node] += task.a;
     boost::shared_ptr<AcceptTaskMsg> atm(new AcceptTaskMsg);
     atm->setRequestId(task.msg->getRequestId());
     atm->setFirstTask(task.tid);
     atm->setLastTask(task.tid);
-    atm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+    atm->setHeartbeat(-1);
     sim.injectMessage(node, task.msg->getRequester().getIPNum(), atm, Duration(), true);
 }
 
@@ -144,32 +130,18 @@ void CentralizedScheduler::updateQueue(unsigned int node) {
     if (!queue.empty() && !queue.front().running) {
         sendOneTask(node);
     }
-    if (maxQueue < queueEnds[node]) {
-        queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-        maxQueue = queueEnds[node];
-        queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-    }
 }
 
 
 CentralizedScheduler::~CentralizedScheduler() {
-    Time now = sim.getCurrentTime();
-    queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
-    queueos << "#Centralized scheduler would consume (just with request traffic):" << endl;
-    queueos << "#  " << inTraffic << " in bytes, " << outTraffic << " out bytes" << endl;
-    queueos.close();
+    Logger::msg("Sim.Progress", 0, "Centralized request traffic: ", inTraffic, "B in, ", outTraffic, "B out");
 }
 
 
 class BlindScheduler : public CentralizedScheduler {
     bool blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
-        // Block AvailabilityInformation and RescheduleTimer
-        if (typeid(*msg) == typeid(RescheduleTimer) || dynamic_pointer_cast<AvailabilityInformation>(msg).get())
+        if (boost::dynamic_pointer_cast<AvailabilityInformation>(msg).get())
             return true;
-        // Ignore fail tolerance
-        if (msg->getName() == "HeartbeatTimeout") return true;
-        else if (msg->getName() == "MonitorTimer") return true;
-
         return false;
     }
 
@@ -183,6 +155,10 @@ class BlindScheduler : public CentralizedScheduler {
             tbm->setLastTask(i);
             sim.sendMessage(sim.getNode(n).getLeaf().getFatherAddress().getIPNum(), n, tbm);
         }
+    }
+
+    void taskFinished(unsigned int node) {
+        Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", AddrIO(node));
     }
 
     DiscreteUniformVariable clientVar;
@@ -253,6 +229,10 @@ class CentralizedMMP : public CentralizedScheduler {
         bool operator<(const QueueTime & r) const { return qTime > r.qTime; }
     };
 
+    fs::ofstream queueos;
+    Time maxQueue;
+    std::vector<Time> queueEnds;
+
     void newApp(boost::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
@@ -292,9 +272,34 @@ class CentralizedMMP : public CentralizedScheduler {
             task.a = taskTime[best.node];
             addToQueue(task, best.node);
             updateQueue(best.node);
+            updateQueueLengths(best.node, task.a);
             best.qTime += task.a;
             push_heap(queueCache.begin(), queueCache.end());
         }
+    }
+
+    void updateQueueLengths(unsigned int node, Duration a) {
+        Time now = sim.getCurrentTime();
+        if (queueEnds[node] < now)
+            queueEnds[node] = now;
+        queueEnds[node] += a;
+        if (maxQueue < queueEnds[node]) {
+            queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+            maxQueue = queueEnds[node];
+            queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+        }
+    }
+
+public:
+    CentralizedMMP() : CentralizedScheduler(), maxQueue(sim.getCurrentTime()), queueEnds(sim.getNumNodes(), maxQueue) {
+        queueos.open(sim.getResultDir() / fs::path("cent_queue_length.stat"));
+        queueos << "# Time, max" << endl << setprecision(3) << fixed;
+    }
+
+    ~CentralizedMMP() {
+        Time now = sim.getCurrentTime();
+        queueos << (now.getRawDate() / 1000000.0) << ',' << (maxQueue - now).seconds() << endl;
+        queueos.close();
     }
 };
 
@@ -443,23 +448,27 @@ class CentralizedFSP : public CentralizedScheduler {
         // Assign tasks
         TaskDesc task(msg);
         task.tid = 1;
+        double maxSlowness = 0.0;
         for (size_t n = 0; n < queues.size(); ++n) {
             if (tpn[n] > 0) {
                 unsigned int tasksToSend = tpn[n];
                 FSPTaskList & proxys = proxysN[n];
                 proxys.addTasks(TaskProxy(a, sim.getNode(n).getAveragePower(), now), tasksToSend);
+                proxys.sortMinSlowness();
                 double slowness = proxys.getSlowness();
+                if (maxSlowness < slowness)
+                    maxSlowness = slowness;
 
                 // Send tasks to the node
                 task.d = now + Duration(slowness * a);
                 task.a = Duration(a / sim.getNode(n).getAveragePower());
                 if (queues[n].empty()) {
                     firstTaskEndTimeN[n] = now + task.a;
-                }
-                else {
+                } else {
                     // Update all deadlines
-                    for (list<TaskDesc>::iterator it = queues[n].begin(); it != queues[n].end(); ++it)
+                    for (auto it = queues[n].begin(); it != queues[n].end(); ++it) {
                         it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
+                    }
                 }
 
                 //Logger::msg("Dsp.Cent", DEBUG, tasksToNode, " tasks allocated to node ", assignment[i].node, " with room for ", assignment[i].numTasks, " tasks");
@@ -471,6 +480,8 @@ class CentralizedFSP : public CentralizedScheduler {
                 updateQueue(n);
             }
         }
+        Logger::msg("Dsp.Cent", WARN, "Application ", SimAppDatabase::getAppId(msg->getRequestId()),
+                ",", msg->getRequester(), " got slowness ", maxSlowness);
     }
 
     vector<int> calculateTasksPerNode(const TaskDescription & req, unsigned int numTasks) {
@@ -536,27 +547,23 @@ class CentralizedFSP : public CentralizedScheduler {
         return tpn;
     }
 
-
 public:
     CentralizedFSP() : CentralizedScheduler(), proxysN(queues.size()), firstTaskEndTimeN(queues.size()) {}
 };
 
 
 boost::shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
-    if (type == "blind")
+    if (type == "blind") {
         return boost::shared_ptr<CentralizedScheduler>(new BlindScheduler());
-    else if (type == "cent") {
-        switch(StarsNode::Configuration::getInstance().getPolicy()) {
-        case StarsNode::Configuration::MMPolicy:
-            return boost::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
-        case StarsNode::Configuration::DPolicy:
-            return boost::shared_ptr<CentralizedScheduler>(new CentralizedDP());
-        case StarsNode::Configuration::FSPolicy:
-            return boost::shared_ptr<CentralizedScheduler>(new CentralizedFSP());
-        default:
-            return boost::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
-        }
-    }
-    else
+    } else if (type == "IBP") {
+        return boost::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
+    } else if (type == "MMP") {
+        return boost::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
+    } else if (type == "DP") {
+        return boost::shared_ptr<CentralizedScheduler>(new CentralizedDP());
+    } else if (type == "FSP") {
+        return boost::shared_ptr<CentralizedScheduler>(new CentralizedFSP());
+    } else {
         return boost::shared_ptr<CentralizedScheduler>();
+    }
 }

@@ -57,15 +57,6 @@ private:
     UniformVariable range;
 };
 
-//    static double pareto(double xm, double k, double max) {
-//        // xm > 0 and k > 0
-//        double r;
-//        do
-//            r = xm / std::pow(uniform01(), 1.0 / k);
-//        while (r > max);
-//        return r;
-//    }
-
 //    static double normal(double mu, double sigma) {
 //        const double pi = 3.14159265358979323846;   //approximate value of pi
 //        double r = mu + sigma * std::sqrt(-2.0 * std::log(uniform01())) * std::cos(2.0 * pi * uniform01());
@@ -83,11 +74,6 @@ private:
     int minimum, step;
     ParetoVariable p;
 };
-
-//    static int discretePareto(int min, int max, int step, double k) {
-//        int r = min + step * ((int)std::floor(pareto(step, k, max - min) / step) - 1);
-//        return r;
-//    }
 
 // Return a random int in interval [min, max] with step
 class DiscreteUniformVariable {

@@ -18,29 +18,30 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMOVERLAYLEAF_HPP_
-#define SIMOVERLAYLEAF_HPP_
+#include "SlaveLocalScheduler.hpp"
 
-#include "OverlayLeaf.hpp"
+namespace stars {
 
-
-class SimOverlayLeaf : public OverlayLeaf {
-public:
-    virtual bool receiveMessage(const CommAddress & src, const BasicMsg & msg) { return false; }
-
-    virtual const CommAddress & getFatherAddress() const { return father; }
-
-    void setFatherAddress(const CommAddress & addr) { father = addr; }
-
-    friend std::ostream & operator<<(std::ostream& os, const SimOverlayLeaf & l) {
-        os << "f=" << l.father;
-        return os;
+void SlaveLocalScheduler::reschedule() {
+    if (!tasks.empty()) {
+        // If the first task is not running, start it!
+        if (tasks.front()->getStatus() == Task::Prepared) {
+            tasks.front()->run();
+            startedTaskEvent(*tasks.front());
+        }
     }
+}
 
-    MSGPACK_DEFINE(father);
+unsigned int SlaveLocalScheduler::acceptable(const TaskBagMsg & msg) {
+    return msg.getLastTask() - msg.getFirstTask() + 1;
+}
 
-private:
-    CommAddress father;
-};
+void SlaveLocalScheduler::removeTask(const boost::shared_ptr<Task> & task) {
 
-#endif /* SIMOVERLAYLEAF_HPP_ */
+}
+
+void SlaveLocalScheduler::acceptTask(const boost::shared_ptr<Task> & task) {
+
+}
+
+} /* namespace stars */

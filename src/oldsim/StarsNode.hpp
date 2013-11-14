@@ -39,6 +39,7 @@ namespace iost = boost::iostreams;
 #include "Dispatcher.hpp"
 #include "AvailabilityInformation.hpp"
 #include "Variables.hpp"
+#include "PolicyFactory.hpp"
 class Simulator;
 
 
@@ -52,11 +53,11 @@ class Simulator;
 class StarsNode : public CommLayer {
 public:
     class Configuration {
-        Configuration() : cpuVar(1000, 3000), memVar(256, 1024), diskVar(10, 1000), policy(IBPolicy) {}
+        Configuration();
 
         DiscreteParetoVariable cpuVar;
         DiscreteUniformVariable memVar, diskVar;
-        int policy;
+        std::unique_ptr<PolicyFactory> policy;
         std::string inFileName;
         fs::ifstream inFile;
         iost::filtering_streambuf<iost::input> in;
@@ -66,13 +67,6 @@ public:
         friend class StarsNode;
 
     public:
-        enum {
-            IBPolicy = 0,
-            MMPolicy = 1,
-            DPolicy = 2,
-            FSPolicy = 3,
-        };
-
         static Configuration & getInstance() {
             static Configuration instance;
             return instance;
@@ -80,7 +74,7 @@ public:
 
         void setup(const Properties & property);
 
-        int getPolicy() const { return policy; }
+        const std::unique_ptr<PolicyFactory> & getPolicy() const { return policy; }
     };
 
     static void libStarsConfigure(const Properties & property);

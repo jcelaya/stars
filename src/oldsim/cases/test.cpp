@@ -186,7 +186,7 @@ public:
                     showRecursiveInfo(child, level - 1, prefix + prefixNoDash[c]);
                 } else {
                     Logger::msg("Sim.Tree", WARN, prefix, prefixNoDash[c], "L@", branch.getChildAddress(c), ": ",
-                            child, ' ', child.getSch().getAvailability());
+                            child, ' ', *child.getSch().getAvailability());
                 }
             }
         }

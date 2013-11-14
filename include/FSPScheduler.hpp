@@ -48,8 +48,8 @@ public:
     virtual unsigned int acceptable(const TaskBagMsg & msg);
 
     // This is documented in Scheduler
-    virtual const FSPAvailabilityInformation & getAvailability() const {
-        return info;
+    virtual const FSPAvailabilityInformation * getAvailability() const {
+        return &info;
     }
 
 private:

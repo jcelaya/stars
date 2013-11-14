@@ -24,6 +24,8 @@ set(oldsim_sources
     TrafficStatistics.cpp
     SimOverlayBranch.cpp
     SimOverlayLeaf.cpp
+    PolicyFactory.cpp
+    SlaveLocalScheduler.cpp
     ${cases_sources})
 
 # add the executable
@@ -33,7 +35,8 @@ target_link_libraries(stars-oldsim${BIN_SUFFIX}
     ${Boost_LIBRARIES}
     ${LOG4CPP_LIBRARIES}
     ${MSGPACK_LIBRARIES}
-    tcmalloc)
+    tcmalloc
+)
 
 #add_executable(stars-oldsim${BIN_SUFFIX}_static ${oldsim_sources})
 #target_link_libraries(stars-oldsim${BIN_SUFFIX}_static -static -zmuldefs

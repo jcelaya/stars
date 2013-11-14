@@ -243,12 +243,14 @@ boost::shared_ptr<Task> Scheduler::getTask(unsigned int id) {
 
 
 void Scheduler::notifySchedule() {
-    Logger::msg("Ex.Sch", DEBUG, "Setting attributes to ", getAvailability());
     if (!inChange && leaf.getFatherAddress() != CommAddress()) {
-        AvailabilityInformation * msg = getAvailability().clone();
-        msg->setSeq(++seqNum);
-        CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
-        dirty = false;
+        if (getAvailability() != nullptr) {
+            AvailabilityInformation * msg = getAvailability()->clone();
+            msg->setSeq(++seqNum);
+            Logger::msg("Ex.Sch", DEBUG, "Setting attributes to ", *msg);
+            CommLayer::getInstance().sendMessage(leaf.getFatherAddress(), msg);
+            dirty = false;
+        }
     } else {
         Logger::msg("Ex.Sch", DEBUG, "Delayed sending info to father");
         dirty = true;

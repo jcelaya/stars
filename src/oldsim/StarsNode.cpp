@@ -26,18 +26,17 @@
 #include "ResourceNode.hpp"
 #include "StructureNode.hpp"
 #include "SubmissionNode.hpp"
-#include "DPScheduler.hpp"
-#include "DPDispatcher.hpp"
-#include "MMPScheduler.hpp"
-#include "MMPDispatcher.hpp"
-#include "IBPScheduler.hpp"
-#include "IBPDispatcher.hpp"
-#include "FSPScheduler.hpp"
-#include "FSPDispatcher.hpp"
 #include "Simulator.hpp"
 #include "Time.hpp"
 #include "SimTask.hpp"
 #include "Logger.hpp"
+#include "IBPAvailabilityInformation.hpp"
+#include "MMPAvailabilityInformation.hpp"
+#include "DPAvailabilityInformation.hpp"
+#include "FSPAvailabilityInformation.hpp"
+#include "MMPDispatcher.hpp"
+#include "FSPDispatcher.hpp"
+#include "MsgpackArchive.hpp"
 using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
@@ -45,6 +44,8 @@ using namespace boost::gregorian;
 //using boost::shared_ptr;
 using boost::scoped_ptr;
 
+
+const bool MsgpackOutArchive::valid = true, MsgpackOutArchive::invalid = false;
 
 class CheckTimersMsg : public BasicMsg {
 public:
@@ -132,17 +133,16 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 
 
 // Configuration object
+StarsNode::Configuration::Configuration() : cpuVar(1000, 3000), memVar(256, 1024), diskVar(10, 1000) {}
+
+
 void StarsNode::Configuration::setup(const Properties & property) {
     cpuVar = DiscreteParetoVariable(property("min_cpu", 1000.0), property("max_cpu", 3000.0), property("step_cpu", 200.0), 1.0);
     memVar = DiscreteUniformVariable(property("min_mem", 256), property("max_mem", 4096), property("step_mem", 256));
     diskVar = DiscreteUniformVariable(property("min_disk", 64), property("max_disk", 1000), property("step_disk", 100));
     inFileName = property("in_file", string(""));
     outFileName = property("out_file", string(""));
-    string s = property("policy", string(""));
-    if (s == "DP") policy = DPolicy;
-    else if (s == "FSP") policy = FSPolicy;
-    else if (s == "MMP") policy = MMPolicy;
-    else policy = IBPolicy;
+    policy = PolicyFactory::getFactory(property("scheduler", string("dist")), property("policy", string("")));
     if (inFileName != "") {
         inFile.exceptions(ios_base::failbit | ios_base::badbit);
         inFile.open(inFileName, ios_base::binary);
@@ -177,24 +177,24 @@ void StarsNode::libStarsConfigure(const Properties & property) {
         IBPAvailabilityInformation::setNumClusters(clustersBase * clustersBase);
         MMPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase * clustersBase);
         DPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
-        FSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
+        stars::FSPAvailabilityInformation::setNumClusters(clustersBase * clustersBase * clustersBase);
     } else {
         unsigned int clusters = property("avail_clusters", 20U);
         if (clusters) {
             IBPAvailabilityInformation::setNumClusters(clusters);
             MMPAvailabilityInformation::setNumClusters(clusters);
             DPAvailabilityInformation::setNumClusters(clusters);
-            FSPAvailabilityInformation::setNumClusters(clusters);
+            stars::FSPAvailabilityInformation::setNumClusters(clusters);
         }
     }
     stars::LDeltaFunction::setNumPieces(property("dp_pieces", 8U));
     stars::ZAFunction::setNumPieces(property("fsp_pieces", 10U));
-    stars::ZAFunction::setReductionQuality(property("fsp_reduction_quality", 10U));
+    stars::ZAFunction::setReductionQuality(property("fsp_reduction_quality", 1U));
     MMPDispatcher::setBeta(property("mmp_beta", 0.5));
-    FSPDispatcher::setBeta(property("fsp_beta", 2.0));
+    FSPDispatcher::setBeta(property("fsp_beta", 0.3));
     FSPDispatcher::discard = property("fsp_discard", false);
     FSPDispatcher::discardRatio = property("fsp_discard_ratio", 2.0);
-    stars::FSPTaskList::setPreemptive(property("fsp_preemptive", true));
+    stars::FSPTaskList::setPreemptive(property("fsp_preemptive", false));
     SimAppDatabase::reset();
     StarsNode::Configuration::getInstance().setup(property);
 }
@@ -272,24 +272,8 @@ void StarsNode::fail() {
     // Reset submission node, scheduler and dispatcher
     delete services[Disp];
     delete services[Sch];
-    switch (Configuration::getInstance().getPolicy()) {
-        case Configuration::MMPolicy:
-            services[Sch] = new MMPScheduler(getLeaf());
-            services[Disp] = new MMPDispatcher(getBranch());
-            break;
-        case Configuration::DPolicy:
-            services[Sch] = new DPScheduler(getLeaf());
-            services[Disp] = new DPDispatcher(getBranch());
-            break;
-        case Configuration::FSPolicy:
-            services[Sch] = new stars::FSPScheduler(getLeaf());
-            services[Disp] = new FSPDispatcher(getBranch());
-            break;
-        default:
-            services[Sch] = new IBPScheduler(getLeaf());
-            services[Disp] = new IBPDispatcher(getBranch());
-            break;
-    }
+    services[Sch] = Configuration::getInstance().getPolicy()->createScheduler(getLeaf());
+    services[Disp] = Configuration::getInstance().getPolicy()->createDispatcher(getBranch());
 }
 
 
@@ -297,60 +281,9 @@ void StarsNode::createServices() {
     services.push_back(new SimOverlayBranch());
     services.push_back(new SimOverlayLeaf());
     services.push_back(new SubmissionNode(getLeaf()));
-    switch (Configuration::getInstance().getPolicy()) {
-        case Configuration::MMPolicy:
-            services.push_back(new MMPScheduler(getLeaf()));
-            services.push_back(new MMPDispatcher(getBranch()));
-            break;
-        case Configuration::DPolicy:
-            services.push_back(new DPScheduler(getLeaf()));
-            services.push_back(new DPDispatcher(getBranch()));
-            break;
-        case Configuration::FSPolicy:
-            services.push_back(new stars::FSPScheduler(getLeaf()));
-            services.push_back(new FSPDispatcher(getBranch()));
-            break;
-        default:
-            services.push_back(new IBPScheduler(getLeaf()));
-            services.push_back(new IBPDispatcher(getBranch()));
-            break;
-    }
+    services.push_back(Configuration::getInstance().getPolicy()->createScheduler(getLeaf()));
+    services.push_back(Configuration::getInstance().getPolicy()->createDispatcher(getBranch()));
 }
-
-
-class MsgpackOutArchive {
-    msgpack::packer<msgpack::sbuffer> & pk;
-    static const bool valid, invalid;
-public:
-    MsgpackOutArchive(msgpack::packer<msgpack::sbuffer> & o) : pk(o) {}
-    template<class T> MsgpackOutArchive & operator&(T & o) {
-        pk.pack(o);
-        return *this;
-    }
-    template<class T> MsgpackOutArchive & operator&(boost::shared_ptr<T> & o) {
-        if (o.get()) {
-            pk.pack(valid);
-            *this & *o;
-        } else {
-            pk.pack(invalid);
-        }
-        return *this;
-    }
-    template<class T> MsgpackOutArchive & operator&(std::list<T> & o) {
-        size_t size = o.size();
-        pk.pack(size);
-        for (typename std::list<T>::iterator i = o.begin(); i != o.end(); ++i)
-            *this & *i;
-        return *this;
-    }
-};
-
-template<> inline MsgpackOutArchive & MsgpackOutArchive::operator&(TransactionalZoneDescription & o) {
-    o.serializeState(*this);
-    return *this;
-}
-
-const bool MsgpackOutArchive::valid = true, MsgpackOutArchive::invalid = false;
 
 
 void StarsNode::packState(std::streambuf & out) {
@@ -358,60 +291,10 @@ void StarsNode::packState(std::streambuf & out) {
     msgpack::packer<msgpack::sbuffer> pk(&buffer);
     MsgpackOutArchive ar(pk);
     ar & power & mem & disk & static_cast<SimOverlayBranch &>(getBranch()) & static_cast<SimOverlayLeaf &>(getLeaf());
-    switch (Configuration::getInstance().getPolicy()) {
-        case Configuration::IBPolicy:
-            static_cast<IBPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::MMPolicy:
-            static_cast<MMPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::DPolicy:
-            static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::FSPolicy:
-            static_cast<FSPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        default:
-            break;
-    }
+    Configuration::getInstance().getPolicy()->serializeDispatcher(*services[Disp], ar);
     uint32_t size = buffer.size();
     out.sputn((const char *)&size, 4);
     out.sputn(buffer.data(), size);
-}
-
-
-class MsgpackInArchive {
-    msgpack::unpacker & upk;
-    msgpack::unpacked msg;
-public:
-    MsgpackInArchive(msgpack::unpacker & o) : upk(o) {}
-    template<class T> MsgpackInArchive & operator&(T & o) {
-        upk.next(&msg); msg.get().convert(&o);
-        return *this;
-    }
-    template<class T> MsgpackInArchive & operator&(boost::shared_ptr<T> & o) {
-        bool valid;
-        upk.next(&msg); msg.get().convert(&valid);
-        if (valid) {
-            o.reset(new T());
-            *this & *o;
-        } else o.reset();
-        return *this;
-    }
-    template<class T> MsgpackInArchive & operator&(std::list<T> & o) {
-        size_t size;
-        upk.next(&msg); msg.get().convert(&size);
-        for (size_t i = 0; i < size; ++i) {
-            o.push_back(T());
-            *this & o.back();
-        }
-        return *this;
-    }
-};
-
-template<> inline MsgpackInArchive & MsgpackInArchive::operator&(TransactionalZoneDescription & o) {
-    o.serializeState(*this);
-    return *this;
 }
 
 
@@ -424,22 +307,7 @@ void StarsNode::unpackState(std::streambuf & in) {
     upk.buffer_consumed(size);
     MsgpackInArchive ar(upk);
     ar & power & mem & disk & static_cast<SimOverlayBranch &>(getBranch()) & static_cast<SimOverlayLeaf &>(getLeaf());
-    switch (Configuration::getInstance().getPolicy()) {
-        case Configuration::IBPolicy:
-            static_cast<IBPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::MMPolicy:
-            static_cast<MMPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::DPolicy:
-            static_cast<DPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        case Configuration::FSPolicy:
-            static_cast<FSPDispatcher &>(*services[Disp]).serializeState(ar);
-            break;
-        default:
-            break;
-    }
+    Configuration::getInstance().getPolicy()->serializeDispatcher(*services[Disp], ar);
 }
 
 
@@ -502,104 +370,11 @@ unsigned int StarsNode::getBranchLevel() const {
 //}
 
 
-class MemoryOutArchive {
-    vector<void *>::iterator ptr;
-public:
-    typedef boost::mpl::bool_<false> is_loading;
-    MemoryOutArchive(vector<void *>::iterator o) : ptr(o) {}
-    template<class T> MemoryOutArchive & operator<<(T & o) { *ptr++ = &o; return *this; }
-    template<class T> MemoryOutArchive & operator&(T & o) { return operator<<(o); }
-};
-
-
-class MemoryInArchive {
-    vector<void *>::iterator ptr;
-public:
-    typedef boost::mpl::bool_<true> is_loading;
-    MemoryInArchive(vector<void *>::iterator o) : ptr(o) {}
-    template<class T> MemoryInArchive & operator>>(T & o) { o = *static_cast<T *>(*ptr++); return *this; }
-    template<class T> MemoryInArchive & operator&(T & o) { return operator>>(o); }
-};
-
-
 void StarsNode::buildDispatcher() {
-    // Generate Dispatcher state
-    switch (Configuration::getInstance().getPolicy()) {
-    case Configuration::IBPolicy:
-        buildDispatcherGen<IBPDispatcher>();
-        break;
-    case Configuration::MMPolicy:
-        buildDispatcherGen<MMPDispatcher>();
-        break;
-    case Configuration::DPolicy:
-        buildDispatcherGen<DPDispatcher>();
-        break;
-    case Configuration::FSPolicy:
-        buildDispatcherGen<FSPDispatcher>();
-        break;
-    default:
-        break;
-    }
-}
-
-
-template <class T> void StarsNode::buildDispatcherGen() {
-    Simulator & sim = Simulator::getInstance();
-    vector<void *> vv(200);
-    MemoryOutArchive oaa(vv.begin());
-    typename T::Link fatherLink, leftLink, rightLink;
-    fatherLink.addr = getBranch().getFatherAddress();
-    leftLink.addr = getBranch().getChildAddress(0);
-    rightLink.addr = getBranch().getChildAddress(1);
-    if (getBranch().isLeaf(0))
-        leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getSch().getAvailability().clone()));
-    else
-        leftLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(leftLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
-    if (getBranch().isLeaf(1))
-        rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getSch().getAvailability().clone()));
-    else
-        rightLink.availInfo.reset(static_cast<typename T::availInfoType *>(sim.getNode(rightLink.addr.getIPNum()).getDisp().getBranchInfo()->clone()));
-    leftLink.availInfo->reduce();
-    rightLink.availInfo->reduce();
-    fatherLink.serializeState(oaa);
-    leftLink.serializeState(oaa);
-    rightLink.serializeState(oaa);
-    MemoryInArchive iaa(vv.begin());
-    static_cast<T &>(getDisp()).serializeState(iaa);
-    static_cast<T &>(getDisp()).recomputeInfo();
+    Configuration::getInstance().getPolicy()->buildDispatcher(getBranch(), getDisp());
 }
 
 
 void StarsNode::buildDispatcherDown() {
-    // Generate Dispatcher state
-    switch (Configuration::getInstance().getPolicy()) {
-    case Configuration::MMPolicy:
-        buildDispatcherDownGen<MMPDispatcher>();
-        break;
-    case Configuration::FSPolicy:
-        buildDispatcherDownGen<FSPDispatcher>();
-        break;
-    default:
-        break;
-    }
+    Configuration::getInstance().getPolicy()->buildDispatcherDown(getDisp(), localAddress);
 }
-
-
-template <class T> void StarsNode::buildDispatcherDownGen() {
-    Simulator & sim = Simulator::getInstance();
-    vector<void *> vv(200);
-    MemoryOutArchive oaa(vv.begin());
-    static_cast<T &>(getDisp()).serializeState(oaa);
-    CommAddress fatherAddr = *static_cast<CommAddress *>(vv[0]);
-    boost::shared_ptr<typename T::availInfoType> & fatherInfo = *static_cast<boost::shared_ptr<typename T::availInfoType> *>(vv[1]);
-    if (fatherAddr != CommAddress()) {
-        StarsNode & father = sim.getNode(fatherAddr.getIPNum());
-        if (father.getBranch().getChildAddress(0) == localAddress) {
-            fatherInfo.reset(static_cast<T &>(father.getDisp()).getChildWaitingInfo(0)->clone());
-        } else {
-            fatherInfo.reset(static_cast<T &>(father.getDisp()).getChildWaitingInfo(1)->clone());
-        }
-    }
-    static_cast<T &>(getDisp()).recomputeInfo();
-}
-

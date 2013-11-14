@@ -136,7 +136,7 @@ public:
      */
     boost::shared_ptr<Task> getTask(unsigned int id);
 
-    virtual const AvailabilityInformation & getAvailability() const = 0;
+    virtual const AvailabilityInformation * getAvailability() const = 0;
 
     unsigned long int getExecutedTasks() const {
         return tasksExecuted;

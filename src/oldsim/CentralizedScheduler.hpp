@@ -56,11 +56,6 @@ public:
 protected:
     Simulator & sim;
     std::vector<std::list<TaskDesc> > queues;
-    fs::ofstream queueos;
-    Time maxQueue;
-    std::vector<Time> queueEnds;
-
-    Time current;
     unsigned long int inTraffic, outTraffic;
 
     virtual void newApp(boost::shared_ptr<TaskBagMsg> msg) = 0;

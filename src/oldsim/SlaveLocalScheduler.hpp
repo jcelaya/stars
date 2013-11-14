@@ -18,29 +18,33 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMOVERLAYLEAF_HPP_
-#define SIMOVERLAYLEAF_HPP_
+#ifndef SLAVELOCALSCHEDULER_H_
+#define SLAVELOCALSCHEDULER_H_
 
-#include "OverlayLeaf.hpp"
+#include "Scheduler.hpp"
+#include "SimOverlayLeaf.hpp"
 
+namespace stars {
 
-class SimOverlayLeaf : public OverlayLeaf {
+class SlaveLocalScheduler: public Scheduler {
+    // This is documented in Scheduler
+    virtual void reschedule();
+
+    // This is documented in Scheduler
+    virtual unsigned int acceptable(const TaskBagMsg & msg);
+
+    virtual void removeTask(const boost::shared_ptr<Task> & task);
+
+    virtual void acceptTask(const boost::shared_ptr<Task> & task);
+
 public:
-    virtual bool receiveMessage(const CommAddress & src, const BasicMsg & msg) { return false; }
+    SlaveLocalScheduler(OverlayLeaf & l) : Scheduler(l) {}
 
-    virtual const CommAddress & getFatherAddress() const { return father; }
-
-    void setFatherAddress(const CommAddress & addr) { father = addr; }
-
-    friend std::ostream & operator<<(std::ostream& os, const SimOverlayLeaf & l) {
-        os << "f=" << l.father;
-        return os;
+    // This is documented in Scheduler
+    virtual const AvailabilityInformation * getAvailability() const {
+        return nullptr;
     }
-
-    MSGPACK_DEFINE(father);
-
-private:
-    CommAddress father;
 };
 
-#endif /* SIMOVERLAYLEAF_HPP_ */
+} /* namespace stars */
+#endif /* SLAVELOCALSCHEDULER_H_ */

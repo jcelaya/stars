@@ -51,8 +51,8 @@ public:
     }
 
     // This is documented in Scheduler
-    virtual const MMPAvailabilityInformation & getAvailability() const {
-        return info;
+    virtual const MMPAvailabilityInformation * getAvailability() const {
+        return &info;
     }
 };
 
