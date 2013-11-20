@@ -114,11 +114,11 @@ public:
                     msg.getRequester(), msg.getRequestId(), msg.getFirstTask() + i, msg.getMinRequirements()));
             acceptTask(tasks.back());
         }
-        if (tasks.size() > maxQueueLength)
+        if (tasks.size() > maxQueueLength) {
             maxQueueLength = tasks.size();
+        }
         if (numAccepted) {
-            reschedule();
-            countPausedTasks();
+            switchContext();
         }
         currentTbm = NULL;
         return numAccepted;
@@ -182,10 +182,23 @@ protected:
      * <ul>
      *     <li>Remove the tasks that won't meet its deadline requirements.</li>
      *     <li>Start executing the first task if there is no task running.</li>
-     *     <li>Update the AvailabilityFunction and send it to the tree if it changes.</li>
      * </ul>
      */
     virtual void reschedule() = 0;
+
+    void switchContext() {
+        reschedule();
+        if (!tasks.empty()) {
+            for (auto it = ++tasks.begin(); it != tasks.end(); ++it)
+                (*it)->pause();
+
+            if (tasks.front()->getStatus() == Task::Prepared) {
+                tasks.front()->run();
+                startedTaskEvent(*tasks.front());
+            }
+        }
+        countPausedTasks();
+    }
 
     /**
      * Notifies the ExecutionNode about the current schedule.

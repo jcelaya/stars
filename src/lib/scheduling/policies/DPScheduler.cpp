@@ -62,15 +62,10 @@ void DPScheduler::reschedule() {
     }
     */
 
-    // If the first task is not running, start it!
-    if (!tasks.empty() && tasks.front()->getStatus() == Task::Prepared) {
-        tasks.front()->run();
-        startedTaskEvent(*tasks.front());
-    }
-
     // Program a timer
-    if (!tasks.empty())
+    if (!tasks.empty()) {
         rescheduleAt(Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRescheduleTimeout()));
+    }
 }
 
 

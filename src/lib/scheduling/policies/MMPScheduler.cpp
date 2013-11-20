@@ -37,18 +37,10 @@ static bool compareCreation(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r
 
 void MMPScheduler::reschedule() {
     Logger::msg("Ex.Sch.FCFS", DEBUG, "FCFS@", this, ": Rescheduling");
-
     if (!tasks.empty()) {
         // Order the tasks by creation time
         tasks.sort(compareCreation);
-
-        // If the first task is not running, start it!
-        if (tasks.front()->getStatus() == Task::Prepared) {
-            tasks.front()->run();
-            startedTaskEvent(*tasks.front());
-        }
     }
-
 }
 
 

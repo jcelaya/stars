@@ -93,8 +93,7 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         case Task::Running:
             break;
         }
-        reschedule();
-        countPausedTasks();
+        switchContext();
         notifySchedule();
     }
 }
@@ -159,8 +158,7 @@ bool Scheduler::checkStaticRequirements(const TaskDescription & req) {
  */
 template<> void Scheduler::handle(const CommAddress & src, const RescheduleTimer & msg) {
     rescheduleTimer = 0;
-    reschedule();
-    countPausedTasks();
+    switchContext();
     notifySchedule();
 }
 
@@ -183,8 +181,7 @@ template<> void Scheduler::handle(const CommAddress & src, const AbortTaskMsg & 
             }
         if (notFound) Logger::msg("Ex.Sch", ERROR, "Failed to remove non-existent task ", msg.getTask(i), " from request ", msg.getRequestId());
     }
-    reschedule();
-    countPausedTasks();
+    switchContext();
     notifySchedule();
 }
 

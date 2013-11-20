@@ -39,16 +39,8 @@ void FSPScheduler::reschedule() {
     }
     Logger::msg("Ex.Sch.MS", DEBUG, "Minimum slowness ", proxys.getSlowness());
 
-    // Start first task if it is not executing yet.
+    // Program a timer
     if (!tasks.empty()) {
-        for (auto it = ++tasks.begin(); it != tasks.end(); ++it)
-            (*it)->pause();
-
-        if (tasks.front()->getStatus() == Task::Prepared) {
-            tasks.front()->run();
-            startedTaskEvent(*tasks.front());
-        }
-        // Program a timer
         rescheduleAt(Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRescheduleTimeout()));
     }
 }
