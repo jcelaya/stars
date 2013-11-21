@@ -33,7 +33,7 @@ using namespace std;
  * @param r Right operand task.
  * @return True if l has an earlier deadline than r, or it is running; false otherwise.
  */
-static bool compareDeadline(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r) {
+static bool compareDeadline(std::shared_ptr<Task> l, std::shared_ptr<Task> r) {
     return l->getStatus() == Task::Running ||
            (r->getStatus() != Task::Running && l->getDescription().getDeadline() < r->getDescription().getDeadline());
 }
@@ -83,13 +83,13 @@ unsigned long int DPScheduler::getAvailabilityBefore(Time d) {
     if (!tasks.empty()) {
         // First task is not preemptible
         estimatedStart += tasks.front()->getEstimatedDuration();
-        list<boost::shared_ptr<Task> >::iterator t = ++tasks.begin();
+        list<std::shared_ptr<Task> >::iterator t = ++tasks.begin();
         for (; t != tasks.end() && (*t)->getDescription().getDeadline() <= d; t++)
             estimatedStart += (*t)->getEstimatedDuration();
         if (t != tasks.end()) {
             Time limit = tasks.back()->getDescription().getDeadline();
-            list<boost::shared_ptr<Task> >::reverse_iterator firstTask = --tasks.rend();
-            for (list<boost::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != firstTask && (*i)->getDescription().getDeadline() > d; i++) {
+            list<std::shared_ptr<Task> >::reverse_iterator firstTask = --tasks.rend();
+            for (list<std::shared_ptr<Task> >::reverse_iterator i = tasks.rbegin(); i != firstTask && (*i)->getDescription().getDeadline() > d; i++) {
                 if (limit > (*i)->getDescription().getDeadline())
                     limit = (*i)->getDescription().getDeadline();
                 limit -= (*i)->getEstimatedDuration();

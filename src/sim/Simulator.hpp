@@ -24,7 +24,6 @@
 #include <vector>
 #include <cmath>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/scoped_ptr.hpp>
 #include <boost/scoped_array.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -181,7 +180,7 @@ private:
     // Simulation framework
     boost::scoped_array<StarsNode> routingTable;   ///< The set of StarsNodes in this simulation.
     size_t numNodes;
-    boost::scoped_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
+    std::unique_ptr<SimulationCase> simCase;     ///< The current simulation case. Currently, only one is allowed per execution.
     bool end;                                      ///< Signals the end of the simulation
     bool inSimulation;                             ///< States if the currently running code is inside MSG_main
     uint32_t currentNode;                          ///< Current node index when not inside MSG_main

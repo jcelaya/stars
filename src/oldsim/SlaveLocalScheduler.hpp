@@ -40,7 +40,7 @@ private:
     unsigned int seq;
     std::vector<RescheduleMsg::TaskId> taskSequence;
 
-    boost::shared_ptr<Task> getTask(const CommAddress & requester, int64_t rid, uint32_t tid);
+    std::shared_ptr<Task> getTask(const CommAddress & requester, int64_t rid, uint32_t tid);
 
     // This is documented in Scheduler
     virtual void reschedule();

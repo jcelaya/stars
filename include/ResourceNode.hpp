@@ -26,7 +26,7 @@
 #include <utility>
 #include <string>
 #include <ostream>
-#include <boost/shared_ptr.hpp>
+
 #include "OverlayLeaf.hpp"
 #include "CommLayer.hpp"
 #include "StructureNode.hpp"
@@ -46,7 +46,7 @@ class ResourceNode : public OverlayLeaf {
     bool availableStrNodes;
 
     /// A pair of an address and a message
-    typedef std::pair<CommAddress, boost::shared_ptr<BasicMsg> > AddrMsg;
+    typedef std::pair<CommAddress, std::shared_ptr<BasicMsg> > AddrMsg;
     std::list<AddrMsg> delayedMessages;   ///< Delayed messages and source addresses till the transaction ends.
 
     /**

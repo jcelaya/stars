@@ -33,7 +33,7 @@ public:
         pk.pack(o);
         return *this;
     }
-    template<class T> MsgpackOutArchive & operator&(boost::shared_ptr<T> & o) {
+    template<class T> MsgpackOutArchive & operator&(std::shared_ptr<T> & o) {
         if (o.get()) {
             pk.pack(valid);
             *this & *o;
@@ -66,7 +66,7 @@ public:
         upk.next(&msg); msg.get().convert(&o);
         return *this;
     }
-    template<class T> MsgpackInArchive & operator&(boost::shared_ptr<T> & o) {
+    template<class T> MsgpackInArchive & operator&(std::shared_ptr<T> & o) {
         bool valid;
         upk.next(&msg); msg.get().convert(&valid);
         if (valid) {

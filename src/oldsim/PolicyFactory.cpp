@@ -86,8 +86,8 @@ template <class Policy> class PolicyFactoryDist : public PolicyFactory {
     virtual void serializeDispatcher(Service & disp, MsgpackInArchive & ar) const {
         static_cast<typename Policy::dispatcher &>(disp).serializeState(ar);
     }
-    virtual boost::shared_ptr<CentralizedScheduler> getCentScheduler() const {
-        return boost::shared_ptr<CentralizedScheduler>();
+    virtual std::shared_ptr<CentralizedScheduler> getCentScheduler() const {
+        return std::shared_ptr<CentralizedScheduler>();
     }
     virtual void buildDispatcher(OverlayBranch & branch, Service & disp) const {
         Simulator & sim = Simulator::getInstance();
@@ -120,7 +120,7 @@ template <class Policy> class PolicyFactoryDist : public PolicyFactory {
         MemoryOutArchive oaa(vv.begin());
         static_cast<typename Policy::dispatcher &>(disp).serializeState(oaa);
         CommAddress fatherAddr = *static_cast<CommAddress *>(vv[0]);
-        boost::shared_ptr<typename Policy::information> & fatherInfo = *static_cast<boost::shared_ptr<typename Policy::information> *>(vv[1]);
+        std::shared_ptr<typename Policy::information> & fatherInfo = *static_cast<std::shared_ptr<typename Policy::information> *>(vv[1]);
         if (fatherAddr != CommAddress()) {
             StarsNode & father = sim.getNode(fatherAddr.getIPNum());
             if (father.getBranch().getChildAddress(0) == localAddress) {
@@ -138,11 +138,11 @@ template <> void PolicyFactoryDist<DP>::buildDispatcherDown(Service & disp, Comm
 
 
 class DummyDispatcher : public DispatcherInterface {
-    virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const {
-        return boost::shared_ptr<AvailabilityInformation>();
+    virtual std::shared_ptr<AvailabilityInformation> getBranchInfo() const {
+        return std::shared_ptr<AvailabilityInformation>();
     }
-    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int child) const {
-        return boost::shared_ptr<AvailabilityInformation>();
+    virtual std::shared_ptr<AvailabilityInformation> getChildInfo(int child) const {
+        return std::shared_ptr<AvailabilityInformation>();
     }
     virtual bool receiveMessage(const CommAddress & src, const BasicMsg & msg) { return false; }
 };
@@ -151,7 +151,7 @@ class DummyDispatcher : public DispatcherInterface {
 class PolicyFactoryCent : public PolicyFactory {
     virtual Service * createScheduler(OverlayLeaf & leaf) const { return new stars::SlaveLocalScheduler(leaf); }
     virtual Service * createDispatcher(OverlayBranch & branch) const { return new DummyDispatcher; }
-    virtual boost::shared_ptr<CentralizedScheduler> getCentScheduler() const {
+    virtual std::shared_ptr<CentralizedScheduler> getCentScheduler() const {
         return CentralizedScheduler::createScheduler(csType);
     }
 
@@ -172,7 +172,7 @@ public:
 template <class Policy> class PolicyFactoryBlind : public PolicyFactory {
     virtual Service * createScheduler(OverlayLeaf & leaf) const { return new typename Policy::scheduler(leaf); }
     virtual Service * createDispatcher(OverlayBranch & branch) const { return new DummyDispatcher; }
-    virtual boost::shared_ptr<CentralizedScheduler> getCentScheduler() const {
+    virtual std::shared_ptr<CentralizedScheduler> getCentScheduler() const {
         return CentralizedScheduler::createScheduler("blind");
     }
 

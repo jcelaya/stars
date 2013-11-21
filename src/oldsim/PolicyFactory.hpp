@@ -36,7 +36,7 @@ public:
 
     virtual Service * createScheduler(OverlayLeaf & leaf) const = 0;
     virtual Service * createDispatcher(OverlayBranch & branch) const = 0;
-    virtual boost::shared_ptr<CentralizedScheduler> getCentScheduler() const = 0;
+    virtual std::shared_ptr<CentralizedScheduler> getCentScheduler() const = 0;
     virtual void serializeDispatcher(Service & disp, MsgpackOutArchive & ar) const = 0;
     virtual void serializeDispatcher(Service & disp, MsgpackInArchive & ar) const = 0;
     virtual void buildDispatcher(OverlayBranch & branch, Service & disp) const = 0;

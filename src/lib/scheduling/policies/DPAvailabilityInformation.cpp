@@ -116,7 +116,7 @@ void DPAvailabilityInformation::MDFCluster::reduce() {
 }
 
 
-void DPAvailabilityInformation::addNode(uint32_t mem, uint32_t disk, double power, const std::list<boost::shared_ptr<Task> > & queue) {
+void DPAvailabilityInformation::addNode(uint32_t mem, uint32_t disk, double power, const std::list<std::shared_ptr<Task> > & queue) {
     MDFCluster tmp(mem, disk, power, queue);
     summary.push_back(tmp);
     if (summary.size() == 1) {

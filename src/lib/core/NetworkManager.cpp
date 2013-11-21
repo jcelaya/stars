@@ -56,7 +56,7 @@ void NetworkManager::listen() {
 
 unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg) {
     // Serialize the message
-    boost::shared_ptr<Connection> c(new Connection(io));
+    std::shared_ptr<Connection> c(new Connection(io));
     c->dst = dst;
     std::ostream buffer(&c->writeBuffer);
     msgpack::packer<std::ostream> pk(&buffer);
@@ -72,7 +72,7 @@ unsigned int NetworkManager::sendMessage(const CommAddress & dst, BasicMsg * msg
 }
 
 
-void NetworkManager::handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c) {
+void NetworkManager::handleConnect(const boost::system::error_code & error, std::shared_ptr<Connection> c) {
     if (!error) {
         Logger::msg("Comm", DEBUG, "Connection established with ", c->dst);
         net::async_write(c->socket, c->writeBuffer.data(),
@@ -83,7 +83,7 @@ void NetworkManager::handleConnect(const boost::system::error_code & error, boos
 }
 
 
-void NetworkManager::handleWrite(const boost::system::error_code & error, boost::shared_ptr<Connection> c) {
+void NetworkManager::handleWrite(const boost::system::error_code & error, std::shared_ptr<Connection> c) {
     // Do nothing, just close connection
 }
 
@@ -104,7 +104,7 @@ void NetworkManager::handleAccept(const boost::system::error_code & error) {
 }
 
 
-void NetworkManager::handleRead(const boost::system::error_code & error, size_t bytes_transferred, boost::shared_ptr<Connection> c) {
+void NetworkManager::handleRead(const boost::system::error_code & error, size_t bytes_transferred, std::shared_ptr<Connection> c) {
     if (!error) {
         // Read until EOF or end of buffer
         c->readBuffer.commit(bytes_transferred);
@@ -130,7 +130,7 @@ void NetworkManager::handleRead(const boost::system::error_code & error, size_t 
             BasicMsg * bmsg;
             bmsg = BasicMsg::unpackMessage(pac);
             Logger::msg("Net", INFO, "Received message ", *bmsg, " from ", src);
-            CommLayer::getInstance().enqueueMessage(src, boost::shared_ptr<BasicMsg>(bmsg));
+            CommLayer::getInstance().enqueueMessage(src, std::shared_ptr<BasicMsg>(bmsg));
         } catch (...) {
             Logger::msg("Net", ERROR, "Failed serialization of message from ", c->socket.remote_endpoint());
         }

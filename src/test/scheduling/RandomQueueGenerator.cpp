@@ -42,7 +42,7 @@ void RandomQueueGenerator::reset(double power) {
 }
 
 
-std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(double power) {
+std::list<std::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(double power) {
     reset(power);
 
     // Add a random number of applications, with random length and number of tasks
@@ -54,7 +54,7 @@ std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(do
 }
 
 
-std::list<boost::shared_ptr<Task> > & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
+std::list<std::shared_ptr<Task> > & RandomQueueGenerator::createNLengthQueue(unsigned int numTasks, double power) {
     reset(power);
 
     // Add n tasks with random length
@@ -91,12 +91,12 @@ void RandomQueueGenerator::createRandomApp(unsigned int numTasks) {
         endtime = now + Duration(tsum);
     description.setDeadline(endtime + Duration(getRandomAppLength() / numTasks / currentPower));
     for (unsigned int taskid = 0; taskid < numTasks; ++taskid) {
-        boost::shared_ptr<TestTask> newTask(new TestTask(CommAddress(), appId, taskid, description, currentPower));
+        std::shared_ptr<TestTask> newTask(new TestTask(CommAddress(), appId, taskid, description, currentPower));
         newTask->setCreationTime(creationTime);
         currentTasks.push_back(newTask);
     }
     ++appId;
-    boost::static_pointer_cast<TestTask>(currentTasks.front())->execute(alreadyExecuted);
+    std::static_pointer_cast<TestTask>(currentTasks.front())->execute(alreadyExecuted);
 }
 
 

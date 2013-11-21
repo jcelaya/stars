@@ -61,7 +61,7 @@ public:
         /// Default constructor, for serialization purposes mainly
         MDFCluster() {}
         /// Creates a cluster for a certain information object r and a set of initial values
-        MDFCluster(uint32_t m, uint32_t d, double power, const std::list<boost::shared_ptr<Task> > & queue)
+        MDFCluster(uint32_t m, uint32_t d, double power, const std::list<std::shared_ptr<Task> > & queue)
                 : reference(NULL), value(1), minM(m), minD(d), minA(power, queue), accumMsq(0.0), accumDsq(0.0),
                 accumMln(0.0), accumDln(0.0), accumAsq(0.0), accumMaxA(minA) {}
 
@@ -147,7 +147,7 @@ public:
         horizon = Time::getCurrentTime();
     }
 
-    void addNode(uint32_t mem, uint32_t disk, double power, const std::list<boost::shared_ptr<Task> > & queue);
+    void addNode(uint32_t mem, uint32_t disk, double power, const std::list<std::shared_ptr<Task> > & queue);
 
     /**
      * Aggregates an TimeConstraintInfo to this object.

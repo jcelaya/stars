@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_SUITE(ExecMsg)
 BOOST_AUTO_TEST_CASE(testTaskEventMsg) {
     // Ctor
     TaskEventMsg e;
-    boost::shared_ptr<TaskEventMsg> p;
+    std::shared_ptr<TaskEventMsg> p;
 
     // setTaskId
     e.setTaskId(2456);
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(testTaskEventMsg) {
 BOOST_AUTO_TEST_CASE(testTaskStateChgMsg) {
     // Ctor
     TaskStateChgMsg e;
-    boost::shared_ptr<TaskStateChgMsg> p;
+    std::shared_ptr<TaskStateChgMsg> p;
     e.setTaskId(0);
 
     // setOldState
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(testTaskStateChgMsg) {
 BOOST_AUTO_TEST_CASE(testTaskBagMsg) {
     // Ctor
     TaskBagMsg e;
-    boost::shared_ptr<TaskBagMsg> p;
+    std::shared_ptr<TaskBagMsg> p;
 
     // setForEN
     e.setForEN(true);

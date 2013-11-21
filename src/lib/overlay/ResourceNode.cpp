@@ -132,7 +132,7 @@ template<> void ResourceNode::handle(const CommAddress & src, const NewFatherMsg
     if (transaction != NULL_TRANSACTION_ID) {
         // If we are in the middle of a change, wait
         Logger::msg("St.RN", DEBUG, "In the middle of a transaction, delaying.");
-        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, std::shared_ptr<BasicMsg>(msg.clone())));
         // Check that the sender is our current father
     } else if (father == src) {
         fireFatherChanging();
@@ -267,7 +267,7 @@ template<> void ResourceNode::handle(const CommAddress & src, const InsertMsg & 
     if (transaction != NULL_TRANSACTION_ID) {
         // If we are in the middle of a change, wait
         Logger::msg("St.RN", DEBUG, "In the middle of a transaction, delaying.");
-        delayedMessages.push_back(AddrMsg(src, boost::shared_ptr<BasicMsg>(msg.clone())));
+        delayedMessages.push_back(AddrMsg(src, std::shared_ptr<BasicMsg>(msg.clone())));
     } else if (father != CommAddress()) {
         Logger::msg("St.RN", DEBUG, "Sending to the father");
         // If we are in the network, relay the message to our father

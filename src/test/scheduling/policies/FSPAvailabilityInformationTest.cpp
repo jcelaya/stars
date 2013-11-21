@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(FSPAvailabilityInfo_checkMsg) {
     s1.setAvailability(1024, 512, proxys, 1000.0);
     Logger::msg("Test.RI", INFO, s1);
 
-    boost::shared_ptr<FSPAvailabilityInformation> p;
+    std::shared_ptr<FSPAvailabilityInformation> p;
     CheckMsgMethod::check(s1, p);
 }
 

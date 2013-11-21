@@ -22,7 +22,7 @@
 #define DISPATCHER_H_
 
 #include <array>
-#include <boost/shared_ptr.hpp>
+
 #include "Logger.hpp"
 #include "CommLayer.hpp"
 #include "ConfigurationManager.hpp"
@@ -40,9 +40,9 @@ public:
      * Provides the information for this branch.
      * @returns Pointer to the calculated availability information.
      */
-    virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const = 0;
+    virtual std::shared_ptr<AvailabilityInformation> getBranchInfo() const = 0;
 
-    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int child) const = 0;
+    virtual std::shared_ptr<AvailabilityInformation> getChildInfo(int child) const = 0;
 };
 
 
@@ -83,7 +83,7 @@ public:
     }
 
     // This is documented in DispatcherInterface.
-    virtual boost::shared_ptr<AvailabilityInformation> getBranchInfo() const {
+    virtual std::shared_ptr<AvailabilityInformation> getBranchInfo() const {
         return father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
     }
 
@@ -92,7 +92,7 @@ public:
      * @param child The child address.
      * @return Pointer to the information of that child.
      */
-    virtual boost::shared_ptr<AvailabilityInformation> getChildInfo(int c) const {
+    virtual std::shared_ptr<AvailabilityInformation> getChildInfo(int c) const {
         return child[c].availInfo;
     }
 
@@ -108,9 +108,9 @@ public:
 
     struct Link {
         CommAddress addr;
-        boost::shared_ptr<T> availInfo;
-        boost::shared_ptr<T> waitingInfo;
-        boost::shared_ptr<T> notifiedInfo;
+        std::shared_ptr<T> availInfo;
+        std::shared_ptr<T> waitingInfo;
+        std::shared_ptr<T> notifiedInfo;
         bool hasNewInformation;
         Link() : hasNewInformation(true) {}
         Link(const CommAddress & a) : addr(a), hasNewInformation(true) {}
@@ -174,7 +174,7 @@ protected:
     /// Info about this branch
     Link child[2];
 
-    typedef std::pair<CommAddress, boost::shared_ptr<T> > AddrMsg;
+    typedef std::pair<CommAddress, std::shared_ptr<T> > AddrMsg;
     std::vector<AddrMsg> delayedUpdates;   ///< Delayed messages when the structure is changing
 
     int updateTimer;   ///< Timer for the next UpdateMsg to be sent
@@ -194,7 +194,7 @@ protected:
         if (inChange) {
             // Delay this message
             Logger::msg("Dsp", DEBUG, "In the middle of a change, delaying");
-            delayedUpdates.push_back(AddrMsg(src, boost::shared_ptr<T>(msg.clone())));
+            delayedUpdates.push_back(AddrMsg(src, std::shared_ptr<T>(msg.clone())));
         } else if ((!msg.isFromSch() && father.update(src, msg)) || child[0].update(src, msg) || child[1].update(src, msg)) {
             // Check if the resulting zone changes
             if (!delayed) {
@@ -226,7 +226,7 @@ protected:
      * if the bandwidth limit is going to be overcome.
      */
     void notify() {
-        static boost::shared_ptr<UpdateTimer> upMsg(new UpdateTimer);
+        static std::shared_ptr<UpdateTimer> upMsg(new UpdateTimer);
         if (nextUpdate > Time::getCurrentTime() || updateTimer != 0) {
             Logger::msg("Dsp", DEBUG, "Wait a bit...");
             if (updateTimer == 0) {
@@ -270,7 +270,7 @@ protected:
     void sendTasks(const TaskBagMsg & msg, const std::array<unsigned int, 2> & numTasks, bool dontSendToFather) {
         // Now create and send the messages
         unsigned int nextTask = msg.getFirstTask();
-        boost::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
+        std::shared_ptr<T> availInfo = father.waitingInfo.get() ? father.waitingInfo : father.notifiedInfo;
 
         for (int c : {0, 1}) {
             if (numTasks[c] > 0) {

@@ -43,14 +43,14 @@ CentralizedScheduler::CentralizedScheduler() :
         sim(Simulator::getInstance()), queues(sim.getNumNodes()), inTraffic(0), outTraffic(0), rescheduleSequence(1) {}
 
 
-bool CentralizedScheduler::blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
+bool CentralizedScheduler::blockMessage(const std::shared_ptr<BasicMsg> & msg) {
     return false;
 }
 
 
 bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
     if (typeid(*ev.msg) == typeid(TaskBagMsg)) {
-        boost::shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
+        std::shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
         if (!msg->isForEN()) {
             sim.getPerfStats().startEvent("Centralized scheduling");
             inTraffic += ev.size;
@@ -84,14 +84,14 @@ void CentralizedScheduler::taskFinished(unsigned int node) {
 }
 
 
-boost::shared_ptr<RescheduleMsg> CentralizedScheduler::getRescheduleMsg(list<TaskDesc> & queue) {
-    boost::shared_ptr<TaskBagMsg> lastTaskMsg = queue.back().msg;
+std::shared_ptr<RescheduleMsg> CentralizedScheduler::getRescheduleMsg(list<TaskDesc> & queue) {
+    std::shared_ptr<TaskBagMsg> lastTaskMsg = queue.back().msg;
     unsigned int numTasks = 0;
     for (auto i = queue.rbegin(); i != queue.rend() && i->msg == lastTaskMsg; ++i) {
         ++numTasks;
     }
     Logger::msg("Dsp.Cent", DEBUG, "Sending reschedule with ", numTasks, " new tasks");
-    boost::shared_ptr<RescheduleMsg> rsch(new RescheduleMsg(*lastTaskMsg));
+    std::shared_ptr<RescheduleMsg> rsch(new RescheduleMsg(*lastTaskMsg));
     rsch->setFromEN(false);
     rsch->setForEN(true);
     rsch->setFirstTask(queue.back().tid - numTasks + 1);
@@ -103,7 +103,7 @@ boost::shared_ptr<RescheduleMsg> CentralizedScheduler::getRescheduleMsg(list<Tas
 
 void CentralizedScheduler::sortQueue(unsigned int node) {
     list<TaskDesc> & queue = queues[node];
-    boost::shared_ptr<RescheduleMsg> rsch = getRescheduleMsg(queue);
+    std::shared_ptr<RescheduleMsg> rsch = getRescheduleMsg(queue);
     queue.sort();
     rsch->setSequenceLength(queue.size());
     for (auto & i : queue) {
@@ -124,16 +124,16 @@ void CentralizedScheduler::showStatistics() {
 
 
 class BlindScheduler : public CentralizedScheduler {
-    bool blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
-        if (boost::dynamic_pointer_cast<AvailabilityInformation>(msg).get())
+    bool blockMessage(const std::shared_ptr<BasicMsg> & msg) {
+        if (std::dynamic_pointer_cast<AvailabilityInformation>(msg).get())
             return true;
         return false;
     }
 
-    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
+    void newApp(std::shared_ptr<TaskBagMsg> msg) {
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
             unsigned int n = clientVar();
-            boost::shared_ptr<TaskBagMsg> tbm(msg->clone());
+            std::shared_ptr<TaskBagMsg> tbm(msg->clone());
             tbm->setFromEN(false);
             tbm->setForEN(true);
             tbm->setFirstTask(i);
@@ -164,7 +164,7 @@ class CentralizedIBP : public CentralizedScheduler {
         bool operator<(const NodeAvail & r) { return a < r.a; }
     };
 
-    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
+    void newApp(std::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -221,7 +221,7 @@ class CentralizedMMP : public CentralizedScheduler {
     Time maxQueue;
     std::vector<Time> queueEnds;
 
-    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
+    void newApp(std::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -305,7 +305,7 @@ class CentralizedDP : public CentralizedScheduler {
         bool operator<(const Hole & r) const { return remaining < r.remaining || (remaining == r.remaining && numTasks < r.numTasks); }
     };
 
-    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
+    void newApp(std::shared_ptr<TaskBagMsg> msg) {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
@@ -430,7 +430,7 @@ class CentralizedFSP : public CentralizedScheduler {
         CentralizedScheduler::taskFinished(node);
     }
 
-    void newApp(boost::shared_ptr<TaskBagMsg> msg) {
+    void newApp(std::shared_ptr<TaskBagMsg> msg) {
         unsigned long a = msg->getMinRequirements().getLength();
         Time now = sim.getCurrentTime();
 
@@ -540,18 +540,18 @@ public:
 };
 
 
-boost::shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
+std::shared_ptr<CentralizedScheduler> CentralizedScheduler::createScheduler(const string & type) {
     if (type == "blind") {
-        return boost::shared_ptr<CentralizedScheduler>(new BlindScheduler());
+        return std::shared_ptr<CentralizedScheduler>(new BlindScheduler());
     } else if (type == "IBP") {
-        return boost::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
+        return std::shared_ptr<CentralizedScheduler>(new CentralizedIBP());
     } else if (type == "MMP") {
-        return boost::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
+        return std::shared_ptr<CentralizedScheduler>(new CentralizedMMP());
     } else if (type == "DP") {
-        return boost::shared_ptr<CentralizedScheduler>(new CentralizedDP());
+        return std::shared_ptr<CentralizedScheduler>(new CentralizedDP());
     } else if (type == "FSP") {
-        return boost::shared_ptr<CentralizedScheduler>(new CentralizedFSP());
+        return std::shared_ptr<CentralizedScheduler>(new CentralizedFSP());
     } else {
-        return boost::shared_ptr<CentralizedScheduler>();
+        return std::shared_ptr<CentralizedScheduler>();
     }
 }

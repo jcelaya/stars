@@ -21,7 +21,6 @@
 #ifndef STARSNODE_H_
 #define STARSNODE_H_
 
-#include <boost/scoped_ptr.hpp>
 #include <log4cpp/Priority.hh>
 #include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
@@ -90,7 +89,7 @@ public:
 
     void unpackState(std::streambuf & out);
 
-    void receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg);
+    void receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg);
 
     void setLocalAddress(const CommAddress & local) { localAddress = local; }
 

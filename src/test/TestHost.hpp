@@ -22,7 +22,7 @@
 #define TESTHOST_HPP_
 
 #include <boost/thread/tss.hpp>
-#include <boost/shared_ptr.hpp>
+
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <list>
 #include <utility>
@@ -33,8 +33,8 @@
 // Fake singleton, allows to reset the CommLayer and ConfigurationManager instances when necessary
 class TestHost {
     struct Host {
-        boost::shared_ptr<CommLayer> commLayer;
-        boost::shared_ptr<ConfigurationManager> confMngr;
+        std::shared_ptr<CommLayer> commLayer;
+        std::shared_ptr<ConfigurationManager> confMngr;
         Time currentTime;
         bool realTime;
         Host() : currentTime(referenceTime), realTime(false) {}
@@ -58,12 +58,12 @@ public:
         myHost.reset(new std::list<Host>::iterator(hosts.begin()));
     }
 
-    boost::shared_ptr<CommLayer> & getCommLayer() {
+    std::shared_ptr<CommLayer> & getCommLayer() {
         if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
         return (*myHost)->commLayer;
     }
 
-    boost::shared_ptr<ConfigurationManager> & getConfigurationManager() {
+    std::shared_ptr<ConfigurationManager> & getConfigurationManager() {
         if (!myHost.get()) myHost.reset(new std::list<Host>::iterator(hosts.begin()));
         return (*myHost)->confMngr;
     }

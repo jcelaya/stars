@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(DPAvailabilityInformationTest_checkMsg) {
 
     // Ctor
     DPAvailabilityInformation e;
-    boost::shared_ptr<DPAvailabilityInformation> p;
+    std::shared_ptr<DPAvailabilityInformation> p;
 
     // TODO: Check other things
 

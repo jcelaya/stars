@@ -23,7 +23,7 @@
 
 #include <string>
 #include <map>
-#include <boost/shared_ptr.hpp>
+
 #include "Properties.hpp"
 #include "CommAddress.hpp"
 #include <BasicMsg.hpp>
@@ -45,8 +45,8 @@ public:
         return percent;
     }
 
-    virtual void beforeEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {}
-    virtual void afterEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {}
+    virtual void beforeEvent(CommAddress src, CommAddress dst, std::shared_ptr<BasicMsg> msg) {}
+    virtual void afterEvent(CommAddress src, CommAddress dst, std::shared_ptr<BasicMsg> msg) {}
     // Some common events
     virtual void finishedApp(long int appId) {}
     const Properties & getProperties() const { return property; }

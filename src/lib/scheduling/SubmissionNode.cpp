@@ -74,7 +74,7 @@ void SubmissionNode::sendRequest(int64_t appInstance, int prevRetries) {
         // Set a request timeout of 30 seconds
         Time timeout = Time::getCurrentTime() + Duration(ConfigurationManager::getInstance().getRequestTimeout());
         // Schedule the timeout message
-        boost::shared_ptr<RequestTimeout> rt(new RequestTimeout);
+        std::shared_ptr<RequestTimeout> rt(new RequestTimeout);
         rt->setRequestId(reqId);
         CommLayer::getInstance().setTimer(timeout, rt);
         if (db.startSearch(reqId, timeout)) {
@@ -156,7 +156,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const AcceptTask
             int & timer = heartbeats.insert(make_pair(src, 0)).first->second;
             if (timer == 0) {
                 timer = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                        boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
+                        std::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
             }
             // Count tasks
             remoteTasks[src].insert(make_pair(appId, 0)).first->second += numAccepted;
@@ -246,7 +246,7 @@ template<> void SubmissionNode::handle(const CommAddress & src, const TaskMonito
     // If there are still any remote task in that execution node, reprogram a heartbeat timeout
     if (!tasksPerApp.empty())
         hb = CommLayer::getInstance().setTimer(Duration(2.5 * msg.getHeartbeat()),
-                boost::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
+                std::shared_ptr<HeartbeatTimeout>(new HeartbeatTimeout(src)));
     else {
         remoteTasks.erase(src);
         heartbeats.erase(src);

@@ -195,6 +195,6 @@ unsigned long int UnixExecutionEnvironment::getAvailableDisk() const {
 }
 
 
-boost::shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
-    return boost::shared_ptr<Task>(new UnixProcess(o, reqId, ctid, d));
+std::shared_ptr<Task> UnixExecutionEnvironment::createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
+    return std::shared_ptr<Task>(new UnixProcess(o, reqId, ctid, d));
 }

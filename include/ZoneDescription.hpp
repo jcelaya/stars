@@ -23,7 +23,7 @@
 
 #include <list>
 #include <ostream>
-#include <boost/shared_ptr.hpp>
+
 #include "CommAddress.hpp"
 
 

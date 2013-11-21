@@ -30,7 +30,7 @@ using namespace std;
  * @param r Right operand task.
  * @return True if l was created earlier than r, false otherwise.
  */
-static bool compareCreation(boost::shared_ptr<Task> l, boost::shared_ptr<Task> r) {
+static bool compareCreation(std::shared_ptr<Task> l, std::shared_ptr<Task> r) {
     return l->getCreationTime() < r->getCreationTime();
 }
 

@@ -38,7 +38,7 @@
 #include "util/SignalException.hpp"
 using log4cpp::Category;
 using log4cpp::Priority;
-using boost::shared_ptr;
+using std::shared_ptr;
 
 
 const boost::posix_time::ptime TestHost::referenceTime =

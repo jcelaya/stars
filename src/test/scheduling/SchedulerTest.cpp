@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     CommLayer::getInstance().registerService(rn);
     DPScheduler * sched = new DPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
-    list<boost::shared_ptr<Task> > & tasks = sched->getTasks();
+    list<std::shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;
     msg.setOldState(Task::Running);
     msg.setNewState(Task::Finished);
@@ -255,7 +255,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     BOOST_CHECK(sched->accept(task3req));
 
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 2);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         msg.setTaskId((*it)->getTaskId());
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
 
     sched->receiveMessage(addr, msg);
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 3);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         it++;
@@ -286,7 +286,7 @@ BOOST_AUTO_TEST_CASE(testEDF) {
     task2req.setMinRequirements(task2desc);
     BOOST_CHECK(sched->accept(task2req));
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 3);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         it++;
@@ -310,7 +310,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     CommLayer::getInstance().registerService(rn);
     stars::FSPScheduler * sched = new stars::FSPScheduler(*rn);
     CommLayer::getInstance().registerService(sched);
-    list<boost::shared_ptr<Task> > & tasks = sched->getTasks();
+    list<std::shared_ptr<Task> > & tasks = sched->getTasks();
     TaskStateChgMsg msg;
     msg.setOldState(Task::Running);
     msg.setNewState(Task::Finished);
@@ -348,7 +348,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     BOOST_CHECK(sched->accept(task2req));
 
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 3);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         msg.setTaskId((*it)->getTaskId());
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
 
     sched->receiveMessage(addr, msg);
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 2);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         it++;
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(testMinSlowness) {
     task3req.setMinRequirements(task3desc);
     BOOST_CHECK(sched->accept(task3req));
     {
-        list<boost::shared_ptr<Task> >::iterator it = tasks.begin();
+        list<std::shared_ptr<Task> >::iterator it = tasks.begin();
         BOOST_CHECK_EQUAL((*it)->getClientRequestId(), 2);
         BOOST_CHECK((*it)->getStatus() == Task::Running);
         it++;

@@ -22,15 +22,15 @@
 #include "MMPDispatcher.hpp"
 #include "Time.hpp"
 #include "ConfigurationManager.hpp"
-using boost::shared_ptr;
+using std::shared_ptr;
 
 
 double MMPDispatcher::beta = 0.5;
 
 
-boost::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(int c) {
+std::shared_ptr<MMPAvailabilityInformation> MMPDispatcher::getChildInfo(int c) {
     const Link & other = child[c^1];
-    boost::shared_ptr<MMPAvailabilityInformation> result;
+    std::shared_ptr<MMPAvailabilityInformation> result;
     // TODO: send full information, based on configuration switch
     if (father.availInfo.get()) {
         Time fatherMaxQueue = father.availInfo->getMaxQueueLength();
@@ -90,8 +90,8 @@ struct MMPDispatcher::DecissionInfo {
 void MMPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     if (msg.isForEN() || !checkState()) return;
     Logger::msg("Dsp.MMP", INFO, "Received a TaskBagMsg from ", src);
-    boost::shared_ptr<MMPAvailabilityInformation> zoneInfo =
-            boost::static_pointer_cast<MMPAvailabilityInformation>(getBranchInfo());
+    std::shared_ptr<MMPAvailabilityInformation> zoneInfo =
+            std::static_pointer_cast<MMPAvailabilityInformation>(getBranchInfo());
 
     TaskDescription req = msg.getMinRequirements();
     unsigned int remainingTasks = msg.getLastTask() - msg.getFirstTask() + 1;

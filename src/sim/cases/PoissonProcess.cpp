@@ -58,7 +58,7 @@ public:
         nextInstance = 0;
         for (uint32_t client = 0; client < sim.getNumNodes() && nextInstance < numInstances; ++client) {
             Time nextMsg = now + Duration(Simulator::exponential(meanTime));
-            boost::shared_ptr<DispatchCommandMsg> dcm( rg.generate(sim.getNode(client), nextMsg));
+            std::shared_ptr<DispatchCommandMsg> dcm( rg.generate(sim.getNode(client), nextMsg));
             // Send this message to the client
             sim.getNode(client).setTimer(nextMsg, dcm);
             nextInstance++;
@@ -66,12 +66,12 @@ public:
         remainingApps = 0;
     }
 
-    virtual void afterEvent(CommAddress src, CommAddress dst, boost::shared_ptr<BasicMsg> msg) {
+    virtual void afterEvent(CommAddress src, CommAddress dst, std::shared_ptr<BasicMsg> msg) {
         if (typeid(*msg) == typeid(DispatchCommandMsg) && nextInstance < numInstances) {
             // Calculate next send
             Time nextMsg = Time::getCurrentTime() + Duration(Simulator::exponential(meanTime));
             StarsNode & node = Simulator::getInstance().getCurrentNode();
-            boost::shared_ptr<DispatchCommandMsg> dcm(rg.generate(node, nextMsg));
+            std::shared_ptr<DispatchCommandMsg> dcm(rg.generate(node, nextMsg));
             // Send this message to the client
             node.setTimer(nextMsg, dcm);
             nextInstance++;

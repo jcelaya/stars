@@ -22,7 +22,6 @@
 #ifndef WTUI_H_
 #define WTUI_H_
 
-#include <boost/scoped_ptr.hpp>
 #include <Wt/WServer>
 
 
@@ -33,7 +32,7 @@
  * This is done through the WebToolkit library (http://www.webtoolkit.eu/wt).
  */
 class WtUI {
-    boost::scoped_ptr<Wt::WServer> serverInstance;
+    std::unique_ptr<Wt::WServer> serverInstance;
 
     // Avoid instantiation
     WtUI() {}

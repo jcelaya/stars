@@ -26,7 +26,6 @@
 #include <stdexcept>
 #include <sstream>
 #include <boost/filesystem.hpp>
-#include <boost/cstdint.hpp>
 
 
 /**

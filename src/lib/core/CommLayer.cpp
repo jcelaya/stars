@@ -19,8 +19,6 @@
  */
 
 #include <signal.h>
-#include <boost/bind.hpp>
-#include <boost/scoped_ptr.hpp>
 #include "Logger.hpp"
 #include "Time.hpp"
 #include "ConfigurationManager.hpp"
@@ -60,7 +58,7 @@ void CommLayer::stopEventLoop() {
 
 void CommLayer::processNextMessage() {
     CommAddress src;
-    boost::shared_ptr<BasicMsg> msg;
+    std::shared_ptr<BasicMsg> msg;
     {
         mutex::scoped_lock lock(queueMutex);
         // Wait until there are messages in the queue
@@ -85,7 +83,7 @@ void CommLayer::processNextMessage() {
 }
 
 
-void CommLayer::enqueueMessage(const CommAddress & src, const boost::shared_ptr<BasicMsg> & msg) {
+void CommLayer::enqueueMessage(const CommAddress & src, const std::shared_ptr<BasicMsg> & msg) {
     {
         mutex::scoped_lock lock(queueMutex);
         messageQueue.push_back(AddrMsg(src, msg));
@@ -96,16 +94,16 @@ void CommLayer::enqueueMessage(const CommAddress & src, const boost::shared_ptr<
 
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
     if (dst == getLocalAddress()) {
-        enqueueMessage(dst, boost::shared_ptr<BasicMsg>(msg));
+        enqueueMessage(dst, std::shared_ptr<BasicMsg>(msg));
         return 0;
     } else {
-        boost::scoped_ptr<BasicMsg> tmp(msg);
+        std::unique_ptr<BasicMsg> tmp(msg);
         return nm->sendMessage(dst, msg);
     }
 }
 
 
-int CommLayer::setTimerImpl(Time time, boost::shared_ptr<BasicMsg> msg) {
+int CommLayer::setTimerImpl(Time time, std::shared_ptr<BasicMsg> msg) {
     // Add a task to the timer structure
     Timer t(time, msg);
     {

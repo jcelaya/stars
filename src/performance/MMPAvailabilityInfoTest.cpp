@@ -36,11 +36,11 @@ template<> AggregationTestImpl<MMPAvailabilityInformation>::AggregationTestImpl(
 }
 
 
-template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTestImpl<MMPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+template<> std::shared_ptr<MMPAvailabilityInformation> AggregationTestImpl<MMPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     static const int min_time = 0;
     static const int max_time = 2000;
     static const int step_time = 1;
-    boost::shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
+    std::shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
     Duration q((double)floor(boost::random::uniform_int_distribution<>(min_time, max_time)(gen.getGenerator()) / step_time) * step_time);
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
@@ -50,7 +50,7 @@ template<> boost::shared_ptr<MMPAvailabilityInformation> AggregationTestImpl<MMP
 }
 
 
-template<> void AggregationTestImpl<MMPAvailabilityInformation>::computeResults(const boost::shared_ptr<MMPAvailabilityInformation> & summary) {
+template<> void AggregationTestImpl<MMPAvailabilityInformation>::computeResults(const std::shared_ptr<MMPAvailabilityInformation> & summary) {
     list<MMPAvailabilityInformation::MDPTCluster *> clusters;
     TaskDescription dummy;
     dummy.setMaxMemory(0);

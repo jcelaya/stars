@@ -21,7 +21,7 @@
 #ifndef UNIXEXECUTIONENVIRONMENT_H_
 #define UNIXEXECUTIONENVIRONMENT_H_
 
-#include <boost/shared_ptr.hpp>
+
 #include "Scheduler.hpp"
 
 
@@ -45,7 +45,7 @@ public:
     /**
      * This is described in Scheduler::ExecutionEnvironment
      */
-    boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const;
+    std::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const;
 };
 
 #endif /* UNIXEXECUTIONENVIRONMENT_H_ */

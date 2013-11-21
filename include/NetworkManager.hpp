@@ -22,8 +22,6 @@
 #define NETWORKMANAGER_H_
 
 #include <boost/asio.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
 #include "Time.hpp"
 #include "CommAddress.hpp"
@@ -74,12 +72,12 @@ private:
     /*
      * Handler for the connection with a remote node
      */
-    void handleConnect(const boost::system::error_code & error, boost::shared_ptr<Connection> c);
+    void handleConnect(const boost::system::error_code & error, std::shared_ptr<Connection> c);
 
     /*
      * Handler for the sending of a message
      */
-    void handleWrite(const boost::system::error_code & error, boost::shared_ptr<Connection> c);
+    void handleWrite(const boost::system::error_code & error, std::shared_ptr<Connection> c);
 
     /**
      * Handler for an accept on the incoming socket
@@ -89,12 +87,12 @@ private:
     /**
      * Handler for the arrival of data
      */
-    void handleRead(const boost::system::error_code & error, std::size_t bytes_transferred, boost::shared_ptr<Connection> c);
+    void handleRead(const boost::system::error_code & error, std::size_t bytes_transferred, std::shared_ptr<Connection> c);
 
-    boost::scoped_ptr<boost::thread> t;                 ///< Thread for the handling of asynchronous events
+    std::unique_ptr<boost::thread> t;                 ///< Thread for the handling of asynchronous events
     boost::asio::io_service io;                        ///< IO object from asio lib
     boost::asio::ip::tcp::acceptor acceptor;               ///< Acceptor for incoming connections
-    boost::shared_ptr<Connection> incoming;      ///< Socket for an incoming connection
+    std::shared_ptr<Connection> incoming;      ///< Socket for an incoming connection
 
     boost::asio::deadline_timer timer;                 ///< Timer for the TimerManager events
 };

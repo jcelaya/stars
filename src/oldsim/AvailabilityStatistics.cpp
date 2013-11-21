@@ -37,7 +37,7 @@ void AvailabilityStatistics::changeUpwards(uint32_t src, uint32_t dst, Time c) {
 //    {
 //        // Check that ev.to is the father of ev.from. Only count changes upwards.
 //        StarsNode & child = sim.getNode(ev.from);
-//        if (boost::dynamic_pointer_cast<AvailabilityInformation>(ev.msg)->isFromSch()) {
+//        if (std::dynamic_pointer_cast<AvailabilityInformation>(ev.msg)->isFromSch()) {
 //            if (child.getE().getFather() == CommAddress() || ev.to != child.getE().getFather().getIPNum()) return;
 //        } else {
 //            if (child.getS().getFather() == CommAddress() || ev.to != child.getS().getFather().getIPNum()) return;

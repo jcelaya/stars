@@ -26,7 +26,7 @@
 #include <list>
 #include <utility>
 #include <ostream>
-#include <boost/shared_ptr.hpp>
+
 #include "AvailabilityInformation.hpp"
 #include "ClusteringList.hpp"
 #include "Time.hpp"

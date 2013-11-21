@@ -23,7 +23,7 @@
 
 #include <string>
 #include <map>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/cstdint.hpp>
 #include "Properties.hpp"
 class BasicMsg;
@@ -52,7 +52,7 @@ public:
 
 
 class CaseFactory {
-    std::map<std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p)> caseConstructors;
+    std::map<std::string, std::shared_ptr<SimulationCase> (*)(const Properties & p)> caseConstructors;
 
     CaseFactory() {}
 
@@ -63,8 +63,8 @@ public:
     }
 
     template<class S> class CaseRegistrar {
-        static boost::shared_ptr<SimulationCase> create(const Properties & p) {
-            return boost::shared_ptr<SimulationCase>(new S(p));
+        static std::shared_ptr<SimulationCase> create(const Properties & p) {
+            return std::shared_ptr<SimulationCase>(new S(p));
         }
     public:
         CaseRegistrar() {
@@ -73,7 +73,7 @@ public:
     };
     template<class S> friend class CaseRegistrar;
 
-    boost::shared_ptr<SimulationCase> createCase(const std::string & name, const Properties & p);
+    std::shared_ptr<SimulationCase> createCase(const std::string & name, const Properties & p);
 };
 
 

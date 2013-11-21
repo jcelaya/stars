@@ -44,7 +44,7 @@ public:
 
     static void setBeta(double b) { beta = b; }
 
-    boost::shared_ptr<FSPAvailabilityInformation> getChildWaitingInfo(int c) const {
+    std::shared_ptr<FSPAvailabilityInformation> getChildWaitingInfo(int c) const {
         return child[c].waitingInfo;
     }
 
@@ -69,8 +69,8 @@ private:
     void updateBranchSlowness(const std::array<double, 2> & branchSlowness);
 
     bool validInformation() const {
-        boost::shared_ptr<FSPAvailabilityInformation> info =
-                boost::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
+        std::shared_ptr<FSPAvailabilityInformation> info =
+                std::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
         return info.get() && !info->getSummary().empty();
     }
 

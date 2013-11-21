@@ -40,7 +40,7 @@ public:
 
     LDeltaFunction() : slope(0.0) {}
 
-    LDeltaFunction(double power, const std::list<boost::shared_ptr<Task> > & queue);
+    LDeltaFunction(double power, const std::list<std::shared_ptr<Task> > & queue);
 
     LDeltaFunction(const LDeltaFunction & copy) : points(copy.points), slope(copy.slope) {}
 

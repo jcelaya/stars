@@ -25,7 +25,6 @@
 namespace fs = boost::filesystem;
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/scoped_ptr.hpp>
 namespace iost = boost::iostreams;
 #include <msg/msg.h>
 #include "CommLayer.hpp"
@@ -138,7 +137,7 @@ public:
 
     void buildDispatcher();
 
-    //     boost::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
+    //     std::shared_ptr<AvailabilityInformation> getChildInfo(const CommAddress & child) const;
     //     unsigned int getSNLevel() const;
     //
     //     void showRecursive(log4cpp::Priority::Value prio, unsigned int level, const std::string & prefix = "");

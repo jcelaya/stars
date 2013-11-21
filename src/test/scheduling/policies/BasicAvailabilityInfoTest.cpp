@@ -18,10 +18,10 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <memory>
 #include <boost/test/unit_test.hpp>
 #include "CheckMsg.hpp"
 #include "IBPAvailabilityInformation.hpp"
-using namespace boost;
 
 
 BOOST_AUTO_TEST_SUITE(Cor)   // Correctness test suite

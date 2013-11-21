@@ -27,8 +27,6 @@
 #include <list>
 #include <sstream>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <log4cpp/Layout.hh>
@@ -75,16 +73,16 @@ public:
         Time txTime;
         Duration txDuration;
         Time t;
-        boost::shared_ptr<BasicMsg> msg;
+        std::shared_ptr<BasicMsg> msg;
         uint32_t from, to;
         bool inRecvQueue;
         unsigned int size;
-        Event(Time c, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++), creationTime(c),
+        Event(Time c, std::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++), creationTime(c),
             txTime(c), txDuration(0.0), t(c), msg(initmsg), inRecvQueue(false), size(sz) {}
-        Event(Time c, Time outQueue, Duration tx, Duration d, boost::shared_ptr<BasicMsg> initmsg,
+        Event(Time c, Time outQueue, Duration tx, Duration d, std::shared_ptr<BasicMsg> initmsg,
             unsigned int sz) : id(lastEventId++), creationTime(c), txTime(outQueue), txDuration(tx), t(txTime + tx + d),
             msg(initmsg), inRecvQueue(false), size(sz) {}
-        Event(Time c, Duration d, boost::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++),
+        Event(Time c, Duration d, std::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++),
             creationTime(c), txTime(c), t(c + d),
             msg(initmsg), inRecvQueue(false), size(sz) {}
     };
@@ -123,12 +121,12 @@ public:
     const fs::path & getResultDir() const { return resultDir; }
     PerformanceStatistics & getPerfStats() { return pstats; }
     LibStarsStatistics & getStarsStatistics() { return sstats; }
-    const boost::shared_ptr<CentralizedScheduler> & getCentralizedScheduler() { return cs; }
-    const boost::shared_ptr<SimulationCase> & getSimulationCase() { return simCase; }
+    const std::shared_ptr<CentralizedScheduler> & getCentralizedScheduler() { return cs; }
+    const std::shared_ptr<SimulationCase> & getSimulationCase() { return simCase; }
 
     // Network methods
-    unsigned int sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg);
-    unsigned int injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
+    unsigned int sendMessage(uint32_t src, uint32_t dst, std::shared_ptr<BasicMsg> msg);
+    unsigned int injectMessage(uint32_t src, uint32_t dst, std::shared_ptr<BasicMsg> msg,
             Duration d = Duration(0.0), bool withOpDuration = false);
 
     // Time methods
@@ -140,7 +138,7 @@ public:
     boost::iostreams::filtering_ostream & getProgressStream() { return progressStream; }
     bool isLastLogMoment();
 
-    static unsigned long int getMsgSize(boost::shared_ptr<BasicMsg> msg);
+    static unsigned long int getMsgSize(std::shared_ptr<BasicMsg> msg);
 
 private:
     class ptrCompare {
@@ -151,7 +149,7 @@ private:
     };
 
     // Simulation framework
-    boost::shared_ptr<SimulationCase> simCase;
+    std::shared_ptr<SimulationCase> simCase;
     std::vector<StarsNode> routingTable;
     std::vector<NodeNetInterface> iface;
     Time time;
@@ -168,7 +166,7 @@ private:
     StarsNode * debugNode;
     Time lastDebugTime;
     StarsNode * lastDebugNode;
-    boost::shared_ptr<CentralizedScheduler> cs;
+    std::shared_ptr<CentralizedScheduler> cs;
     FailureGenerator fg;
 
     // Simulation global statistics

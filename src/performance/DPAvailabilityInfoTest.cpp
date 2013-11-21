@@ -35,8 +35,8 @@ template<> AggregationTestImpl<DPAvailabilityInformation>::AggregationTestImpl()
 }
 
 
-template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
-    boost::shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
+template<> std::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+    std::shared_ptr<DPAvailabilityInformation> result(new DPAvailabilityInformation);
     result->addNode(n.mem, n.disk, n.power, gen.createRandomQueue(n.power));
     const stars::LDeltaFunction & minA = result->getSummary().front().minA;
     if (privateData.minAvail.getSlope() == 0.0)
@@ -48,7 +48,7 @@ template<> boost::shared_ptr<DPAvailabilityInformation> AggregationTestImpl<DPAv
 }
 
 
-template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(const boost::shared_ptr<DPAvailabilityInformation> & summary) {
+template<> void AggregationTestImpl<DPAvailabilityInformation>::computeResults(const std::shared_ptr<DPAvailabilityInformation> & summary) {
     static Time refTime = Time::getCurrentTime();
     static stars::LDeltaFunction dummy;
     unsigned long int minMem = nodes.size() * min_mem;

@@ -217,7 +217,7 @@ std::vector<std::map<int64_t, std::pair<Time, int> > > LibStarsStatistics::getUn
     std::vector<std::map<int64_t, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
     for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
         // Get the task queue
-        std::list<boost::shared_ptr<Task> >& tasks = sim.getNode(n).getSch().getTasks();
+        std::list<std::shared_ptr<Task> >& tasks = sim.getNode(n).getSch().getTasks();
         Time end = now;
         for (auto t = tasks.begin(); t != tasks.end(); ++t) {
             // Get its app, add a finished task and check its finish time

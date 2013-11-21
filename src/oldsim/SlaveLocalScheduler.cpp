@@ -27,7 +27,7 @@ namespace stars {
 void SlaveLocalScheduler::reschedule() {
     if (taskSequence.size() < tasks.size())
         Logger::msg("Sim.Cent", ERROR, "Less tasks in the cent queue than in node");
-    std::list<boost::shared_ptr<Task> > newTasks;
+    std::list<std::shared_ptr<Task> > newTasks;
     for (auto i : taskSequence) {
         auto task = getTask(i.requester, i.requestId, i.taskId);
         if (task.get())
@@ -47,13 +47,13 @@ unsigned int SlaveLocalScheduler::acceptable(const TaskBagMsg & msg) {
 }
 
 
-boost::shared_ptr<Task> SlaveLocalScheduler::getTask(const CommAddress & requester, int64_t rid, uint32_t tid) {
+std::shared_ptr<Task> SlaveLocalScheduler::getTask(const CommAddress & requester, int64_t rid, uint32_t tid) {
     // Check that the id exists
     for (auto i : tasks) {
         if (i->getOwner() == requester && i->getClientRequestId() == rid && i->getClientTaskId() == tid)
             return i;
     }
-    return boost::shared_ptr<Task>();
+    return std::shared_ptr<Task>();
 }
 
 } /* namespace stars */

@@ -242,8 +242,8 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
 
 double FSPDispatcher::getSlownessLimit() const {
-    boost::shared_ptr<FSPAvailabilityInformation> zoneInfo =
-            boost::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
+    std::shared_ptr<FSPAvailabilityInformation> zoneInfo =
+            std::static_pointer_cast<FSPAvailabilityInformation>(getBranchInfo());
     // Compare the slowness reached by the new application with the one in the rest of the tree,
     double slownessLimit = zoneInfo->getMaximumSlowness();
     Logger::msg("Dsp.FSP", DEBUG, "The maximum slowness in this branch is ", slownessLimit);

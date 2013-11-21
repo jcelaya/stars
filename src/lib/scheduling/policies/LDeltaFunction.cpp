@@ -25,7 +25,7 @@ namespace stars {
 unsigned int LDeltaFunction::numPieces = 10;
 
 
-LDeltaFunction::LDeltaFunction(double power, const std::list<boost::shared_ptr<Task> > & queue) : slope(power) {
+LDeltaFunction::LDeltaFunction(double power, const std::list<std::shared_ptr<Task> > & queue) : slope(power) {
     if (!queue.empty()) {
         Time now = Time::getCurrentTime();
         std::list<Time> endpoints;

@@ -24,7 +24,7 @@
 
 #include <list>
 #include <boost/random/mersenne_twister.hpp>
-#include <boost/shared_ptr.hpp>
+
 #include "Task.hpp"
 
 namespace stars {
@@ -41,17 +41,17 @@ public:
 
     unsigned int getSeed() const { return theSeed; }
 
-    std::list<boost::shared_ptr<Task> > & createRandomQueue() {
+    std::list<std::shared_ptr<Task> > & createRandomQueue() {
         return createRandomQueue(getRandomPower());
     }
 
-    std::list<boost::shared_ptr<Task> > & createRandomQueue(double power);
+    std::list<std::shared_ptr<Task> > & createRandomQueue(double power);
 
-    std::list<boost::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks) {
+    std::list<std::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks) {
         return createNLengthQueue(numTasks, getRandomPower());
     }
 
-    std::list<boost::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks, double power);
+    std::list<std::shared_ptr<Task> > & createNLengthQueue(unsigned int numTasks, double power);
 
     double getRandomPower();
 
@@ -70,7 +70,7 @@ private:
     double currentPower;
     double currentrfirst;
     double tsum;
-    std::list<boost::shared_ptr<Task> > currentTasks;
+    std::list<std::shared_ptr<Task> > currentTasks;
 };
 
 } // namespace stars

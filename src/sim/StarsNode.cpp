@@ -42,8 +42,7 @@ using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-using boost::shared_ptr;
-using boost::scoped_ptr;
+using std::shared_ptr;
 
 
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
@@ -94,7 +93,7 @@ namespace {
 
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
     if (dst == getLocalAddress()) {
-        enqueueMessage(dst, boost::shared_ptr<BasicMsg>(msg));
+        enqueueMessage(dst, std::shared_ptr<BasicMsg>(msg));
         return 0;
     } else {
         unsigned long int size = StarsNode::getMsgSize(msg) + 90;
@@ -228,7 +227,7 @@ int StarsNode::mainLoop() {
             MSG_comm_destroy(comm);
             BasicMsg * msg = static_cast<BasicMsg *>(MSG_task_get_data(task));
             const CommAddress & src = static_cast<StarsNode *>(MSG_host_get_data(MSG_task_get_source(task)))->getLocalAddress();
-            enqueueMessage(src, boost::shared_ptr<BasicMsg>(msg));
+            enqueueMessage(src, std::shared_ptr<BasicMsg>(msg));
             MSG_task_destroy(task);
         } else {
             MSG_comm_destroy(comm);
@@ -240,7 +239,7 @@ int StarsNode::mainLoop() {
             }
         }
         while (!messageQueue.empty()) {
-            boost::shared_ptr<BasicMsg> msg = messageQueue.front().second;
+            std::shared_ptr<BasicMsg> msg = messageQueue.front().second;
             CommAddress dst = messageQueue.front().first;
             sim.getCase().beforeEvent(localAddress, dst, msg);
             sim.getPerformanceStatistics().startEvent(msg->getName());
@@ -275,7 +274,7 @@ public:
         pk.pack(o);
         return *this;
     }
-    template<class T> MsgpackOutArchive & operator&(boost::shared_ptr<T> & o) {
+    template<class T> MsgpackOutArchive & operator&(std::shared_ptr<T> & o) {
         if (o.get()) {
             pk.pack(valid);
             *this & *o;
@@ -332,7 +331,7 @@ public:
         upk.next(&msg); msg.get().convert(&o);
         return *this;
     }
-    template<class T> MsgpackInArchive & operator&(boost::shared_ptr<T> & o) {
+    template<class T> MsgpackInArchive & operator&(std::shared_ptr<T> & o) {
         bool valid;
         upk.next(&msg); msg.get().convert(&valid);
         if (valid) {

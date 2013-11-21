@@ -22,8 +22,6 @@
 #define SCHEDULER_H_
 
 #include <list>
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
 #include "Time.hpp"
 #include "CommLayer.hpp"
 #include "TaskBagMsg.hpp"
@@ -76,7 +74,7 @@ public:
          * @param ctId The ID of this task relative to its request.
          * @param d TaskDescription with the task requirements.
          */
-        virtual boost::shared_ptr<Task> createTask(CommAddress o,
+        virtual std::shared_ptr<Task> createTask(CommAddress o,
                 int64_t reqId, unsigned int ctid, const TaskDescription & d) const = 0;
     };
 
@@ -127,14 +125,14 @@ public:
     /**
      * Returns the task queue.
      */
-    std::list<boost::shared_ptr<Task> > & getTasks() {
+    std::list<std::shared_ptr<Task> > & getTasks() {
         return tasks;
     }
 
     /**
      * Returns the task with a certain ID.
      */
-    boost::shared_ptr<Task> getTask(unsigned int id);
+    std::shared_ptr<Task> getTask(unsigned int id);
 
     virtual AvailabilityInformation * getAvailability() const = 0;
 
@@ -154,11 +152,11 @@ protected:
     class ExecutionEnvironmentImpl {
     public:
         ExecutionEnvironmentImpl();
-        boost::scoped_ptr<ExecutionEnvironment> impl;
+        std::unique_ptr<ExecutionEnvironment> impl;
     };
 
     OverlayLeaf & leaf;
-    std::list<boost::shared_ptr<Task> > tasks;             ///< The list of tasks.
+    std::list<std::shared_ptr<Task> > tasks;             ///< The list of tasks.
     uint32_t seqNum;                   ///< Sequence number for the AvailabilityInformation message
     /// Hidden implementation of the execution environment
     ExecutionEnvironmentImpl backend;
@@ -205,9 +203,9 @@ protected:
      */
     void notifySchedule();
 
-    virtual void removeTask(const boost::shared_ptr<Task> & task) {}
+    virtual void removeTask(const std::shared_ptr<Task> & task) {}
 
-    virtual void acceptTask(const boost::shared_ptr<Task> & task) {}
+    virtual void acceptTask(const std::shared_ptr<Task> & task) {}
 
     // Statistics
     void addedTasksEvent(const TaskBagMsg & msg, unsigned int numAccepted);
@@ -253,7 +251,7 @@ private:
 
     bool checkStaticRequirements(const TaskDescription & req);
 
-    boost::shared_ptr<Task> removeFromQueue(unsigned int id);
+    std::shared_ptr<Task> removeFromQueue(unsigned int id);
 };
 
 #endif /*SCHEDULER_H_*/

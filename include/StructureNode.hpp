@@ -25,7 +25,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
-#include <boost/shared_ptr.hpp>
+
 #include "OverlayBranch.hpp"
 #include "CommAddress.hpp"
 #include "CommLayer.hpp"
@@ -77,15 +77,15 @@ class StructureNode : public OverlayBranch {
     unsigned int level;                             ///< The level of the tree this Structure node lies in.
     uint64_t seq;                                   ///< Update sequence number.
     int strNeededTimer;                             ///< Timer ID for the strNodeNeededMsg.
-    boost::shared_ptr<ZoneDescription> zoneDesc;           ///< Description of this zone, by aggregating the child zones
-    boost::shared_ptr<ZoneDescription> notifiedZoneDesc;   ///< Description of this zone, as it is notified to the father
+    std::shared_ptr<ZoneDescription> zoneDesc;           ///< Description of this zone, by aggregating the child zones
+    std::shared_ptr<ZoneDescription> notifiedZoneDesc;   ///< Description of this zone, as it is notified to the father
 
     CommAddress father;                 ///< The link to the father node.
     CommAddress newFather;              ///< The link to the new father node.
 
-    typedef std::list<boost::shared_ptr<TransactionalZoneDescription> >::iterator zoneMutableIterator;
+    typedef std::list<std::shared_ptr<TransactionalZoneDescription> >::iterator zoneMutableIterator;
     /// The list of subZones, ordered by address.
-    std::list<boost::shared_ptr<TransactionalZoneDescription> > subZones;
+    std::list<std::shared_ptr<TransactionalZoneDescription> > subZones;
 
     TransactionId transaction;              ///< The transaction being prepared right now.
     CommAddress txDriver;                   ///< The driver of the transaction.
@@ -95,7 +95,7 @@ class StructureNode : public OverlayBranch {
     std::list<AddrService> txMembersAck;         ///< Members of the transaction that already ACKed.
     CommAddress newBrother;     ///< The new brother when splitting.
 
-    typedef std::pair<CommAddress, boost::shared_ptr<BasicMsg> > AddrMsg;
+    typedef std::pair<CommAddress, std::shared_ptr<BasicMsg> > AddrMsg;
     std::list<AddrMsg> delayedMessages;          ///< Delayed messages and source addresses till the transaction ends.
 
     friend class StructureNodeObserver;
@@ -177,7 +177,7 @@ public:
         LEAVING_WSN,
         LEAVING
     };
-    typedef std::list<boost::shared_ptr<TransactionalZoneDescription> >::const_iterator zoneConstIterator;
+    typedef std::list<std::shared_ptr<TransactionalZoneDescription> >::const_iterator zoneConstIterator;
 
     /**
      * Constructor: it sets the minumum fanout and the maximum bw for updates.
@@ -225,15 +225,15 @@ public:
 
     // Debug/Simulation methods
 
-    boost::shared_ptr<const ZoneDescription> getZoneDesc() const {
+    std::shared_ptr<const ZoneDescription> getZoneDesc() const {
         return zoneDesc;
     }
 
-    boost::shared_ptr<TransactionalZoneDescription> getSubZone(int i) const {
+    std::shared_ptr<TransactionalZoneDescription> getSubZone(int i) const {
         zoneConstIterator it = subZones.begin();
         for (int j = 0; j < i && it != subZones.end(); j++, it++);
         if (it != subZones.end()) return *it;
-        else return boost::shared_ptr<TransactionalZoneDescription>();
+        else return std::shared_ptr<TransactionalZoneDescription>();
     }
 
     friend std::ostream & operator<<(std::ostream& os, const StructureNode & s);

@@ -42,7 +42,7 @@ public:
 
     static void setBeta(double b) { beta = b; }
 
-    boost::shared_ptr<MMPAvailabilityInformation> getChildWaitingInfo(int c) const {
+    std::shared_ptr<MMPAvailabilityInformation> getChildWaitingInfo(int c) const {
         return child[c].waitingInfo;
     }
 
@@ -57,7 +57,7 @@ private:
     // This is documented in Dispatcher.
     virtual void recomputeChildrenInfo();
 
-    boost::shared_ptr<MMPAvailabilityInformation> getChildInfo(int c);
+    std::shared_ptr<MMPAvailabilityInformation> getChildInfo(int c);
 };
 
 #endif /*MMPDISPATCHER_H_*/

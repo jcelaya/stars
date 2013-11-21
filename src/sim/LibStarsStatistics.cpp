@@ -217,7 +217,7 @@ void LibStarsStatistics::finishAppStatistics() {
     // Unfinished jobs
     // Calculate expected end time and remaining tasks of each application in course
     std::vector<std::map<long int, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
-//     boost::shared_ptr<PerfectScheduler> ps = sim.getPerfectScheduler();
+//     std::shared_ptr<PerfectScheduler> ps = sim.getPerfectScheduler();
 //     if (ps.get()) {
 //         for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
 //             // Get the task queue
@@ -244,10 +244,10 @@ void LibStarsStatistics::finishAppStatistics() {
 //     } else {
         for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
             // Get the task queue
-            std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
+            std::list<std::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
             Time end = now;
             // For each task...
-            for (std::list<boost::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); t++) {
+            for (std::list<std::shared_ptr<Task> >::iterator t = tasks.begin(); t != tasks.end(); t++) {
                 // Get its app, add a finished task and check its finish time
                 end += (*t)->getEstimatedDuration();
                 uint32_t origin = (*t)->getOwner().getIPNum();

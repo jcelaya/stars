@@ -31,14 +31,14 @@ template<> AggregationTestImpl<IBPAvailabilityInformation>::AggregationTestImpl(
 }
 
 
-template<> boost::shared_ptr<IBPAvailabilityInformation> AggregationTestImpl<IBPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
-    boost::shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
+template<> std::shared_ptr<IBPAvailabilityInformation> AggregationTestImpl<IBPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+    std::shared_ptr<IBPAvailabilityInformation> result(new IBPAvailabilityInformation);
     result->addNode(n.mem, n.disk);
     return result;
 }
 
 
-template<> void AggregationTestImpl<IBPAvailabilityInformation>::computeResults(const boost::shared_ptr<IBPAvailabilityInformation> & summary) {
+template<> void AggregationTestImpl<IBPAvailabilityInformation>::computeResults(const std::shared_ptr<IBPAvailabilityInformation> & summary) {
     list<IBPAvailabilityInformation::MDCluster *> clusters;
     TaskDescription dummy;
     dummy.setMaxMemory(0);

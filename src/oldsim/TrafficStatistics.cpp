@@ -32,7 +32,7 @@ namespace fs = boost::filesystem;
 #include "Simulator.hpp"
 using namespace std;
 using namespace boost::posix_time;
-using boost::static_pointer_cast;
+using std::static_pointer_cast;
 
 
 Duration TrafficStatistics::intervals[2] = {Duration(1.0), Duration(10.0)};

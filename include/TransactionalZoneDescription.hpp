@@ -131,7 +131,7 @@ public:
      * Returns the zone described in this object.
      * @return This zone.
      */
-    const boost::shared_ptr<ZoneDescription> & getZone() const {
+    const std::shared_ptr<ZoneDescription> & getZone() const {
         return actualZone;
     }
 
@@ -139,7 +139,7 @@ public:
      * Sets the zone described in this object.
      * @param i The new zone.
      */
-    void setZone(const boost::shared_ptr<ZoneDescription> & i) {
+    void setZone(const std::shared_ptr<ZoneDescription> & i) {
         newZone = i;
         if (!changing) actualZone = i;
     }
@@ -148,7 +148,7 @@ public:
      * Fill a zone description from an UpdateMsg object.
      * @param u UpdateMsg object with the zone information.
      */
-    void setZoneFrom(const CommAddress & src, const boost::shared_ptr<ZoneDescription> & i);
+    void setZoneFrom(const CommAddress & src, const std::shared_ptr<ZoneDescription> & i);
 
     template<class Archive> void serializeState(Archive & ar) {
         // Serialization only works if not in a transaction
@@ -160,8 +160,8 @@ private:
     CommAddress actualLink;                   ///< The address of the responsible node
     uint64_t seq;                             ///< Update sequence number.
     CommAddress newLink;                      ///< The new address of the responsible node
-    boost::shared_ptr<ZoneDescription> actualZone;   ///< The description of the zone covered by this branch
-    boost::shared_ptr<ZoneDescription> newZone;      ///< The description of the zone covered by this branch
+    std::shared_ptr<ZoneDescription> actualZone;   ///< The description of the zone covered by this branch
+    std::shared_ptr<ZoneDescription> newZone;      ///< The description of the zone covered by this branch
 
     friend std::ostream & operator<<(std::ostream& os, const TransactionalZoneDescription & s);
 };

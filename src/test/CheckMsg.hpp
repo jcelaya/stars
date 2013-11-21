@@ -23,10 +23,10 @@
 
 #include <sstream>
 #include <boost/test/unit_test.hpp>
-#include <boost/shared_ptr.hpp>
+
 #include "BasicMsg.hpp"
 #include "CommAddress.hpp"
-using boost::shared_ptr;
+using std::shared_ptr;
 
 
 class CheckMsgMethod {
@@ -38,7 +38,7 @@ public:
         BasicMsg * out = msg.clone(), * in;
         // Check clone
         BOOST_REQUIRE(out);
-        //BOOST_CHECK(msg == *boost::dynamic_pointer_cast<Message>(out));
+        //BOOST_CHECK(msg == *std::dynamic_pointer_cast<Message>(out));
         out->pack(pk);
         unsigned int size = ss.tellp();
         BOOST_TEST_MESSAGE(msg.getName() << " of size " << size << " bytes.");

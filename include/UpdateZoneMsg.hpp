@@ -21,7 +21,7 @@
 #ifndef UPDATEZONEMSG_H_
 #define UPDATEZONEMSG_H_
 
-#include <boost/shared_ptr.hpp>
+
 #include "TransactionMsg.hpp"
 #include "ZoneDescription.hpp"
 

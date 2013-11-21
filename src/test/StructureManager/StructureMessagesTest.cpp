@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_SUITE(StrMsg)
 BOOST_AUTO_TEST_CASE(testInitStructNodeMsg) {
     // Ctor
     InitStructNodeMsg i1, i2;
-    boost::shared_ptr<InitStructNodeMsg> p;
+    std::shared_ptr<InitStructNodeMsg> p;
 
     // setLevel
     i1.setLevel(2);
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(testInsertMsg) {
     BOOST_CHECK(i1.getWho() == CommAddress("127.0.0.1", 2030));
 
     // Serialization
-    boost::shared_ptr<InsertMsg> p;
+    std::shared_ptr<InsertMsg> p;
     CheckMsgMethod::check(i1, p);
     InsertMsg & i3 = *p;
     BOOST_CHECK(i3.getWho() == i1.getWho());
@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE(testUpdateZoneMsg) {
     BOOST_CHECK(i1.getZone() == zone);
 
     // Serialization
-    boost::shared_ptr<UpdateZoneMsg> p;
+    std::shared_ptr<UpdateZoneMsg> p;
     CheckMsgMethod::check(i1, p);
     UpdateZoneMsg & i3 = *p;
     BOOST_CHECK(i3.getZone() == i1.getZone());
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(testStrNodeNeededMsg) {
     BOOST_CHECK(i1.getWhoNeeds() == CommAddress("127.0.0.1", 2030));
 
     // Serialization
-    boost::shared_ptr<StrNodeNeededMsg> p;
+    std::shared_ptr<StrNodeNeededMsg> p;
     CheckMsgMethod::check(i1, p);
     StrNodeNeededMsg & i3 = *p;
     BOOST_CHECK(i3.getWhoNeeds() == i1.getWhoNeeds());
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(testNewStrNodeMsg) {
     BOOST_CHECK(i1.getWhoOffers() == CommAddress("127.0.0.1", 2030));
 
     // Serialization
-    boost::shared_ptr<NewStrNodeMsg> p;
+    std::shared_ptr<NewStrNodeMsg> p;
     CheckMsgMethod::check(i1, p);
     NewStrNodeMsg & i3 = *p;
     BOOST_CHECK(i3.getWhoOffers() == i1.getWhoOffers());
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(testNewChildMsg) {
     BOOST_CHECK(!i1.replaces());
 
     // Serialization
-    boost::shared_ptr<NewChildMsg> p;
+    std::shared_ptr<NewChildMsg> p;
     CheckMsgMethod::check(i1, p);
     NewChildMsg & i3 = *p;
     BOOST_CHECK(i3.getSequence() == 23453);
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(testNewFatherMsg) {
     BOOST_CHECK(i1.getFather() == CommAddress("127.0.0.1", 2030));
 
     // Serialization
-    boost::shared_ptr<NewFatherMsg> p;
+    std::shared_ptr<NewFatherMsg> p;
     CheckMsgMethod::check(i1, p);
     NewFatherMsg & i3 = *p;
     BOOST_CHECK(i3.getFather() == i1.getFather());

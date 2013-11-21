@@ -167,7 +167,7 @@ public:
     }
 
     void showRecursiveInfo(const StarsNode & node, unsigned int level, const std::string & prefix) {
-        boost::shared_ptr<AvailabilityInformation> info = node.getDisp().getBranchInfo();
+        std::shared_ptr<AvailabilityInformation> info = node.getDisp().getBranchInfo();
         SimOverlayBranch & branch = static_cast<SimOverlayBranch &>(node.getBranch());
         if (info.get())
             Logger::msg("Sim.Tree", WARN, prefix, "B@", node.getLocalAddress(), ": ", *info);

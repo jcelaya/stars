@@ -35,8 +35,8 @@ public:
         return 30000;
     }
 
-    boost::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
-        return boost::shared_ptr<Task>(new TestTask(o, reqId, ctid, d, getAveragePower()));
+    std::shared_ptr<Task> createTask(CommAddress o, long int reqId, unsigned int ctid, const TaskDescription & d) const {
+        return std::shared_ptr<Task>(new TestTask(o, reqId, ctid, d, getAveragePower()));
     }
 };
 

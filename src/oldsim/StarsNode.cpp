@@ -41,8 +41,6 @@ using namespace std;
 using namespace boost::iostreams;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-//using boost::shared_ptr;
-using boost::scoped_ptr;
 
 
 const bool MsgpackOutArchive::valid = true, MsgpackOutArchive::invalid = false;
@@ -53,7 +51,7 @@ public:
 
     EMPTY_MSGPACK_DEFINE();
 };
-static boost::shared_ptr<CheckTimersMsg> timerMsg(new CheckTimersMsg);
+static std::shared_ptr<CheckTimersMsg> timerMsg(new CheckTimersMsg);
 
 
 class SimExecutionEnvironment : public Scheduler::ExecutionEnvironment {
@@ -67,8 +65,8 @@ public:
 
     unsigned long int getAvailableDisk() const { return node.getAvailableDisk(); }
 
-    boost::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
-        return boost::shared_ptr<Task>(new SimTask(o, reqId, ctid, d));
+    std::shared_ptr<Task> createTask(CommAddress o, int64_t reqId, unsigned int ctid, const TaskDescription & d) const {
+        return std::shared_ptr<Task>(new SimTask(o, reqId, ctid, d));
     }
 };
 
@@ -90,7 +88,7 @@ CommLayer & CommLayer::getInstance() {
 
 
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
-    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), boost::shared_ptr<BasicMsg>(msg));
+    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), std::shared_ptr<BasicMsg>(msg));
 }
 
 
@@ -100,7 +98,7 @@ Time Time::getCurrentTime() {
 }
 
 
-int CommLayer::setTimerImpl(Time time, boost::shared_ptr<BasicMsg> msg) {
+int CommLayer::setTimerImpl(Time time, std::shared_ptr<BasicMsg> msg) {
     Timer t(time, msg);
     t.id <<= 1;
     // Set a new timer if this timer is the first or comes before the first
@@ -216,7 +214,7 @@ void StarsNode::setup(unsigned int addr) {
 }
 
 
-void StarsNode::receiveMessage(uint32_t src, boost::shared_ptr<BasicMsg> msg) {
+void StarsNode::receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg) {
     // Check if it is the timer
     if (msg == timerMsg) {
         Time ct = Time::getCurrentTime();

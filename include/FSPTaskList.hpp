@@ -23,7 +23,7 @@
 
 #include <list>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+
 #include "TaskProxy.hpp"
 #include "Time.hpp"
 
@@ -37,7 +37,7 @@ public:
 
     FSPTaskList() : std::list<TaskProxy>(), dirty(false) {}
 
-    explicit FSPTaskList(const std::list<boost::shared_ptr<Task> > & queue) : dirty(false) {
+    explicit FSPTaskList(const std::list<std::shared_ptr<Task> > & queue) : dirty(false) {
         for (auto & task : queue)
             addTasks(TaskProxy(task));
     }

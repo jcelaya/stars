@@ -431,7 +431,7 @@ void Simulator::run() {
 }
 
 
-unsigned long int Simulator::getMsgSize(boost::shared_ptr<BasicMsg> msg) {
+unsigned long int Simulator::getMsgSize(std::shared_ptr<BasicMsg> msg) {
     static struct CountBuffer : public std::streambuf {
         streamsize count;
         CountBuffer() : streambuf(), count(0) {}
@@ -448,7 +448,7 @@ unsigned long int Simulator::getMsgSize(boost::shared_ptr<BasicMsg> msg) {
 }
 
 
-unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg) {
+unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, std::shared_ptr<BasicMsg> msg) {
     // NOTE: msg must not be clonned, to track messages.
     if (cs.get() && cs->blockMessage(msg)) return 0;
 
@@ -492,7 +492,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, boost::shared_pt
 }
 
 
-unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, boost::shared_ptr<BasicMsg> msg,
+unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, std::shared_ptr<BasicMsg> msg,
         Duration d, bool withOpDuration) {
     // NOTE: msg must not be clonned, to track messages.
     numMsgSent++;

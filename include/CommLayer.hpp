@@ -25,7 +25,7 @@
 #include <queue>
 #include <utility>
 #include <boost/thread/condition.hpp>
-#include <boost/shared_ptr.hpp>
+
 #include "CommAddress.hpp"
 #include "BasicMsg.hpp"
 #include "Time.hpp"
@@ -157,7 +157,7 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Time time, boost::shared_ptr<BasicMsg> msg) {
+    int setTimer(Time time, std::shared_ptr<BasicMsg> msg) {
         if (time >= Time::getCurrentTime()) return setTimerImpl(time, msg);
         else return 0;
     }
@@ -169,7 +169,7 @@ public:
      * @param msg The message to be sent.
      * @return An ID of the timer, so it can be cancelled or rescheduled.
      */
-    int setTimer(Duration delay, boost::shared_ptr<BasicMsg> msg) {
+    int setTimer(Duration delay, std::shared_ptr<BasicMsg> msg) {
         if (!delay.is_negative()) return setTimerImpl(Time::getCurrentTime() + delay, msg);
         else return 0;
     }
@@ -192,19 +192,19 @@ protected:
      *            this host.
      * @param msg Message that is being received.
      */
-    void enqueueMessage(const CommAddress & src, const boost::shared_ptr<BasicMsg> & msg);
+    void enqueueMessage(const CommAddress & src, const std::shared_ptr<BasicMsg> & msg);
 
     /// Adds a new timer without checking if time is greater than current time
-    int setTimerImpl(Time time, boost::shared_ptr<BasicMsg> msg);
+    int setTimerImpl(Time time, std::shared_ptr<BasicMsg> msg);
 
     /**
      * Checks the list for expired timers and sends the corresponding message to the CommLayer
      */
     void checkExpired();
 
-    boost::scoped_ptr<NetworkManager> nm;
+    std::unique_ptr<NetworkManager> nm;
 
-    typedef std::pair<CommAddress, boost::shared_ptr<BasicMsg> > AddrMsg;
+    typedef std::pair<CommAddress, std::shared_ptr<BasicMsg> > AddrMsg;
     /// Registered services
     std::vector<Service *> services;
     std::list<AddrMsg> messageQueue;    ///< Queue of received messages
@@ -219,11 +219,11 @@ protected:
         static int timerId;   ///< ID counter
 
         Time timeout;              ///< Time at which the message is to be delivered
-        boost::shared_ptr<BasicMsg> msg;   ///< Message to be delivered
+        std::shared_ptr<BasicMsg> msg;   ///< Message to be delivered
         int id;                     ///< ID of this timer
 
         /// Constructor, from a time and a message
-        Timer(Time t, boost::shared_ptr<BasicMsg> m) : timeout(t), msg(m), id(++timerId) {}
+        Timer(Time t, std::shared_ptr<BasicMsg> m) : timeout(t), msg(m), id(++timerId) {}
 
         /**
         * Less operator.

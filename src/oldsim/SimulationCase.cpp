@@ -26,9 +26,9 @@ void SimulationCase::finishedApp(int64_t appId) {
 }
 
 
-boost::shared_ptr<SimulationCase> CaseFactory::createCase(const std::string & name, const Properties & p) {
-    std::map<std::string, boost::shared_ptr<SimulationCase> (*)(const Properties & p)>::iterator it = caseConstructors.find(name);
+std::shared_ptr<SimulationCase> CaseFactory::createCase(const std::string & name, const Properties & p) {
+    std::map<std::string, std::shared_ptr<SimulationCase> (*)(const Properties & p)>::iterator it = caseConstructors.find(name);
     if (it != caseConstructors.end()) {
         return it->second(p);
-    } else return boost::shared_ptr<SimulationCase>();
+    } else return std::shared_ptr<SimulationCase>();
 }

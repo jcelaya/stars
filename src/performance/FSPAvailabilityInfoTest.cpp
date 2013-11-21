@@ -39,9 +39,9 @@ template<> AggregationTestImpl<FSPAvailabilityInformation>::AggregationTestImpl(
 }
 
 
-template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
+template<> std::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSPAvailabilityInformation>::createInfo(const AggregationTestImpl::Node & n) {
     static ZAFunction dummy;
-    boost::shared_ptr<FSPAvailabilityInformation> s(new FSPAvailabilityInformation);
+    std::shared_ptr<FSPAvailabilityInformation> s(new FSPAvailabilityInformation);
     FSPTaskList proxys(gen.createRandomQueue(n.power));
     s->setAvailability(n.mem, n.disk, proxys, n.power);
     const ZAFunction & maxL = s->getSummary().front().getMaximumSlowness();
@@ -56,7 +56,7 @@ template<> boost::shared_ptr<FSPAvailabilityInformation> AggregationTestImpl<FSP
 }
 
 
-template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(const boost::shared_ptr<FSPAvailabilityInformation> & summary) {
+template<> void AggregationTestImpl<FSPAvailabilityInformation>::computeResults(const std::shared_ptr<FSPAvailabilityInformation> & summary) {
     static ZAFunction dummy;
     unsigned long int minMem = nodes.size() * min_mem;
     unsigned long int minDisk = nodes.size() * min_disk;

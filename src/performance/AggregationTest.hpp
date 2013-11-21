@@ -25,7 +25,7 @@
 #include <map>
 #include <sstream>
 #include <fstream>
-#include <boost/shared_ptr.hpp>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include "AvailabilityInformation.hpp"
@@ -121,7 +121,7 @@ protected:
 
     virtual size_t getNumNodes() const = 0;
 
-    size_t measureSize(boost::shared_ptr<AvailabilityInformation> e) {
+    size_t measureSize(std::shared_ptr<AvailabilityInformation> e) {
         ostringstream oss;
         msgpack::packer<std::ostream> pk(&oss);
         e->pack(pk);
@@ -158,7 +158,7 @@ private:
         unsigned int power;
         unsigned int mem;
         unsigned int disk;
-        boost::shared_ptr<T> avail;
+        std::shared_ptr<T> avail;
         size_t size;
     };
     list<Node> nodes;
@@ -189,11 +189,11 @@ private:
         return nodes.size();
     }
 
-    boost::shared_ptr<T> createInfo(const Node & n);
+    std::shared_ptr<T> createInfo(const Node & n);
 
-    void computeResults(const boost::shared_ptr<T> & summary);
+    void computeResults(const std::shared_ptr<T> & summary);
 
-    boost::shared_ptr<T> newNode() {
+    std::shared_ptr<T> newNode() {
         if (nextNode != nodes.end()) {
             recordSize(nextNode->size);
             return (nextNode++)->avail;
@@ -213,12 +213,12 @@ private:
         }
     }
 
-    boost::shared_ptr<T> aggregateLevel(unsigned int level) {
-        boost::shared_ptr<T> result;
+    std::shared_ptr<T> aggregateLevel(unsigned int level) {
+        std::shared_ptr<T> result;
         if (level == 0) {
             result.reset(newNode()->clone());
             for (unsigned int i = 1; i < fanout; i++) {
-                boost::shared_ptr<T> tmp = newNode();
+                std::shared_ptr<T> tmp = newNode();
                 ptime start = microsec_clock::universal_time();
                 result->join(*tmp);
                 aggregationDuration += microsec_clock::universal_time() - start;
@@ -226,7 +226,7 @@ private:
         } else {
             result = aggregateLevel(level - 1);
             for (unsigned int i = 1; i < fanout; i++) {
-                boost::shared_ptr<T> tmp = aggregateLevel(level - 1);
+                std::shared_ptr<T> tmp = aggregateLevel(level - 1);
                 ptime start = microsec_clock::universal_time();
                 result->join(*tmp);
                 aggregationDuration += microsec_clock::universal_time() - start;

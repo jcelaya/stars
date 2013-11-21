@@ -36,7 +36,7 @@ class TaskBagMsg;
 class CentralizedScheduler {
 public:
     struct TaskDesc {
-        boost::shared_ptr<TaskBagMsg> msg;
+        std::shared_ptr<TaskBagMsg> msg;
         unsigned int tid;
         Time d, r;
         Duration a;
@@ -45,7 +45,7 @@ public:
             return d < rt.d || (
                     d == rt.d && (msg->getRequestId() < rt.msg->getRequestId() || (
                             msg->getRequestId() == rt.msg->getRequestId() && tid <= rt.tid))); }
-        TaskDesc(boost::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
+        TaskDesc(std::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
         friend std::ostream & operator<<(std::ostream & os, const TaskDesc & t) {
             return os << '(' << (t.running ? 'r' : 'p') << ' ' << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
         }
@@ -53,13 +53,13 @@ public:
 
     virtual ~CentralizedScheduler() {}
     virtual bool blockEvent(const Simulator::Event & ev);
-    virtual bool blockMessage(const boost::shared_ptr<BasicMsg> & msg);
+    virtual bool blockMessage(const std::shared_ptr<BasicMsg> & msg);
 
     const std::list<TaskDesc> & getQueue(int n) const { return queues[n]; }
 
     void showStatistics();
 
-    static boost::shared_ptr<CentralizedScheduler> createScheduler(const std::string & type);
+    static std::shared_ptr<CentralizedScheduler> createScheduler(const std::string & type);
 
 protected:
     Simulator & sim;
@@ -67,13 +67,13 @@ protected:
     unsigned long int inTraffic, outTraffic;
     uint64_t rescheduleSequence;
 
-    virtual void newApp(boost::shared_ptr<TaskBagMsg> msg) = 0;
+    virtual void newApp(std::shared_ptr<TaskBagMsg> msg) = 0;
     virtual void taskFinished(unsigned int node);
     void sortQueue(unsigned int node);
 
     CentralizedScheduler();
 
-    boost::shared_ptr<stars::RescheduleMsg> getRescheduleMsg(std::list<TaskDesc> & queue);
+    std::shared_ptr<stars::RescheduleMsg> getRescheduleMsg(std::list<TaskDesc> & queue);
 };
 
 

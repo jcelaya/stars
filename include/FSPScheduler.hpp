@@ -57,12 +57,12 @@ private:
     virtual void reschedule();
 
     // This is documented in Scheduler
-    virtual void acceptTask(const boost::shared_ptr<Task> & task) {
+    virtual void acceptTask(const std::shared_ptr<Task> & task) {
         proxys.addTasks(TaskProxy(task));
     }
 
     // This is documented in Scheduler
-    virtual void removeTask(const boost::shared_ptr<Task> & task) {
+    virtual void removeTask(const std::shared_ptr<Task> & task) {
         proxys.removeTask(task->getTaskId());
     }
 };
