@@ -169,7 +169,7 @@ public:
 
     MSGPACK_DEFINE(requester, requestId, firstTask, lastTask, minRequirements, forEN, fromEN, seq)
 
-private:
+protected:
     CommAddress requester;             ///< Requester's address
     int64_t requestId;                 ///< Request ID relative to the requester
     uint32_t firstTask;                ///< Id of the first task in the interval to assign.

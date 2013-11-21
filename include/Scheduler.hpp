@@ -252,6 +252,8 @@ private:
     }
 
     bool checkStaticRequirements(const TaskDescription & req);
+
+    boost::shared_ptr<Task> removeFromQueue(unsigned int id);
 };
 
 #endif /*SCHEDULER_H_*/

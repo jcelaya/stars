@@ -23,27 +23,30 @@
 
 #include "Scheduler.hpp"
 #include "SimOverlayLeaf.hpp"
+#include "RescheduleMsg.hpp"
 
 namespace stars {
 
 class SlaveLocalScheduler: public Scheduler {
-    // This is documented in Scheduler
-    virtual void reschedule();
-
-    // This is documented in Scheduler
-    virtual unsigned int acceptable(const TaskBagMsg & msg);
-
-    virtual void removeTask(const boost::shared_ptr<Task> & task);
-
-    virtual void acceptTask(const boost::shared_ptr<Task> & task);
-
 public:
-    SlaveLocalScheduler(OverlayLeaf & l) : Scheduler(l) {}
+    SlaveLocalScheduler(OverlayLeaf & l) : Scheduler(l), seq(0) {}
 
     // This is documented in Scheduler
     virtual AvailabilityInformation * getAvailability() const {
         return nullptr;
     }
+
+private:
+    unsigned int seq;
+    std::vector<RescheduleMsg::TaskId> taskSequence;
+
+    boost::shared_ptr<Task> getTask(const CommAddress & requester, int64_t rid, uint32_t tid);
+
+    // This is documented in Scheduler
+    virtual void reschedule();
+
+    // This is documented in Scheduler
+    virtual unsigned int acceptable(const TaskBagMsg & msg);
 };
 
 } /* namespace stars */

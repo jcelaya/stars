@@ -36,14 +36,14 @@ using namespace boost::posix_time;
 using namespace stars;
 
 
+REGISTER_MESSAGE(RescheduleMsg);
+
+
 CentralizedScheduler::CentralizedScheduler() :
-        sim(Simulator::getInstance()), queues(sim.getNumNodes()), inTraffic(0), outTraffic(0) {}
+        sim(Simulator::getInstance()), queues(sim.getNumNodes()), inTraffic(0), outTraffic(0), rescheduleSequence(1) {}
 
 
 bool CentralizedScheduler::blockMessage(const boost::shared_ptr<BasicMsg> & msg) {
-    // Block AcceptTaskMsg
-    if (typeid(*msg) == typeid(AcceptTaskMsg))
-        return true;
     return false;
 }
 
@@ -53,47 +53,23 @@ bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
         boost::shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
         if (!msg->isForEN()) {
             sim.getPerfStats().startEvent("Centralized scheduling");
-
-            // Traffic
             inTraffic += ev.size;
-
             Logger::msg("Dsp.Cent", INFO, "Request ", msg->getRequestId(), " at ", ev.t,
                     " with ", msg->getLastTask() - msg->getFirstTask() + 1, " tasks of length ", msg->getMinRequirements().getLength());
-
-            // Reschedule
             newApp(msg);
-
             sim.getPerfStats().endEvent("Centralized scheduling");
-
             // Block this message so it does not arrive to the Dispatcher
             return true;
         } else {
             // This message was sent by the centralized scheduler
             outTraffic += ev.size;
         }
-    } else if (typeid(*ev.msg) == typeid(TaskMonitorMsg) && !ev.inRecvQueue) {
-        // Meassure traffic
+    } else if (typeid(*ev.msg) == typeid(TaskMonitorMsg) && !ev.inRecvQueue
+            && static_pointer_cast<TaskMonitorMsg>(ev.msg)->getTaskState(0) == Task::Finished) {
         inTraffic += ev.size;
-
-        // When a task finishes, send a new one
-        unsigned int n = ev.from;
-        taskFinished(n);
+        taskFinished(ev.from);
     }
     return false;
-}
-
-
-void CentralizedScheduler::sendOneTask(unsigned int to) {
-    // Pre: !queues[to].empty()
-    TaskDesc & task = queues[to].front();
-    boost::shared_ptr<TaskBagMsg> tbm(task.msg->clone());
-    tbm->setFromEN(false);
-    tbm->setForEN(true);
-    tbm->setFirstTask(task.tid);
-    tbm->setLastTask(task.tid);
-    task.running = true;
-    Logger::msg("Dsp.Cent", INFO, "Finally sending a task of request", tbm->getRequestId(), " to ", AddrIO(to), ": ", *tbm);
-    sim.sendMessage(sim.getNode(to).getLeaf().getFatherAddress().getIPNum(), to, tbm);
 }
 
 
@@ -102,59 +78,48 @@ void CentralizedScheduler::taskFinished(unsigned int node) {
     list<TaskDesc> & queue = queues[node];
     if (!queue.empty()) {
         queue.pop_front();
-        if (!queue.empty())
-            sendOneTask(node);
     } else {
-        Logger::msg("Dsp.Cent", ERROR, "Error: ", queue.size(), " tasks at ", AddrIO(node));
+        Logger::msg("Dsp.Cent", ERROR, "Error: empty queue at ", AddrIO(node));
     }
 }
 
 
-void CentralizedScheduler::addToQueue(const TaskDesc & task, unsigned int node) {
-    Time now = sim.getCurrentTime();
-    list<TaskDesc> & queue = queues[node];
-    queue.push_back(task);
-    boost::shared_ptr<AcceptTaskMsg> atm(new AcceptTaskMsg);
-    atm->setRequestId(task.msg->getRequestId());
-    atm->setFirstTask(task.tid);
-    atm->setLastTask(task.tid);
-    atm->setHeartbeat(-1);
-    sim.injectMessage(node, task.msg->getRequester().getIPNum(), atm, Duration(), true);
+boost::shared_ptr<RescheduleMsg> CentralizedScheduler::getRescheduleMsg(list<TaskDesc> & queue) {
+    boost::shared_ptr<TaskBagMsg> lastTaskMsg = queue.back().msg;
+    unsigned int numTasks = 0;
+    for (auto i = queue.rbegin(); i != queue.rend() && i->msg == lastTaskMsg; ++i) {
+        ++numTasks;
+    }
+    Logger::msg("Dsp.Cent", DEBUG, "Sending reschedule with ", numTasks, " new tasks");
+    boost::shared_ptr<RescheduleMsg> rsch(new RescheduleMsg(*lastTaskMsg));
+    rsch->setFromEN(false);
+    rsch->setForEN(true);
+    rsch->setFirstTask(queue.back().tid - numTasks + 1);
+    rsch->setLastTask(queue.back().tid);
+    rsch->setSeqNumber(rescheduleSequence++);
+    return rsch;
 }
 
 
-void CentralizedScheduler::updateQueue(unsigned int node) {
-    Time now = sim.getCurrentTime();
+void CentralizedScheduler::sortQueue(unsigned int node) {
     list<TaskDesc> & queue = queues[node];
+    boost::shared_ptr<RescheduleMsg> rsch = getRescheduleMsg(queue);
     queue.sort();
-    if (!queue.empty() && !queue.front().running) {
-        sendOneTask(node);
+    rsch->setSequenceLength(queue.size());
+    for (auto & i : queue) {
+        Logger::msg("Dsp.Cent", DEBUG, "Order: ", i.msg->getRequestId(), ", ", i.tid);
+        rsch->addTask(i.msg->getRequester(), i.msg->getRequestId(), i.tid);
+    }
+    sim.sendMessage(sim.getNode(node).getLeaf().getFatherAddress().getIPNum(), node, rsch);
+    queue.front().running = true;
+    for (auto t = ++queue.begin(); t != queue.end(); ++t) {
+        t->running = false;
     }
 }
 
 
 void CentralizedScheduler::showStatistics() {
     Logger::msg("Sim.Progress", 0, "Centralized request traffic: ", inTraffic, "B in, ", outTraffic, "B out");
-}
-
-
-int CentralizedScheduler::getUnfinishedTasks(unsigned int node,
-        std::vector<std::map<int64_t, std::pair<Time, int> > > & unfinishedAppsPerNode) const {
-    // Get the task queue
-    auto & tasks = queues[node];
-    Time end = sim.getCurrentTime();
-    // For each task...
-    for (auto t = tasks.begin(); t != tasks.end(); ++t) {
-        // Get its app, add a finished task and check its finish time
-        end += t->a;
-        uint32_t origin = t->msg->getRequester().getIPNum();
-        int64_t appId = SimAppDatabase::getAppId(t->msg->getRequestId());
-        auto & unfinishedTasks = unfinishedAppsPerNode[origin][appId];
-        if (unfinishedTasks.first < end)
-            unfinishedTasks.first = end;
-        ++unfinishedTasks.second;
-    }
-    return tasks.size();
 }
 
 
@@ -228,15 +193,18 @@ class CentralizedIBP : public CentralizedScheduler {
         }
 
         TaskDesc task(msg);
-        if (numTasks > usableNodes.size()) numTasks = usableNodes.size();
+        task.d = sim.getCurrentTime();
+        if (numTasks > usableNodes.size()) {
+            numTasks = usableNodes.size();
+        }
         for (task.tid = 1; task.tid <= numTasks; task.tid++) {
             Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
-            // Send each task to a random node which can execute it
+            // Send each task to a node which can execute it
             unsigned int node = usableNodes[task.tid - 1].n;
             Logger::msg("Dsp.Cent", DEBUG, "Task allocated to node ", node, " with availability ", usableNodes[task.tid - 1].a);
             task.a = Duration(a / sim.getNode(node).getAveragePower());
-            addToQueue(task, node);
-            updateQueue(node);
+            queues[node].push_back(task);
+            sortQueue(node);
         }
     }
 };
@@ -282,19 +250,25 @@ class CentralizedMMP : public CentralizedScheduler {
         //Now order the queue time vector
         make_heap(queueCache.begin(), queueCache.end());
 
-        TaskDesc task(msg);
-        for (task.tid = 1; task.tid <= numTasks; task.tid++) {
-            Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
-            // Send each task where the queue is shorter
+        map<unsigned int, unsigned int> tasksPerNode;
+        for (unsigned int i = 0; i < numTasks; ++i) {
             pop_heap(queueCache.begin(), queueCache.end());
             QueueTime & best = queueCache.back();
-            Logger::msg("Dsp.Cent", DEBUG, "Task allocated to node ", best.node, " with queue time ", best.qTime);
-            task.a = taskTime[best.node];
-            addToQueue(task, best.node);
-            updateQueue(best.node);
-            updateQueueLengths(best.node, task.a);
-            best.qTime += task.a;
+            ++tasksPerNode[best.node];
+            best.qTime += taskTime[best.node];
             push_heap(queueCache.begin(), queueCache.end());
+        }
+
+        TaskDesc task(msg);
+        task.d = sim.getCurrentTime();
+        task.tid = 1;
+        for (auto i = tasksPerNode.begin(); i != tasksPerNode.end(); ++i) {
+            Logger::msg("Dsp.Cent", DEBUG, "Tasks ", task.tid, " to ", task.tid + numTasks - 1, " allocated to node ", i->first);
+            task.a = taskTime[i->first];
+            for (unsigned int j = 0; j < i->second; ++j, ++task.tid)
+                queues[i->first].push_back(task);
+            sortQueue(i->first);
+            updateQueueLengths(i->first, task.a * i->second);
         }
     }
 
@@ -421,12 +395,10 @@ class CentralizedDP : public CentralizedScheduler {
                 unsigned int numTasks = best.numTasks - ignoreTasks;
                 Logger::msg("Dsp.Cent", DEBUG, numTasks, " tasks allocated to node ", best.node, " with room for ", best.numTasks,
                         " tasks and still remains ", best.remaining);
-                for (unsigned int i = 0; i < numTasks; i++, task.tid++) {
-                    //Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
-                    addToQueue(task, best.node);
-                }
+                for (unsigned int j = 0; j < numTasks; ++j, ++task.tid)
+                    queues[best.node].push_back(task);
                 // Sort the queue
-                updateQueue(best.node);
+                sortQueue(best.node);
                 ignoreTasks = 0;
             }
             lastHole--;
@@ -491,13 +463,9 @@ class CentralizedFSP : public CentralizedScheduler {
                     }
                 }
 
-                //Logger::msg("Dsp.Cent", DEBUG, tasksToNode, " tasks allocated to node ", assignment[i].node, " with room for ", assignment[i].numTasks, " tasks");
-                for (unsigned int j = 0; j < tasksToSend; j++, task.tid++) {
-                    //Logger::msg("Dsp.Cent", DEBUG, "Allocating task ", task.tid);
-                    addToQueue(task, n);
-                }
-                // Sort the queue
-                updateQueue(n);
+                for (unsigned int j = 0; j < tasksToSend; ++j, ++task.tid)
+                    queues[n].push_back(task);
+                sortQueue(n);
             }
         }
         Logger::msg("Dsp.Cent", WARN, "Application ", SimAppDatabase::getAppId(msg->getRequestId()),

@@ -23,7 +23,6 @@
 #include "Simulator.hpp"
 #include "StarsNode.hpp"
 #include "Scheduler.hpp"
-#include "CentralizedScheduler.hpp"
 #include "FSPDispatcher.hpp"
 
 
@@ -211,50 +210,39 @@ struct UnfinishedApp {
 };
 
 
-void LibStarsStatistics::finishAppStatistics() {
+std::vector<std::map<int64_t, std::pair<Time, int> > > LibStarsStatistics::getUnfinishedTasksPerNode() {
+    // Calculate expected end time and remaining tasks of each application in course
     Simulator & sim = Simulator::getInstance();
     Time now = sim.getCurrentTime();
-
-    // Unfinished jobs
-    // Calculate expected end time and remaining tasks of each application in course
     std::vector<std::map<int64_t, std::pair<Time, int> > > unfinishedAppsPerNode(sim.getNumNodes());
-    boost::shared_ptr<CentralizedScheduler> ps = sim.getCentralizedScheduler();
     for (unsigned int n = 0; n < sim.getNumNodes(); n++) {
-        int tasksInCentral = ps.get() ? ps->getUnfinishedTasks(n, unfinishedAppsPerNode) : 0;
         // Get the task queue
-        std::list<boost::shared_ptr<Task> > & tasks = sim.getNode(n).getSch().getTasks();
+        std::list<boost::shared_ptr<Task> >& tasks = sim.getNode(n).getSch().getTasks();
         Time end = now;
-        // For each task, but the tasks in the centralized scheduler...
-        auto t = tasks.begin();
-        while (tasksInCentral-- > 0) ++t;
-        for (; t != tasks.end(); ++t) {
+        for (auto t = tasks.begin(); t != tasks.end(); ++t) {
             // Get its app, add a finished task and check its finish time
             end += (*t)->getEstimatedDuration();
             uint32_t origin = (*t)->getOwner().getIPNum();
             int64_t appId = SimAppDatabase::getAppId((*t)->getClientRequestId());
-            auto & unfinishedTasks = unfinishedAppsPerNode[origin][appId];
-            if (unfinishedTasks.first < end)
+            auto& unfinishedTasks = unfinishedAppsPerNode[origin][appId];
+            if (unfinishedTasks.first < end) {
                 unfinishedTasks.first = end;
+            }
             ++unfinishedTasks.second;
         }
     }
+    return unfinishedAppsPerNode;
+}
 
-    // Reorder unfinished apps
-    std::list<UnfinishedApp> sortedApps;
+
+void LibStarsStatistics::finishAppStatistics() {
+    Simulator & sim = Simulator::getInstance();
+    auto unfinishedAppsPerNode = getUnfinishedTasksPerNode();
     for (unsigned int n = 0; n < sim.getNumNodes(); ++n) {
-        for (std::map<int64_t, std::pair<Time, int> >::iterator j = unfinishedAppsPerNode[n].begin(); j != unfinishedAppsPerNode[n].end(); j++) {
-            sortedApps.push_back(UnfinishedApp(n, j->first, j->second.first, j->second.second));
+        for (auto & j : unfinishedAppsPerNode[n]) {
+            finishedApp(sim.getNode(n), j.first, j.second.first, j.second.second);
         }
     }
-    sortedApps.sort();
-
-    // Write its data and requests
-    for (std::list<UnfinishedApp>::iterator it = sortedApps.begin(); it != sortedApps.end(); ++it) {
-        finishedApp(sim.getNode(it->node), it->appid, it->end, it->finishedTasks);
-    }
-
-    // Finished percentages
     appos << "# " << totalApps << " jobs finished at simulation end of which " << unfinishedApps << " (" << std::setprecision(2) << std::fixed
         << ((unfinishedApps * 100.0) / totalApps) << "%) didn't get any task finished." << std::endl;
-    //appos << "# " << FSPDispatcher::estimations << " total estimations (if FSP)." << std::endl;
 }

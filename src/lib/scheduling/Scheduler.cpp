@@ -66,26 +66,22 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         Logger::msg("Ex.Sch", DEBUG, "   Task ", msg.getTaskId(), " changed state from ", msg.getOldState(), " to ", msg.getNewState());
         switch (msg.getNewState()) {
         case Task::Finished:
-            ++tasksExecuted;
         case Task::Aborted: {
-            // Remove the task from the queue
-            bool notFound = true;
-            for (auto i = tasks.begin(); i != tasks.end() && notFound; ++i)
-                if ((*i)->getTaskId() == msg.getTaskId()) {
-                    notFound = false;
-                    // For statistics purpose
-                    finishedTaskEvent(**i, msg.getOldState(), msg.getNewState());
-                    // Send a TaskMonitorMsg to signal finalization
-                    boost::shared_ptr<Task> task = *i;
-                    TaskMonitorMsg * tmm = new TaskMonitorMsg;
-                    tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
-                    tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
-                    CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
-                    removeTask(task);
-                    tasks.erase(i);
-                    break;
-                }
-            if (notFound) Logger::msg("Ex.Sch", ERROR, "Trying to remove a non-existent task!!");
+            if (msg.getNewState() == Task::Finished) {
+                ++tasksExecuted;
+            }
+            boost::shared_ptr<Task> task = removeFromQueue(msg.getTaskId());
+            if (task.get() != nullptr) {
+                // For statistics purpose
+                finishedTaskEvent(*task, msg.getOldState(), msg.getNewState());
+                // Send a TaskMonitorMsg to signal finalization
+                TaskMonitorMsg * tmm = new TaskMonitorMsg;
+                tmm->addTask(task->getClientRequestId(), task->getClientTaskId(), msg.getNewState());
+                tmm->setHeartbeat(ConfigurationManager::getInstance().getHeartbeat());
+                CommLayer::getInstance().sendMessage(task->getOwner(), tmm);
+            } else {
+                Logger::msg("Ex.Sch", ERROR, "Trying to remove a non-existent task!!");
+            }
             break;
         }
         case Task::Inactive:
@@ -96,6 +92,20 @@ template<> void Scheduler::handle(const CommAddress & src, const TaskStateChgMsg
         switchContext();
         notifySchedule();
     }
+}
+
+
+boost::shared_ptr<Task> Scheduler::removeFromQueue(unsigned int id) {
+    boost::shared_ptr<Task> task;
+    for (auto i = tasks.begin(); i != tasks.end(); ++i) {
+        if ((*i)->getTaskId() == id) {
+            task = *i;
+            removeTask(task);
+            tasks.erase(i);
+            break;
+        }
+    }
+    return task;
 }
 
 
@@ -232,8 +242,10 @@ void Scheduler::setMonitorTimer() {
 
 boost::shared_ptr<Task> Scheduler::getTask(unsigned int id) {
     // Check that the id exists
-    for (list<boost::shared_ptr<Task> >::iterator i = tasks.begin(); i != tasks.end(); i++)
-        if ((*i)->getTaskId() == id) return *i;
+    for (auto i : tasks) {
+        if (i->getTaskId() == id)
+            return i;
+    }
     Logger::msg("Ex.Sch", ERROR, "Trying to get a non-existent task!!");
     return boost::shared_ptr<Task>();
 }

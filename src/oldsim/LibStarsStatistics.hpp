@@ -78,6 +78,8 @@ private:
 
     // App statistics
     void finishAppStatistics();
+    std::vector<std::map<int64_t, std::pair<Time, int> > > getUnfinishedTasksPerNode();
+
     boost::filesystem::ofstream appos;
     boost::filesystem::ofstream reqos;
     unsigned int unfinishedApps;

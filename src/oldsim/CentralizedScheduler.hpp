@@ -30,6 +30,7 @@
 namespace fs = boost::filesystem;
 #include "Time.hpp"
 #include "Simulator.hpp"
+#include "RescheduleMsg.hpp"
 class TaskBagMsg;
 
 class CentralizedScheduler {
@@ -40,7 +41,10 @@ public:
         Time d, r;
         Duration a;
         bool running;
-        bool operator<(const TaskDesc & rt) const { return running || (!rt.running && d <= rt.d); }
+        bool operator<(const TaskDesc & rt) const {
+            return d < rt.d || (
+                    d == rt.d && (msg->getRequestId() < rt.msg->getRequestId() || (
+                            msg->getRequestId() == rt.msg->getRequestId() && tid <= rt.tid))); }
         TaskDesc(boost::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
         friend std::ostream & operator<<(std::ostream & os, const TaskDesc & t) {
             return os << '(' << (t.running ? 'r' : 'p') << ' ' << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
@@ -53,7 +57,6 @@ public:
 
     const std::list<TaskDesc> & getQueue(int n) const { return queues[n]; }
 
-    int getUnfinishedTasks(unsigned int node, std::vector<std::map<int64_t, std::pair<Time, int> > > & unfinishedAppsPerNode) const;
     void showStatistics();
 
     static boost::shared_ptr<CentralizedScheduler> createScheduler(const std::string & type);
@@ -62,14 +65,15 @@ protected:
     Simulator & sim;
     std::vector<std::list<TaskDesc> > queues;
     unsigned long int inTraffic, outTraffic;
+    uint64_t rescheduleSequence;
 
     virtual void newApp(boost::shared_ptr<TaskBagMsg> msg) = 0;
     virtual void taskFinished(unsigned int node);
-    void sendOneTask(unsigned int to);
-    void addToQueue(const TaskDesc & task, unsigned int node);
-    void updateQueue(unsigned int node);
+    void sortQueue(unsigned int node);
 
     CentralizedScheduler();
+
+    boost::shared_ptr<stars::RescheduleMsg> getRescheduleMsg(std::list<TaskDesc> & queue);
 };
 
 

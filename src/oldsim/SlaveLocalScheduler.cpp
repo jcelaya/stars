@@ -19,29 +19,41 @@
  */
 
 #include "SlaveLocalScheduler.hpp"
+#include "Logger.hpp"
 
 namespace stars {
 
+
 void SlaveLocalScheduler::reschedule() {
-    if (!tasks.empty()) {
-        // If the first task is not running, start it!
-        if (tasks.front()->getStatus() == Task::Prepared) {
-            tasks.front()->run();
-            startedTaskEvent(*tasks.front());
-        }
+    if (taskSequence.size() < tasks.size())
+        Logger::msg("Sim.Cent", ERROR, "Less tasks in the cent queue than in node");
+    std::list<boost::shared_ptr<Task> > newTasks;
+    for (auto i : taskSequence) {
+        auto task = getTask(i.requester, i.requestId, i.taskId);
+        if (task.get())
+            newTasks.push_back(task);
     }
+    tasks.swap(newTasks);
 }
 
+
 unsigned int SlaveLocalScheduler::acceptable(const TaskBagMsg & msg) {
+    const RescheduleMsg & rm = static_cast<const RescheduleMsg &>(msg);
+    if (rm.getSeqNumber() > seq) {
+        seq = rm.getSeqNumber();
+        taskSequence = std::move(rm.getTaskSequence());
+    }
     return msg.getLastTask() - msg.getFirstTask() + 1;
 }
 
-void SlaveLocalScheduler::removeTask(const boost::shared_ptr<Task> & task) {
 
-}
-
-void SlaveLocalScheduler::acceptTask(const boost::shared_ptr<Task> & task) {
-
+boost::shared_ptr<Task> SlaveLocalScheduler::getTask(const CommAddress & requester, int64_t rid, uint32_t tid) {
+    // Check that the id exists
+    for (auto i : tasks) {
+        if (i->getOwner() == requester && i->getClientRequestId() == rid && i->getClientTaskId() == tid)
+            return i;
+    }
+    return boost::shared_ptr<Task>();
 }
 
 } /* namespace stars */
