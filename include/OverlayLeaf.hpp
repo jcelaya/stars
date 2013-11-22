@@ -26,9 +26,7 @@
 
 class OverlayLeaf;
 class OverlayLeafObserver {
-protected:
-    friend class OverlayLeaf;
-
+public:
     virtual ~OverlayLeafObserver() {}
 
     virtual void fatherChanging() = 0;

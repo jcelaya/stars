@@ -53,7 +53,6 @@ public:
 
     virtual ~CentralizedScheduler() {}
     virtual bool blockEvent(const Simulator::Event & ev);
-    virtual bool blockMessage(const std::shared_ptr<BasicMsg> & msg);
 
     const std::list<TaskDesc> & getQueue(int n) const { return queues[n]; }
 

@@ -187,6 +187,10 @@ private:
 
     // Singleton
     Simulator();
+
+    bool captured();
+    bool enqueued();
+    void popNextEvent();
 };
 
 #endif /*SIMULATOR_H_*/

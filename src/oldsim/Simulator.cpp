@@ -324,64 +324,76 @@ void Simulator::setProperties(Properties & property) {
 }
 
 
-void Simulator::stepForward() {
-    // Do not take into account the canceled and delayed timers
-    while (!events.empty()) {
-        pstats.startEvent("Event selection");
-        p = events.top();
-        events.pop();
-        time = p->t;
-        // Measure operation duration if the event is blocked
-        opStart = microsec_clock::local_time();
-        currentNode = &routingTable[p->to];
-        generatedEvents.clear();
-
-        // See if the message is captured
-        if ((cs.get() && cs->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
-            delete p;
-            continue;
-        }
-
-        // Not captured
-        if (p->size && p->from != p->to && !p->inRecvQueue) {
-            // Not a self-message, check incoming queue
-            totalBytesSent += p->size;
-            NodeNetInterface & dstIface = iface[p->to];
-            dstIface.inQueueFreeTime += p->txDuration;
-            if (dstIface.inQueueFreeTime <= p->t) {
-                dstIface.inQueueFreeTime = p->t;
-            } else {
-                // Delay the message in the incoming queue
-                p->t = dstIface.inQueueFreeTime;
-                p->inRecvQueue = true;
-                events.push(p);
-                continue;
-            }
-        }
-
-        // Deal with the event
-        numEvents++;
-        Logger::msg("Sim.Event", INFO, "");
-        Logger::msg("Sim.Event", INFO, "###################################");
-        Logger::msg("Sim.Event", INFO, "Event #", numEvents, ": ", *p->msg,
-                " at ", time, " from ", AddrIO(p->from), " to ", AddrIO(p->to));
-        pstats.endEvent("Event selection");
-        pstats.startEvent("Before event");
-        tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
-        simCase->beforeEvent(p->from, p->to, *p->msg);
-        pstats.endEvent("Before event");
-        pstats.startEvent(p->msg->getName());
-        // Measure operation duration from this point
-        opStart = microsec_clock::local_time();
-        routingTable[p->to].receiveMessage(p->from, p->msg);
-        pstats.endEvent(p->msg->getName());
-        pstats.startEvent("After event");
-        simCase->afterEvent(p->from, p->to, *p->msg);
-        pstats.endEvent("After event");
+bool Simulator::captured() {
+    // Measure operation duration if the event is captured
+    opStart = microsec_clock::local_time();
+    if ((cs.get() && cs->blockEvent(*p)) || fg.isNextFailure(*p->msg)) {
         delete p;
-        break;
+        return true;
+    } else return false;
+}
+
+
+bool Simulator::enqueued() {
+    if (p->size && p->from != p->to && !p->inRecvQueue) {
+        // Not a self-message, check incoming queue
+        totalBytesSent += p->size;
+        NodeNetInterface & dstIface = iface[p->to];
+        dstIface.inQueueFreeTime += p->txDuration;
+        if (dstIface.inQueueFreeTime <= p->t) {
+            dstIface.inQueueFreeTime = p->t;
+        } else {
+            // Delay the message in the incoming queue
+            p->t = dstIface.inQueueFreeTime;
+            p->inRecvQueue = true;
+            events.push(p);
+            return true;
+        }
     }
+    return false;
+}
+
+
+void Simulator::popNextEvent() {
+    p = events.top();
+    events.pop();
+    time = p->t;
+    currentNode = &routingTable[p->to];
+    generatedEvents.clear();
+}
+
+
+void Simulator::stepForward() {
+    popNextEvent();
+    while (captured() || enqueued()) {
+        if (events.empty())
+            return;
+        popNextEvent();
+    }
+    numEvents++;
+    Logger::msg("Sim.Event", INFO, "");
+    Logger::msg("Sim.Event", INFO, "###################################");
+    Logger::msg("Sim.Event", INFO, "Event #", numEvents, ": ", *p->msg,
+            " at ", time, " from ", AddrIO(p->from), " to ", AddrIO(p->to));
+    pstats.endEvent("Event selection");
+
+    pstats.startEvent("Before event");
+    tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
+    simCase->beforeEvent(p->from, p->to, *p->msg);
+    pstats.endEvent("Before event");
+
+    pstats.startEvent(p->msg->getName());
+    // Measure operation duration from this point
+    opStart = microsec_clock::local_time();
+    routingTable[p->to].receiveMessage(p->from, p->msg);
+    pstats.endEvent(p->msg->getName());
+
+    pstats.startEvent("After event");
+    simCase->afterEvent(p->from, p->to, *p->msg);
+    pstats.endEvent("After event");
+
     currentNode = NULL;
+    delete p;
     p = NULL;
 }
 
@@ -450,8 +462,6 @@ unsigned long int Simulator::getMsgSize(std::shared_ptr<BasicMsg> msg) {
 
 unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, std::shared_ptr<BasicMsg> msg) {
     // NOTE: msg must not be clonned, to track messages.
-    if (cs.get() && cs->blockMessage(msg)) return 0;
-
     numMsgSent++;
 
     Duration opDuration;

@@ -43,11 +43,6 @@ CentralizedScheduler::CentralizedScheduler() :
         sim(Simulator::getInstance()), queues(sim.getNumNodes()), inTraffic(0), outTraffic(0), rescheduleSequence(1) {}
 
 
-bool CentralizedScheduler::blockMessage(const std::shared_ptr<BasicMsg> & msg) {
-    return false;
-}
-
-
 bool CentralizedScheduler::blockEvent(const Simulator::Event & ev) {
     if (typeid(*ev.msg) == typeid(TaskBagMsg)) {
         std::shared_ptr<TaskBagMsg> msg = static_pointer_cast<TaskBagMsg>(ev.msg);
@@ -124,12 +119,6 @@ void CentralizedScheduler::showStatistics() {
 
 
 class BlindScheduler : public CentralizedScheduler {
-    bool blockMessage(const std::shared_ptr<BasicMsg> & msg) {
-        if (std::dynamic_pointer_cast<AvailabilityInformation>(msg).get())
-            return true;
-        return false;
-    }
-
     void newApp(std::shared_ptr<TaskBagMsg> msg) {
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
             unsigned int n = clientVar();
@@ -149,7 +138,11 @@ class BlindScheduler : public CentralizedScheduler {
     DiscreteUniformVariable clientVar;
 
 public:
-    BlindScheduler() : CentralizedScheduler(), clientVar(0, Simulator::getInstance().getNumNodes() - 1) {}
+    BlindScheduler() : CentralizedScheduler(), clientVar(0, Simulator::getInstance().getNumNodes() - 1) {
+        Simulator & sim = Simulator::getInstance();
+        for (unsigned int n = 0; n < sim.getNumNodes(); ++n)
+            ((OverlayLeafObserver &)sim.getNode(n).getSch()).fatherChanging();
+    }
 };
 
 
