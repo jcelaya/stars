@@ -19,8 +19,6 @@
  *  along with STaRS; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <ctime>
-#include <boost/random/uniform_int_distribution.hpp>
 #include "RandomQueueGenerator.hpp"
 #include "Logger.hpp"
 #include "TestTask.hpp"
@@ -46,7 +44,7 @@ std::list<std::shared_ptr<Task> > & RandomQueueGenerator::createRandomQueue(doub
     reset(power);
 
     // Add a random number of applications, with random length and number of tasks
-    while(boost::random::uniform_int_distribution<>(1, 8)(gen) != 1) {
+    while(std::uniform_int_distribution<>(1, 8)(gen) != 1) {
         createRandomApp(getRandomNumTasks());
     }
 
@@ -102,22 +100,22 @@ void RandomQueueGenerator::createRandomApp(unsigned int numTasks) {
 
 // Applications between 1-4h on a 1000 MIPS computer
 int RandomQueueGenerator::getRandomAppLength() {
-    return boost::random::uniform_int_distribution<>(600000, 14400000)(gen);
+    return std::uniform_int_distribution<>(600000, 14400000)(gen);
 }
 
 
 unsigned int RandomQueueGenerator::getRandomNumTasks() {
-    return boost::random::uniform_int_distribution<>(1, 10)(gen);
+    return std::uniform_int_distribution<>(1, 10)(gen);
 }
 
 
 double RandomQueueGenerator::getRandomPower() {
-    return floor(boost::random::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
+    return floor(std::uniform_int_distribution<>(1000, 3000)(gen) / 200.0) * 200;
 }
 
 
 double RandomQueueGenerator::getRandomReleaseDelta() {
-    return boost::random::uniform_int_distribution<>(currentrfirst, 0)(gen);
+    return std::uniform_int_distribution<>(currentrfirst, 0)(gen);
 }
 
 

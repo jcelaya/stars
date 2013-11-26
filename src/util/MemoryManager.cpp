@@ -26,8 +26,8 @@
 
 
 MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(sysconf(_SC_PAGESIZE)), pid(getpid()),
-        nextUpdate(boost::posix_time::microsec_clock::local_time() - boost::posix_time::seconds(1)),
-        updateDuration(boost::posix_time::seconds(5)) {
+        nextUpdate(clock::now() - std::chrono::seconds(1)),
+        updateDuration(std::chrono::seconds(5)) {
     p = &pidText[14];
     strcpy(p--, "/stat");
     while (pid > 0) {
@@ -41,7 +41,7 @@ MemoryManager::MemoryManager() : current(0), maxUsed(0), max(0), pagesize(syscon
 
 void MemoryManager::update() {
     boost::mutex::scoped_lock lock(m);
-    boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+    clock::time_point now = clock::now();
     if (now >= nextUpdate) {
         std::string dummy;
         std::ifstream meminfo("/proc/meminfo");

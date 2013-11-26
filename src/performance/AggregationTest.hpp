@@ -25,9 +25,9 @@
 #include <map>
 #include <sstream>
 #include <fstream>
+#include <random>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
 #include "AvailabilityInformation.hpp"
 #include "Logger.hpp"
 #include "util/MemoryManager.hpp"
@@ -87,7 +87,7 @@ protected:
 
     unsigned long int totalPower, totalMem, totalDisk;
     stars::RandomQueueGenerator gen;
-    boost::random::uniform_int_distribution<> unifPower, unifMemory, unifDisk;
+    std::uniform_int_distribution<> unifPower, unifMemory, unifDisk;
     unsigned long int bytes;
     unsigned long int messages;
     unsigned int maxSize;

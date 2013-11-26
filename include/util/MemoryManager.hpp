@@ -22,17 +22,19 @@
 #define MEMORYMANAGER_H_
 
 #include <sys/types.h>
+#include <chrono>
 #include <boost/thread/mutex.hpp>
-#include <boost/date_time/posix_time/ptime.hpp>
 
 
 class MemoryManager {
+    typedef std::chrono::system_clock clock;
+
     unsigned long int current, maxUsed, max;
     long int pagesize;
     pid_t pid;
     char pidText[20], * p;
-    boost::posix_time::ptime nextUpdate;
-    boost::posix_time::time_duration updateDuration;
+    clock::time_point nextUpdate;
+    clock::duration updateDuration;
     boost::mutex m;
 
     MemoryManager();
@@ -60,8 +62,8 @@ public:
         return maxUsed;
     }
 
-    void setUpdateDuration(double seconds) {
-        updateDuration = boost::posix_time::microseconds(seconds * 1000000.0);
+    void setUpdateDuration(unsigned int milliseconds) {
+        updateDuration = std::chrono::milliseconds(milliseconds);
     }
 
     void reset() {

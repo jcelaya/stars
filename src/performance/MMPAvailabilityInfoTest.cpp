@@ -41,7 +41,7 @@ template<> std::shared_ptr<MMPAvailabilityInformation> AggregationTestImpl<MMPAv
     static const int max_time = 2000;
     static const int step_time = 1;
     std::shared_ptr<MMPAvailabilityInformation> result(new MMPAvailabilityInformation);
-    Duration q((double)floor(boost::random::uniform_int_distribution<>(min_time, max_time)(gen.getGenerator()) / step_time) * step_time);
+    Duration q((double)floor(std::uniform_int_distribution<>(min_time, max_time)(gen.getGenerator()) / step_time) * step_time);
     result->setQueueEnd(n.mem, n.disk, n.power, reference + q);
     if (privateData.maxQueue < q)
         privateData.maxQueue = q;

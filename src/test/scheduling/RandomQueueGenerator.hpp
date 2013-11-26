@@ -23,7 +23,7 @@
 #define RANDOMQUEUEGENERATOR_HPP_
 
 #include <list>
-#include <boost/random/mersenne_twister.hpp>
+#include <random>
 
 #include "Task.hpp"
 
@@ -55,7 +55,7 @@ public:
 
     double getRandomPower();
 
-    boost::random::mt19937 & getGenerator() { return gen; }
+    std::mt19937 & getGenerator() { return gen; }
 
 private:
     int getRandomAppLength();
@@ -65,7 +65,7 @@ private:
     void reset(double power);
 
     unsigned int theSeed;
-    boost::random::mt19937 gen;
+    std::mt19937 gen;
     unsigned int appId;
     double currentPower;
     double currentrfirst;

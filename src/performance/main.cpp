@@ -53,7 +53,7 @@ int main(int argc, char * argv[]) {
     l->setConversionPattern("%d{%H:%M:%S.%l} %p %c : %m%n");
     console->setLayout(l);
     Category::getRoot().addAppender(console);
-    MemoryManager::getInstance().setUpdateDuration(0.0);
+    MemoryManager::getInstance().setUpdateDuration(0);
     SignalException::Handler::getInstance().setHandler();
 
     try {

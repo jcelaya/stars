@@ -19,12 +19,10 @@
  */
 
 
+#include <chrono>
 #include <fstream>
-
 #include <limits>
 #include <algorithm>
-#include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/shared_array.hpp>
 #include "Logger.hpp"
 #include "FSPAvailabilityInformation.hpp"
@@ -156,16 +154,17 @@ void FSPAvailabilityInformation::reduce() {
     for (auto & i : summary)
         i.reference = this;
     //FSPAvailabilityInformation * copy = this->clone();
-    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
+    auto start = std::chrono::high_resolution_clock::now();
     summary.cluster(numClusters);
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-    long mus = (end - start).total_microseconds();
-    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Clustering lasted ", mus, " us");
+    auto end = std::chrono::high_resolution_clock::now();
+    auto mus = std::chrono::duration<double>(end - start);
+    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Clustering lasted ", mus.count() * 1000000.0, " us");
     start = end;
     for (auto & i : summary)
         i.reduce();
-    end = boost::posix_time::microsec_clock::local_time();
-    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Reduction lasted ", (end - start).total_microseconds(), " us");
+    end = std::chrono::high_resolution_clock::now();
+    mus = std::chrono::duration<double>(end - start);
+    Logger::msg("Ex.RI.Aggr.FSP", INFO, "Reduction lasted ", mus.count() * 1000000.0, " us");
 //    if (mus > 30000)
 //        saveToFile(copy);
 //    delete copy;

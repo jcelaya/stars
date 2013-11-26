@@ -19,15 +19,12 @@
  */
 
 
-#include <boost/random/linear_congruential.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <random>
 #include "TransactionMsg.hpp"
 
 
 TransactionId createRandomId() {
-    static boost::minstd_rand rng;
-    static boost::uniform_int<TransactionId> dist(0, -1);
-    static boost::variate_generator<boost::minstd_rand, boost::uniform_int<TransactionId> > txGen(rng, dist);
-    return txGen();
+    static std::default_random_engine rng;
+    static std::uniform_int_distribution<TransactionId> dist(0, -1);
+    return dist(rng);
 }
