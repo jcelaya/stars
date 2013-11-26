@@ -368,7 +368,9 @@ void Simulator::stepForward() {
     pstats.endEvent("Event selection");
 
     pstats.startEvent("Before event");
-    tstats.msgReceivedAtLevel(getNode(p->to).getBranchLevel(), p->size, p->msg->getName());
+    if (p->to != p->from) {
+        tstats.msgReceivedAtLevel(getNode(p->to).getBranchLevel(), p->size, p->msg->getName());
+    }
     simCase->beforeEvent(p->from, p->to, *p->msg);
     pstats.endEvent("Before event");
 

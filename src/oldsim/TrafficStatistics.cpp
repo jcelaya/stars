@@ -70,7 +70,7 @@ void TrafficStatistics::saveTotalStatistics() {
 
     os << "# Statistics by message type and level" << endl;
     os << "# Level, msg name, sent msgs, sent bytes, min sent size, max sent size, recv msgs, recv bytes, min recv size, max recv size" << endl;
-    for (unsigned int level = 0; level < typeStatsPerLevel.size(); level++) {
+    for (unsigned int level = 0; level < typeStatsPerLevel.size(); ++level) {
         auto & typeLevelStats = typeStatsPerLevel[level];
         for (auto & it : typeLevelStats) {
             LevelStats & mt = it.second;

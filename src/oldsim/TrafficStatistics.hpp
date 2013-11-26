@@ -44,7 +44,12 @@ class TrafficStatistics {
         }
 
         friend std::ostream & operator<<(std::ostream & os, const MessageStats & o) {
-            return os << o.numMessages << ',' << o.totalBytes << ',' << o.minSize << ',' << o.maxSize;
+            os << o.numMessages << ',' << o.totalBytes << ',';
+            if (o.numMessages) {
+                return os << o.minSize << ',' << o.maxSize;
+            } else {
+                return os << "n.a.,n.a.";
+            }
         }
     };
 
