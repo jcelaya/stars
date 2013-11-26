@@ -88,7 +88,7 @@ bool FailureGenerator::isNextFailure(const BasicMsg & msg) {
         for (unsigned int i = 0; i < failingNodes.size(); ++i) {
             StarsNode & node = sim.getNode(failingNodes[i]);
             sim.setCurrentNode(failingNodes[i]);
-            sneighbours[node.getLeaf().getFatherAddress().getIPNum()].second.push_back(node.getLocalAddress());
+            sneighbours[node.getLeafFather()].second.push_back(node.getLocalAddress());
             if (node.getBranch().inNetwork()) {
                 if (node.getBranch().getFatherAddress() != CommAddress())
                     sneighbours[node.getBranch().getFatherAddress().getIPNum()].second.push_back(node.getLocalAddress());

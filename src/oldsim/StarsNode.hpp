@@ -30,6 +30,7 @@ namespace iost = boost::iostreams;
 #include "CommLayer.hpp"
 #include "Logger.hpp"
 #include "Properties.hpp"
+#include "NetworkInterface.hpp"
 #include "SimAppDatabase.hpp"
 #include "SimOverlayBranch.hpp"
 #include "SimOverlayLeaf.hpp"
@@ -56,6 +57,7 @@ public:
 
         DiscreteParetoVariable cpuVar;
         DiscreteUniformVariable memVar, diskVar;
+        DiscreteUniformVariable inBWVar, outBWVar;
         std::unique_ptr<PolicyFactory> policy;
         std::string inFileName;
         fs::ifstream inFile;
@@ -89,7 +91,8 @@ public:
 
     void unpackState(std::streambuf & out);
 
-    void receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg);
+    unsigned int sendMessage(uint32_t dst, std::shared_ptr<BasicMsg> msg);
+    void receiveMessage(uint32_t src, unsigned int size, std::shared_ptr<BasicMsg> msg);
 
     void setLocalAddress(const CommAddress & local) { localAddress = local; }
 
@@ -100,10 +103,15 @@ public:
     Scheduler & getSch() const { return static_cast<Scheduler &>(*services[Sch]); }
     DispatcherInterface & getDisp() const { return static_cast<DispatcherInterface &>(*services[Disp]); }
     SimAppDatabase & getDatabase() { return db; }
+    stars::NetworkInterface & getNetInterface() { return iface; }
+    unsigned int getLeafFather() const { return getLeaf().getFatherAddress().getIPNum(); }
 
     double getAveragePower() const { return power; }
     unsigned long int getAvailableMemory() const { return mem; }
     unsigned long int getAvailableDisk() const { return disk; }
+    bool checkStaticRequirements(const TaskDescription & req) const {
+        return req.getMaxMemory() <= mem && req.getMaxDisk() <= disk;
+    }
 
     unsigned int getBranchLevel() const;
 
@@ -129,6 +137,7 @@ private:
     template <class T> void buildDispatcherDownGen();
 
     SimAppDatabase db;
+    stars::NetworkInterface iface;
     double power;
     unsigned long int mem;
     unsigned long int disk;

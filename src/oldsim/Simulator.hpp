@@ -70,27 +70,14 @@ public:
         static int lastEventId;
         // Time in microseconds
         Time creationTime;
-        Time txTime;
-        Duration txDuration;
         Time t;
         std::shared_ptr<BasicMsg> msg;
         uint32_t from, to;
         bool inRecvQueue;
         unsigned int size;
-        Event(Time c, std::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++), creationTime(c),
-            txTime(c), txDuration(0.0), t(c), msg(initmsg), inRecvQueue(false), size(sz) {}
-        Event(Time c, Time outQueue, Duration tx, Duration d, std::shared_ptr<BasicMsg> initmsg,
-            unsigned int sz) : id(lastEventId++), creationTime(c), txTime(outQueue), txDuration(tx), t(txTime + tx + d),
-            msg(initmsg), inRecvQueue(false), size(sz) {}
-        Event(Time c, Duration d, std::shared_ptr<BasicMsg> initmsg, unsigned int sz) : id(lastEventId++),
-            creationTime(c), txTime(c), t(c + d),
-            msg(initmsg), inRecvQueue(false), size(sz) {}
-    };
-
-    struct NodeNetInterface {
-        // In and Out network interface model
-        Time inQueueFreeTime, outQueueFreeTime;
-        double inBW, outBW;
+        Event(Time c, Time reception, std::shared_ptr<BasicMsg> initmsg, unsigned int sz)
+            : id(lastEventId++), creationTime(c), t(reception), msg(initmsg),
+              from(0), to(0), inRecvQueue(false), size(sz) {}
     };
 
     static Simulator & getInstance() {
@@ -111,7 +98,6 @@ public:
     void setCurrentNode(uint32_t n) { currentNode = &routingTable[n]; }
     unsigned long int getNumNodes() const { return routingTable.size(); }
     StarsNode & getNode(unsigned int i) { return routingTable[i]; }
-    const NodeNetInterface & getNetInterface(unsigned int i) const { return iface[i]; }
     StarsNode & getCurrentNode() { return *currentNode; }
     uint32_t getCurrentNodeNum() { return currentNode - &routingTable[0]; }
     int getCurrentEventId() const { return p != NULL ? p->id : 0; }
@@ -151,7 +137,6 @@ private:
     // Simulation framework
     std::shared_ptr<SimulationCase> simCase;
     std::vector<StarsNode> routingTable;
-    std::vector<NodeNetInterface> iface;
     Time time;
     std::priority_queue<Event *, std::vector<Event *>, ptrCompare > events;
 

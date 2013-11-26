@@ -88,7 +88,7 @@ CommLayer & CommLayer::getInstance() {
 
 
 unsigned int CommLayer::sendMessage(const CommAddress & dst, BasicMsg * msg) {
-    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst.getIPNum(), std::shared_ptr<BasicMsg>(msg));
+    return static_cast<StarsNode *>(this)->sendMessage(dst.getIPNum(), std::shared_ptr<BasicMsg>(msg));
 }
 
 
@@ -131,13 +131,16 @@ std::ostream & operator<<(std::ostream & os, const Time & r) {
 
 
 // Configuration object
-StarsNode::Configuration::Configuration() : cpuVar(1000, 3000), memVar(256, 1024), diskVar(10, 1000) {}
+StarsNode::Configuration::Configuration() : cpuVar(1000, 3000), memVar(256, 1024), diskVar(10, 1000),
+        inBWVar(125000.0, 125000.0), outBWVar(125000.0, 125000.0) {}
 
 
 void StarsNode::Configuration::setup(const Properties & property) {
     cpuVar = DiscreteParetoVariable(property("min_cpu", 1000.0), property("max_cpu", 3000.0), property("step_cpu", 200.0), 1.0);
     memVar = DiscreteUniformVariable(property("min_mem", 256), property("max_mem", 4096), property("step_mem", 256));
     diskVar = DiscreteUniformVariable(property("min_disk", 64), property("max_disk", 1000), property("step_disk", 100));
+    inBWVar = DiscreteUniformVariable(property("min_down_bw", 125000.0), property("max_down_bw", 125000.0), property("step_down_bw", 1));
+    outBWVar = DiscreteUniformVariable(property("min_up_bw", 125000.0), property("max_up_bw", 125000.0), property("step_up_bw", 1));
     inFileName = property("in_file", string(""));
     outFileName = property("out_file", string(""));
     policy = PolicyFactory::getFactory(property("scheduler", string("dist")), property("policy", string("")));
@@ -205,6 +208,7 @@ void StarsNode::setup(unsigned int addr) {
     power = cfg.cpuVar();
     mem = cfg.memVar();
     disk = cfg.diskVar();
+    iface.setup(cfg.inBWVar(), cfg.outBWVar());
 
     createServices();
     // Load service state if needed
@@ -214,7 +218,12 @@ void StarsNode::setup(unsigned int addr) {
 }
 
 
-void StarsNode::receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg) {
+unsigned int StarsNode::sendMessage(uint32_t dst, std::shared_ptr<BasicMsg> msg) {
+    return Simulator::getInstance().sendMessage(localAddress.getIPNum(), dst, msg);
+}
+
+
+void StarsNode::receiveMessage(uint32_t src, unsigned int size, std::shared_ptr<BasicMsg> msg) {
     // Check if it is the timer
     if (msg == timerMsg) {
         Time ct = Time::getCurrentTime();
@@ -223,7 +232,7 @@ void StarsNode::receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg) {
                 if (timerList.front().timeout < ct)
                     Logger::msg("Sim.Progress", WARN, "Timer arriving ", (ct - timerList.front().timeout).seconds(), " seconds late: ",
                             *timerList.front().msg);
-                Simulator::getInstance().sendMessage(localAddress.getIPNum(), localAddress.getIPNum(), timerList.front().msg);
+                sendMessage(localAddress.getIPNum(), timerList.front().msg);
                 timerList.pop_front();
             } else {
                 if (!(timerList.front().id & 1)) {
@@ -236,6 +245,18 @@ void StarsNode::receiveMessage(uint32_t src, std::shared_ptr<BasicMsg> msg) {
             }
         }
     } else {
+        if (src != localAddress.getIPNum() && size > 0) {
+            iface.accountRecvTraffic(size);
+        }
+//TODO        	if (typeid(msg) == typeid(TaskStateChgMsg)) {
+//			// If it is a finishing task, account for data transfers
+//			NodeTraffic & nt = nodeStatistics[dst];
+//			TaskDescription & desc = sim.getNode(src).getSch()
+//					.getTask(static_cast<const TaskStateChgMsg &>(msg).getTaskId())->getDescription();
+//			nt.received.dataBytes += desc.getInputSize() * 1024ULL;
+//			nt.sent.dataBytes += desc.getOutputSize() * 1024ULL;
+//        }
+
         enqueueMessage(CommAddress(src, ConfigurationManager::getInstance().getPort()), msg);
         processNextMessage();
     }
@@ -311,7 +332,7 @@ void StarsNode::unpackState(std::streambuf & in) {
 
 unsigned int StarsNode::getBranchLevel() const {
     if (!getBranch().inNetwork())
-        return Simulator::getInstance().getNode(getLeaf().getFatherAddress().getIPNum()).getBranchLevel() + 1;
+        return Simulator::getInstance().getNode(getLeafFather()).getBranchLevel() + 1;
     else if (getBranch().getFatherAddress() != CommAddress())
         return Simulator::getInstance().getNode(getBranch().getFatherAddress().getIPNum()).getBranchLevel() + 1;
     else return 0;

@@ -25,47 +25,40 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <ostream>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "Time.hpp"
 
 class TrafficStatistics {
 
-    struct MessageType {
+    struct MessageStats {
         unsigned long int numMessages;
         unsigned long int minSize, maxSize, totalBytes;
-        MessageType() : numMessages(0), minSize(100000000), maxSize(0), totalBytes(0) {}
-    };
-    std::map<std::string, MessageType> typeNetStatistics;
-    std::map<std::string, MessageType> typeSelfStatistics;
-    std::vector<std::map<std::string, MessageType> > typeSentStatistics;
-    std::vector<std::map<std::string, MessageType> > typeRecvStatistics;
+        MessageStats() : numMessages(0), minSize(100000000), maxSize(0), totalBytes(0) {}
 
-    struct NodeTraffic {
-        unsigned long int bytesSent, dataBytesSent;
-        unsigned long int bytesReceived, dataBytesRecv;
-        unsigned long int maxBytesIn1sec, maxBytesIn10sec;
-        unsigned long int maxBytesOut1sec, maxBytesOut10sec;
-        unsigned long int lastBytesIn[2], lastBytesOut[2];
-        std::list<std::pair<unsigned long int, Time> > lastSentSizes[2], lastRecvSizes[2];
-        NodeTraffic() : bytesSent(0), dataBytesSent(0), bytesReceived(0), dataBytesRecv(0),
-            maxBytesIn1sec(0), maxBytesIn10sec(0), maxBytesOut1sec(0), maxBytesOut10sec(0) {
-            lastBytesIn[0] = lastBytesIn[1] = 0;
-            lastBytesOut[0] = lastBytesOut[1] = 0;
+        void addMessage(unsigned int size) {
+            numMessages++;
+            totalBytes += size;
+            if (maxSize < size) maxSize = size;
+            if (minSize > size) minSize = size;
+        }
+
+        friend std::ostream & operator<<(std::ostream & os, const MessageStats & o) {
+            return os << o.numMessages << ',' << o.totalBytes << ',' << o.minSize << ',' << o.maxSize;
         }
     };
-    std::vector<NodeTraffic> nodeStatistics;
 
-    static Duration intervals[2];
+    struct LevelStats {
+        MessageStats sent, received;
+    };
+
+    std::vector<std::map<std::string, LevelStats> > typeStatsPerLevel;
 
 public:
-    void setNumNodes(unsigned int n) {
-        nodeStatistics.resize(n);
-    }
-
     void saveTotalStatistics();
 
-    void msgReceived(uint32_t src, uint32_t dst, unsigned int size, double inBW, const BasicMsg & msg);
-    void msgSent(uint32_t src, uint32_t dst, unsigned int size, double outBW, Time finish, const BasicMsg & msg);
+    void msgReceivedAtLevel(unsigned int level, unsigned int size, const std::string & name);
+    void msgSentAtLevel(unsigned int level, unsigned int size, const std::string & name);
 };
 
 #endif /*TRAFFICSTATISTICS_H_*/

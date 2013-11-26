@@ -278,23 +278,15 @@ void Simulator::setProperties(Properties & property) {
     // Delay follows pareto distribution of k=2
     static const double kDelay = 2.0;
     netDelay = ParetoVariable(property("min_delay", 0.05), kDelay, property("max_delay", 0.3));
-    unsigned int numNodes = property("num_nodes", (unsigned int)0);
-    iface.resize(numNodes);
-    DiscreteUniformVariable inBWVar(property("min_down_bw", 125000.0), property("max_down_bw", 125000.0), property("step_down_bw", 1)),
-        outBWVar(property("min_up_bw", 125000.0), property("max_up_bw", 125000.0), property("step_up_bw", 1));
-    for (unsigned int i = 0; i < numNodes; i++) {
-        iface[i].inBW = inBWVar();
-        iface[i].outBW = outBWVar();
-    }
 
     // Library config
     StarsNode::libStarsConfigure(property);
 
     // Statistics
     sstats.openStatsFiles(resultDir);
-    tstats.setNumNodes(numNodes);
 
     // Node creation
+    unsigned int numNodes = property("num_nodes", (unsigned int)0);
     routingTable.resize(numNodes);
     for (unsigned int i = 0; i < numNodes; i++) {
         currentNode = &routingTable[i];
@@ -338,13 +330,11 @@ bool Simulator::enqueued() {
     if (p->size && p->from != p->to && !p->inRecvQueue) {
         // Not a self-message, check incoming queue
         totalBytesSent += p->size;
-        NodeNetInterface & dstIface = iface[p->to];
-        dstIface.inQueueFreeTime += p->txDuration;
-        if (dstIface.inQueueFreeTime <= p->t) {
-            dstIface.inQueueFreeTime = p->t;
-        } else {
+        stars::NetworkInterface & dstIface = getNode(p->to).getNetInterface();
+        dstIface.updateInQueueEndTime(p->size);
+        if (dstIface.getInQueueEndTime() > p->t) {
             // Delay the message in the incoming queue
-            p->t = dstIface.inQueueFreeTime;
+            p->t = dstIface.getInQueueEndTime();
             p->inRecvQueue = true;
             events.push(p);
             return true;
@@ -378,14 +368,14 @@ void Simulator::stepForward() {
     pstats.endEvent("Event selection");
 
     pstats.startEvent("Before event");
-    tstats.msgReceived(p->from, p->to, p->size, iface[p->to].inBW, *p->msg);
+    tstats.msgReceivedAtLevel(getNode(p->to).getBranchLevel(), p->size, p->msg->getName());
     simCase->beforeEvent(p->from, p->to, *p->msg);
     pstats.endEvent("Before event");
 
     pstats.startEvent(p->msg->getName());
     // Measure operation duration from this point
     opStart = microsec_clock::local_time();
-    routingTable[p->to].receiveMessage(p->from, p->msg);
+    routingTable[p->to].receiveMessage(p->from, p->size, p->msg);
     pstats.endEvent(p->msg->getName());
 
     pstats.startEvent("After event");
@@ -467,6 +457,7 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, std::shared_ptr<
     Duration opDuration;
 #ifdef NDEBUG
     // Measure operation duration, only if inEvent().
+    // FIXME: time should advance here, so that the out queue takes it into account
     opDuration = Duration((int64_t)(inEvent() ? (microsec_clock::local_time() - opStart).total_microseconds() : 0));
 #endif
 
@@ -478,21 +469,22 @@ unsigned int Simulator::sendMessage(uint32_t src, uint32_t dst, std::shared_ptr<
             size = getMsgSize(msg) + 90;   // 90 bytes of Ethernet + IP + TCP
             pstats.endEvent("getMsgSize");
         }
-        NodeNetInterface & srcIface = iface[src];
-        NodeNetInterface & dstIface = iface[dst];
-        if (srcIface.outQueueFreeTime <= time) {
-            srcIface.outQueueFreeTime = time;
-        }
-        Duration txTime(size / (srcIface.outBW < dstIface.inBW ? srcIface.outBW : dstIface.inBW));
+        stars::NetworkInterface & srcIface = getNode(src).getNetInterface();
+        srcIface.updateOutQueueEndTime(size);
+        Duration sendDuration = srcIface.getSendTime(size), receiveDuration = getNode(dst).getNetInterface().getReceiveTime(size);
+        Time txTime = srcIface.getOutQueueEndTime();
+        if (receiveDuration > sendDuration)
+            txTime += receiveDuration - sendDuration;
         Duration delay(netDelay());
 //        if (msg->getName() == "FSPAvailabilityInformation") {
 //            delay = Duration(0.0);
 //        }
-        event = new Event(time + opDuration, srcIface.outQueueFreeTime, txTime, delay, msg, size);
-        srcIface.outQueueFreeTime += txTime;
-        tstats.msgSent(src, dst, size, srcIface.outBW, srcIface.outQueueFreeTime + txTime, *msg);
+        event = new Event(time + opDuration, txTime + delay, msg, size);
+        if (size)
+            srcIface.accountSentTraffic(size);
+        tstats.msgSentAtLevel(getNode(src).getBranchLevel(), size, msg->getName());
     } else {
-        event = new Event(time + opDuration, Duration(), msg, 0);
+        event = new Event(time + opDuration, time + opDuration, msg, 0);
     }
     event->to = dst;
     event->from = src;
@@ -515,7 +507,7 @@ unsigned int Simulator::injectMessage(uint32_t src, uint32_t dst, std::shared_pt
     if (withOpDuration)
         d += Duration((microsec_clock::local_time() - opStart).total_microseconds());
 #endif
-    Event * event = new Event(time + d, Duration(), msg, size);
+    Event * event = new Event(time + d, time + d, msg, size);
     event->to = dst;
     event->from = src;
     events.push(event);

@@ -105,11 +105,8 @@ void CentralizedScheduler::sortQueue(unsigned int node) {
         Logger::msg("Dsp.Cent", DEBUG, "Order: ", i.msg->getRequestId(), ", ", i.tid);
         rsch->addTask(i.msg->getRequester(), i.msg->getRequestId(), i.tid);
     }
-    sim.sendMessage(sim.getNode(node).getLeaf().getFatherAddress().getIPNum(), node, rsch);
-    queue.front().running = true;
-    for (auto t = ++queue.begin(); t != queue.end(); ++t) {
-        t->running = false;
-    }
+    StarsNode & src = sim.getNode(sim.getNode(node).getLeafFather());
+    src.sendMessage(node, rsch);
 }
 
 
@@ -121,18 +118,19 @@ void CentralizedScheduler::showStatistics() {
 class BlindScheduler : public CentralizedScheduler {
     void newApp(std::shared_ptr<TaskBagMsg> msg) {
         for (unsigned int i = msg->getFirstTask(); i <= msg->getLastTask(); ++i) {
-            unsigned int n = clientVar();
+            unsigned int dst = clientVar();
             std::shared_ptr<TaskBagMsg> tbm(msg->clone());
             tbm->setFromEN(false);
             tbm->setForEN(true);
             tbm->setFirstTask(i);
             tbm->setLastTask(i);
-            sim.sendMessage(sim.getNode(n).getLeaf().getFatherAddress().getIPNum(), n, tbm);
+            StarsNode & src = sim.getNode(sim.getNode(dst).getLeafFather());
+            src.sendMessage(dst, tbm);
         }
     }
 
     void taskFinished(unsigned int node) {
-        Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", AddrIO(node));
+        Logger::msg("Dsp.Cent", INFO, "Finished a task in node ", node);
     }
 
     DiscreteUniformVariable clientVar;
@@ -161,17 +159,17 @@ class CentralizedIBP : public CentralizedScheduler {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
 
         // Get the k best nodes that can execute this app and order them
         vector<NodeAvail> usableNodes;
         usableNodes.reserve(numTasks);
         for (unsigned int n = 0; n < numNodes; n++) {
             StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk && queues[n].empty()) {
+            if (node.checkStaticRequirements(msg->getMinRequirements()) && queues[n].empty()) {
                 NodeAvail avail;
                 avail.n = n;
+                unsigned int mem = msg->getMinRequirements().getMaxMemory();
+                unsigned int disk = msg->getMinRequirements().getMaxDisk();
                 avail.a = (node.getAvailableMemory() - mem) * NodeAvail::ALPHA_MEM + (node.getAvailableDisk() - disk) * NodeAvail::ALPHA_DISK;
                 // If there are less than k nodes in the queue, or the new one is better than the worst, push it in
                 if (usableNodes.size() < numTasks) {
@@ -218,8 +216,6 @@ class CentralizedMMP : public CentralizedScheduler {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
         Time now = sim.getCurrentTime();
 
         vector<QueueTime> queueCache;
@@ -228,7 +224,7 @@ class CentralizedMMP : public CentralizedScheduler {
         // Calculate queue time for first potential task on suitable nodes
         for (unsigned int n = 0; n < numNodes; n++) {
             StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
+            if (node.checkStaticRequirements(msg->getMinRequirements())) {
                 QueueTime qt;
                 qt.node = n;
                 qt.qTime = queueEnds[n] < now ? now : queueEnds[n];
@@ -302,8 +298,6 @@ class CentralizedDP : public CentralizedScheduler {
         unsigned int numNodes = sim.getNumNodes();
         unsigned long a = msg->getMinRequirements().getLength();
         unsigned int numTasks = msg->getLastTask() - msg->getFirstTask() + 1;
-        unsigned int mem = msg->getMinRequirements().getMaxMemory();
-        unsigned int disk = msg->getMinRequirements().getMaxDisk();
         unsigned int cachedTasks = 0;
         Time deadline = msg->getMinRequirements().getDeadline();
 
@@ -312,7 +306,7 @@ class CentralizedDP : public CentralizedScheduler {
         // Calculate holes for suitable nodes
         for (unsigned int n = 0; n < numNodes; n++) {
             StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= mem && node.getAvailableDisk() >= disk) {
+            if (node.checkStaticRequirements(msg->getMinRequirements())) {
                 list<TaskDesc> & queue = queues[n];
                 // Calculate available hole for this application
                 Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
@@ -431,8 +425,7 @@ class CentralizedFSP : public CentralizedScheduler {
         vector<int> tpn = calculateTasksPerNode(msg->getMinRequirements(), msg->getLastTask() - msg->getFirstTask() + 1);
 
         // Assign tasks
-        TaskDesc task(msg);
-        task.tid = 1;
+        unsigned int tid = 1;
         double maxSlowness = 0.0;
         for (size_t n = 0; n < queues.size(); ++n) {
             if (tpn[n] > 0) {
@@ -445,6 +438,7 @@ class CentralizedFSP : public CentralizedScheduler {
                     maxSlowness = slowness;
 
                 // Send tasks to the node
+                TaskDesc task(msg);
                 task.d = now + Duration(slowness * a);
                 task.a = Duration(a / sim.getNode(n).getAveragePower());
                 if (queues[n].empty()) {
@@ -456,8 +450,10 @@ class CentralizedFSP : public CentralizedScheduler {
                     }
                 }
 
-                for (unsigned int j = 0; j < tasksToSend; ++j, ++task.tid)
+                for (unsigned int j = 0; j < tasksToSend; ++j) {
+                    task.tid = tid++;
                     queues[n].push_back(task);
+                }
                 sortQueue(n);
             }
         }
@@ -512,16 +508,11 @@ class CentralizedFSP : public CentralizedScheduler {
         // Discard the uncapable nodes
         for (size_t n = 0; n < tpn.size(); ++n) {
             assert(proxysN[n].size() == queues[n].size());
-            StarsNode & node = sim.getNode(n);
-            if (node.getAvailableMemory() >= req.getMaxMemory() && node.getAvailableDisk() >= req.getMaxDisk()) {
+            if (sim.getNode(n).checkStaticRequirements(req)) {
                 tpn[n] = 0;
                 // Adjust the time of the first task
                 if (!proxysN[n].empty()) {
                     proxysN[n].front().t = (firstTaskEndTimeN[n] - now).seconds();
-                    if (proxysN[n].front().t < -100.0) {
-                        std::cerr << "Negative time to finish (" << proxysN[n].front().t << ") for node " << n << " at " << now << endl;
-                        assert(false);
-                    }
                 }
             }
         }

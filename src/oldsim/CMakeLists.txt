@@ -26,6 +26,7 @@ set(oldsim_sources
     SimOverlayLeaf.cpp
     PolicyFactory.cpp
     SlaveLocalScheduler.cpp
+    NetworkInterface.cpp
     ${cases_sources})
 
 # add the executable

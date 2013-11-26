@@ -35,7 +35,7 @@ public:
 
         void setHandler();
 
-        void printStackTrace();
+        void printStackTrace(std::ostream & oss = std::cerr);
         const char * getStackTraceString();
 
     private:

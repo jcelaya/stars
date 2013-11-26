@@ -40,14 +40,13 @@ public:
         unsigned int tid;
         Time d, r;
         Duration a;
-        bool running;
         bool operator<(const TaskDesc & rt) const {
             return d < rt.d || (
                     d == rt.d && (msg->getRequestId() < rt.msg->getRequestId() || (
                             msg->getRequestId() == rt.msg->getRequestId() && tid <= rt.tid))); }
-        TaskDesc(std::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()), running(false) {}
+        TaskDesc(std::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()) {}
         friend std::ostream & operator<<(std::ostream & os, const TaskDesc & t) {
-            return os << '(' << (t.running ? 'r' : 'p') << ' ' << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
+            return os << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
         }
     };
 
