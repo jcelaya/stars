@@ -45,7 +45,8 @@ find the required libraries if they are in common locations, like /usr or
 
 $ make CONFIG=type
 
-This is the same as:
+Where type is one of Debug, Release, RelWithDebInfo of MinSizeRel. It
+defaults to Debug. This is the same as:
 
 $ mkdir -p build/type
 $ cd build/type
@@ -61,12 +62,16 @@ TODO
 Simulation
 ==========
 
+Currently, only the ad-hoc simulation engine (in directory oldsim) is fully
+usable. The version based on SimGrid is still under development, and not built
+by default.
+
 The simulator substitutes all the code related to networking and
 time management, and some other parts that are not relevant for the performance
 analysis, like database access. It also provides those parts that are not yet
 implemented or in an experimental state. It is invoked with the command:
 
-$ stars-sim config_file
+$ stars-oldsim config_file
 
 The config_file is a file with a set of properties in the form of key=value,
 one per line. The special key case_name defines the case to be executed. Then,
@@ -74,7 +79,7 @@ each case has some specific properties and the rest are common to the
 simulation platform. See the examples for further explanation. The configuration
 can also be fed from standard input:
 
-$ stars-sim - < config-file
+$ stars-oldsim - < config-file
 
 Tools
 =====
@@ -99,8 +104,9 @@ creates the named FIFO 'pipename', if needed. If 'pipename' is not provided,
 'sweeperpipe' is used by default. num_proc is the number of concurrent
 processes that can be launched. Should be equal to the number of cores.
 max_mem is the maximum physical memory to be used by the simulations. This avoids
-going to swap.
+the undesired situation in which a simulator process needs to use swap memory.
 
 Once the simulation has ended, the cdf tool will generate the cummulative
 distribution function for several results. Just invoke the tool with the results
 directory as argument.
+
