@@ -55,13 +55,12 @@ void TrafficStatistics::saveTotalStatistics() {
     fs::ofstream os(sim.getResultDir() / fs::path("traffic.stat"));
     os << setprecision(6) << fixed;
 
-    unsigned int addr = 0;
     double totalTime = sim.getCurrentTime().getRawDate() / 1000000.0;
     os << "#Node, Level, Bytes sent, fr. of max, Max1sec, fr. of max1sec, Max10sec, fr. of max10sec, data bytes sent, Bytes recv, fr. of max, Max1sec, fr. of max1sec, Max10sec, fr. of max10sec, data bytes recv" << endl;
     for (unsigned int n = 0; n < sim.getNumNodes(); ++n) {
         const stars::NetworkInterface & iface = sim.getNode(n).getNetInterface();
-        unsigned int level = sim.getNode(addr).getBranchLevel();
-        os << CommAddress(addr, ConfigurationManager::getInstance().getPort()) << ',' << level << ',';
+        unsigned int level = sim.getNode(n).getBranchLevel();
+        os << CommAddress(n, ConfigurationManager::getInstance().getPort()) << ',' << level << ',';
         iface.output(os, totalTime);
         os << endl;
     }

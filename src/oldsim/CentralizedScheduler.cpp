@@ -106,7 +106,7 @@ void CentralizedScheduler::sortQueue(unsigned int node) {
         rsch->addTask(i.msg->getRequester(), i.msg->getRequestId(), i.tid);
     }
     StarsNode & src = sim.getNode(sim.getNode(node).getLeafFather());
-    src.sendMessage(node, rsch);
+    outTraffic += src.sendMessage(node, rsch);
 }
 
 
@@ -184,7 +184,7 @@ class CentralizedIBP : public CentralizedScheduler {
         }
 
         TaskDesc task(msg);
-        task.d = sim.getCurrentTime();
+        task.deadline = sim.getCurrentTime();
         if (numTasks > usableNodes.size()) {
             numTasks = usableNodes.size();
         }
@@ -193,7 +193,7 @@ class CentralizedIBP : public CentralizedScheduler {
             // Send each task to a node which can execute it
             unsigned int node = usableNodes[task.tid - 1].n;
             Logger::msg("Dsp.Cent", DEBUG, "Task allocated to node ", node, " with availability ", usableNodes[task.tid - 1].a);
-            task.a = Duration(a / sim.getNode(node).getAveragePower());
+            task.runtime = Duration(a / sim.getNode(node).getAveragePower());
             queues[node].push_back(task);
             sortQueue(node);
         }
@@ -249,15 +249,15 @@ class CentralizedMMP : public CentralizedScheduler {
         }
 
         TaskDesc task(msg);
-        task.d = sim.getCurrentTime();
+        task.deadline = sim.getCurrentTime();
         task.tid = 1;
         for (auto i = tasksPerNode.begin(); i != tasksPerNode.end(); ++i) {
             Logger::msg("Dsp.Cent", DEBUG, "Tasks ", task.tid, " to ", task.tid + numTasks - 1, " allocated to node ", i->first);
-            task.a = taskTime[i->first];
+            task.runtime = taskTime[i->first];
             for (unsigned int j = 0; j < i->second; ++j, ++task.tid)
                 queues[i->first].push_back(task);
             sortQueue(i->first);
-            updateQueueLengths(i->first, task.a * i->second);
+            updateQueueLengths(i->first, task.runtime * i->second);
         }
     }
 
@@ -312,23 +312,23 @@ class CentralizedDP : public CentralizedScheduler {
                 Time start = sim.getCurrentTime() + Duration(1.0); // 1 second for the msg sending
                 if (!queue.empty()) {
                     if (node.getSch().getTasks().empty())
-                        start += queue.front().a;
+                        start += queue.front().runtime;
                     else
                         start += node.getSch().getTasks().front()->getEstimatedDuration();
-                    for (list<TaskDesc>::iterator it = ++queue.begin(); it != queue.end() && it->d <= deadline; it++) {
-                        start += it->a;
+                    for (list<TaskDesc>::iterator it = ++queue.begin(); it != queue.end() && it->deadline <= deadline; it++) {
+                        start += it->runtime;
                     }
                 }
                 unsigned long avail, availTotal;
-                if (queue.empty() || queue.back().d <= deadline) {
+                if (queue.empty() || queue.back().deadline <= deadline) {
                     avail = deadline > start ? ((deadline - start).seconds() * node.getAveragePower()) : 0;
                     //availTotal = -1;
                     availTotal = avail;
                 } else {
-                    Time end = queue.back().d;
-                    for (list<TaskDesc>::reverse_iterator it = queue.rbegin(); it != queue.rend() && it->d > deadline; it++) {
-                        if (it->d < end) end = it->d;
-                        end -= it->a;
+                    Time end = queue.back().deadline;
+                    for (list<TaskDesc>::reverse_iterator it = queue.rbegin(); it != queue.rend() && it->deadline > deadline; it++) {
+                        if (it->deadline < end) end = it->deadline;
+                        end -= it->runtime;
                     }
                     availTotal = ((end - start).seconds() * node.getAveragePower());
                     if (deadline < end) end = deadline;
@@ -368,12 +368,12 @@ class CentralizedDP : public CentralizedScheduler {
 
         TaskDesc task(msg);
         task.tid = 1;
-        task.d = msg->getMinRequirements().getDeadline();
+        task.deadline = msg->getMinRequirements().getDeadline();
         while (lastHole > 0) {
             // Send tasks to the next hole
             pop_heap(holeCache, holeCache + lastHole);
             Hole & best = holeCache[lastHole - 1];
-            task.a = Duration(a / sim.getNode(best.node).getAveragePower());
+            task.runtime = Duration(a / sim.getNode(best.node).getAveragePower());
 
             // Insert as many tasks as possible
             if (best.numTasks <= ignoreTasks) {
@@ -412,7 +412,7 @@ class CentralizedFSP : public CentralizedScheduler {
         proxys.removeTask(proxys.front().id);
         if (!proxys.empty()) {
             // Adjust the time of the first task
-            firstTaskEndTimeN[node] = Time::getCurrentTime() + (++queues[node].begin())->a;
+            firstTaskEndTimeN[node] = Time::getCurrentTime() + (++queues[node].begin())->runtime;
         }
         CentralizedScheduler::taskFinished(node);
     }
@@ -439,14 +439,13 @@ class CentralizedFSP : public CentralizedScheduler {
 
                 // Send tasks to the node
                 TaskDesc task(msg);
-                task.d = now + Duration(slowness * a);
-                task.a = Duration(a / sim.getNode(n).getAveragePower());
-                if (queues[n].empty()) {
-                    firstTaskEndTimeN[n] = now + task.a;
-                } else {
+                task.deadline = now + Duration(slowness * a);
+                task.runtime = Duration(a / sim.getNode(n).getAveragePower());
+                if (!queues[n].empty()) {
+                    queues[n].front().runtime = firstTaskEndTimeN[n] - now;
                     // Update all deadlines
                     for (auto it = queues[n].begin(); it != queues[n].end(); ++it) {
-                        it->d = it->r + Duration(slowness * it->msg->getMinRequirements().getLength());
+                        it->deadline = it->release + Duration(slowness * it->msg->getMinRequirements().getLength());
                     }
                 }
 
@@ -455,6 +454,7 @@ class CentralizedFSP : public CentralizedScheduler {
                     queues[n].push_back(task);
                 }
                 sortQueue(n);
+                firstTaskEndTimeN[n] = now + queues[n].front().runtime;
             }
         }
         Logger::msg("Dsp.Cent", WARN, "Application ", SimAppDatabase::getAppId(msg->getRequestId()),

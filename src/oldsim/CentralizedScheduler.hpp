@@ -38,15 +38,15 @@ public:
     struct TaskDesc {
         std::shared_ptr<TaskBagMsg> msg;
         unsigned int tid;
-        Time d, r;
-        Duration a;
+        Time deadline, release;
+        Duration runtime;
         bool operator<(const TaskDesc & rt) const {
-            return d < rt.d || (
-                    d == rt.d && (msg->getRequestId() < rt.msg->getRequestId() || (
+            return deadline < rt.deadline || (
+                    deadline == rt.deadline && (msg->getRequestId() < rt.msg->getRequestId() || (
                             msg->getRequestId() == rt.msg->getRequestId() && tid <= rt.tid))); }
-        TaskDesc(std::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), r(Time::getCurrentTime()) {}
+        TaskDesc(std::shared_ptr<TaskBagMsg> m) : msg(m), tid(0), release(Time::getCurrentTime()) {}
         friend std::ostream & operator<<(std::ostream & os, const TaskDesc & t) {
-            return os << t.r.getRawDate() << '-' << t.a.seconds() << '-' << t.d.getRawDate() << ')';
+            return os << t.release.getRawDate() << '-' << t.runtime.seconds() << '-' << t.deadline.getRawDate() << ')';
         }
     };
 

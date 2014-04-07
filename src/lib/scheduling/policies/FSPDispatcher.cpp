@@ -168,6 +168,20 @@ bool FSPDispatcher::discard = false;
 double FSPDispatcher::discardRatio = 2.0;
 
 
+std::unique_ptr<stars::FSPTaskBagMsg> FSPDispatcher::createMsgCopy(
+        const TaskBagMsg& msg) {
+    std::unique_ptr<stars::FSPTaskBagMsg> msgCopy;
+    const stars::FSPTaskBagMsg* castedMsg =
+            dynamic_cast<const stars::FSPTaskBagMsg*>(&msg);
+    if (castedMsg) {
+        msgCopy.reset(castedMsg->clone());
+    } else {
+        msgCopy.reset(new stars::FSPTaskBagMsg(msg));
+    }
+    return msgCopy;
+}
+
+
 void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     // TODO: Check that we are not in a change
     if (msg.isForEN() || !checkState()) return;
@@ -177,14 +191,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     unsigned int numTasksReq = msg.getLastTask() - msg.getFirstTask() + 1;
     uint64_t a = req.getLength();
 
-    std::unique_ptr<stars::FSPTaskBagMsg> tmp;
-    const stars::FSPTaskBagMsg * castedMsg = dynamic_cast<const stars::FSPTaskBagMsg *>(&msg);
-    if (castedMsg) {
-        tmp.reset(castedMsg->clone());
-    } else {
-        tmp.reset(new stars::FSPTaskBagMsg(msg));
-    }
-
+    std::unique_ptr<stars::FSPTaskBagMsg> msgCopy = createMsgCopy(msg);
     std::list<FSPAvailabilityInformation::MDZCluster *> clusters[2];
     std::array<double, 2> branchSlowness = {0.0, 0.0};
     for (int c : {0, 1}) {
@@ -196,6 +203,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
     }
     FunctionVector functions(clusters, branchSlowness);
     std::array<unsigned int, 2> numTasks = {0, 0};
+
     if (!mustGoDown(src, msg) && functions.getTotalNodes() < numTasksReq) {
         Logger::msg("Dsp.FSP", INFO, "Not enough nodes to route this request, sending to the father.");
     } else {
@@ -207,18 +215,18 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
 
             if (msg.isFromEN() || src != father.addr) {
                 Logger::msg("Dsp.FSP", WARN, "Setting the slowness of the request to ", minSlowness);
-                tmp->setEstimatedSlowness(minSlowness);
+                msgCopy->setEstimatedSlowness(minSlowness);
             }
 
-            Logger::msg("Dsp.FSP", WARN, "Estimation difference: ", minSlowness, ' ', tmp->getEstimatedSlowness());
-            if (minSlowness > tmp->getEstimatedSlowness() * discardRatio) {
+            Logger::msg("Dsp.FSP", WARN, "Estimation difference: ", minSlowness, ' ', msgCopy->getEstimatedSlowness());
+            if (minSlowness > msgCopy->getEstimatedSlowness() * discardRatio) {
                 if (discard) {
                     Logger::msg("Dsp.FSP", WARN, "Discard tasks, because slowness is much greater than expected: ",
-                            minSlowness, " >> ", tmp->getEstimatedSlowness());
+                            minSlowness, " >> ", msgCopy->getEstimatedSlowness());
                     return;
                 } else {
                     Logger::msg("Dsp.FSP", WARN, "Return tasks up, because slowness is much greater than expected: ",
-                            minSlowness, " >> ", tmp->getEstimatedSlowness());
+                            minSlowness, " >> ", msgCopy->getEstimatedSlowness());
                 }
             } else {
                 numTasks = functions.computeTasksPerBranch();
@@ -237,7 +245,7 @@ void FSPDispatcher::handle(const CommAddress & src, const TaskBagMsg & msg) {
             Logger::msg("Dsp.FSP", INFO, "Not enough information to route this request, sending to the father.");
         }
     }
-    sendTasks(*tmp, numTasks, false);
+    sendTasks(*msgCopy, numTasks, false);
 }
 
 

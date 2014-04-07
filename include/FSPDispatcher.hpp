@@ -24,6 +24,7 @@
 #include <list>
 #include "Dispatcher.hpp"
 #include "FSPAvailabilityInformation.hpp"
+#include "FSPTaskBagMsg.hpp"
 #include "Time.hpp"
 
 using stars::FSPAvailabilityInformation;
@@ -81,6 +82,8 @@ private:
     virtual void handle(const CommAddress & src, const TaskBagMsg & msg);
 
     void removeUsedClusters(const FunctionVector& functions);
+
+    std::unique_ptr<stars::FSPTaskBagMsg> createMsgCopy(const TaskBagMsg & msg);
 };
 
 #endif /* FSPDISPATCHER_H_ */
