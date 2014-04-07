@@ -24,7 +24,6 @@
 #include "MMPAvailabilityInformation.hpp"
 #include "Time.hpp"
 using namespace std;
-using namespace boost;
 
 
 REGISTER_MESSAGE(MMPAvailabilityInformation);

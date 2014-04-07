@@ -26,7 +26,6 @@
 #include "Logger.hpp"
 #include "DPAvailabilityInformation.hpp"
 using namespace std;
-using namespace boost;
 
 
 REGISTER_MESSAGE(DPAvailabilityInformation);

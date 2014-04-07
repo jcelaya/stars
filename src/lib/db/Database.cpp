@@ -21,7 +21,6 @@
 #include "Database.hpp"
 #include "Logger.hpp"
 using namespace std;
-using namespace boost;
 
 
 bool Database::open(const boost::filesystem::path & dbFile) {

@@ -364,7 +364,7 @@ class siteLevel : public SimulationCase {
             } else {
                 if (!weekdays) return false;
             }
-            Duration nowDelta(now.to_posix_time().time_of_day().total_microseconds());
+            Duration nowDelta((int64_t)now.to_posix_time().time_of_day().total_microseconds());
             if (nowDelta < morning + wDelta || nowDelta > night + wDelta) {
                 return !daytime;
             } else {
@@ -378,7 +378,7 @@ class siteLevel : public SimulationCase {
             // Return the time at which this user should wake if it goes to sleep now.
             // Calculate the time for today or tomorrow
             Duration wake = (daytime ? morning : night) + wDelta;
-            Duration nowDelta(now.to_posix_time().time_of_day().total_microseconds());
+            Duration nowDelta((int64_t)now.to_posix_time().time_of_day().total_microseconds());
             // Calculate the day from today that will wake
             // If the wake time is before now, it will be tomorrow, at least
             int daysDelta = wake < nowDelta ? 1 : 0;

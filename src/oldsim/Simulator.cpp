@@ -60,7 +60,7 @@ std::ostream * Logger::streamIfEnabled(const char * category, int priority) {
         return &pstream;
     } else if (sim.isLogEnabled(category, priority)) {
         boost::iostreams::filtering_ostream & debugArchive = sim.getDebugStream();
-        Duration realTime(sim.getRealTime().total_microseconds());
+        Duration realTime((int64_t)sim.getRealTime().total_microseconds());
         Time curTime = sim.getCurrentTime();
         if (!sim.isLastLogMoment()) {
             debugArchive << endl << realTime << ' ' << curTime << ' ';
